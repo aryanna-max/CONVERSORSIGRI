@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 90"><path d="M18 30 L52 14 L78 38 L70 66 L34 76 L14 56 Z" fill="none" stroke="%23195d83" stroke-width="6" stroke-linejoin="round"/><circle cx="18" cy="30" r="7" fill="%2390b728"/><circle cx="52" cy="14" r="7" fill="%2390b728"/><circle cx="78" cy="38" r="7" fill="%2390b728"/><circle cx="70" cy="66" r="7" fill="%2390b728"/><circle cx="34" cy="76" r="7" fill="%2390b728"/><circle cx="14" cy="56" r="7" fill="%2390b728"/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conversor de coordenadas UTM → Geográficas (SIRGAS 2000) para SIGRI / ONR | AG Topografia</title>
+<meta name="description" content="Converte coordenadas UTM em coordenadas geográficas (lat/long em graus decimais) no datum SIRGAS 2000, formato aceito pelo SIGRI e pelo mapa do ONR. Aceita UTM em SIRGAS 2000, SAD69 e WGS 84. Exporta texto, Shapefile, KML e CSV.">
+
+<link href="https://fonts.googleapis.com/css2?family=Asap:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+<style>
+:root{
+  --azul:#195d83;
+  --azul-light:#4a8fb8;
+  --verde:#90b728;
+  --verde-bright:#a8d640;
+  --teal:#009083;
+  --cinza:#7b7c7b;
+  --black:#0a1f3d;
+  --navy:#0e2b52;
+  --card:#143565;
+  --card-light:#1a4078;
+  --card-soft:rgba(20,53,101,0.55);
+  --line:rgba(120,170,230,0.22);
+  --line-soft:rgba(120,170,230,0.12);
+  --white:#f4f7f8;
+  --muted:rgba(244,247,248,0.78);
+  --soft:rgba(244,247,248,0.56);
+  --input-bg:rgba(240,244,250,0.96);
+  --input-text:#0a1f3d;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0a1f3d;color:var(--white);font-family:'Asap',system-ui,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,textarea,select{font-family:inherit;color:inherit}
+a{color:var(--verde);text-decoration:none}
+
+/* ---------- HEADER ---------- */
+.site-header{position:relative;background:rgba(10,31,61,0.92);border-bottom:1px solid var(--line);overflow:hidden;z-index:5}
+.back-bar{position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:9px 40px;background:rgba(6,18,36,0.7);border-bottom:1px solid var(--line)}
+.back-link{display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);font-weight:500;text-decoration:none;transition:color .15s}
+.back-link:hover{color:var(--verde)}
+.back-link svg{width:14px;height:14px;flex-shrink:0}
+.back-mark{width:18px;height:18px;display:inline-block;flex-shrink:0}
+.back-mark svg{width:100%;height:100%;display:block}
+.back-link strong{color:var(--white);font-weight:600;letter-spacing:-0.01em;text-transform:none;font-size:13px}
+.back-link:hover strong{color:var(--verde)}
+.back-tool{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--soft);font-weight:500}
+.ref-links{display:inline-flex;align-items:center;gap:10px;font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600}
+.ref-links a{color:var(--verde-bright);text-decoration:none;transition:color .15s;padding:3px 6px;border-radius:3px}
+.ref-links a:hover{color:var(--verde);background:rgba(144,183,40,0.08)}
+.ref-links a::after{content:' ↗';font-size:9px;opacity:.7;margin-left:2px}
+.ref-links .sep{color:var(--soft);opacity:.5}
+.site-header::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:40px 40px;opacity:0.4;mask-image:linear-gradient(90deg,#000,transparent 85%);pointer-events:none}
+/* ---------- ANGULAR STRIPE (removida) ---------- */
+.angular-stripe{display:none}
+.header-inner{position:relative;max-width:1680px;margin:0 auto;padding:22px 40px;display:flex;align-items:center;justify-content:space-between;gap:32px;z-index:2}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{width:38px;height:38px;flex-shrink:0}
+.brand-mark svg{width:100%;height:100%;display:block}
+.brand-divider{width:1px;height:46px;background:var(--line)}
+.brand-text{display:flex;flex-direction:column;gap:2px}
+.brand-text .co{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.brand-text .tool{font-size:18px;letter-spacing:-0.02em;text-transform:uppercase;font-weight:700;color:var(--white)}
+.brand-text .tool .accent{color:var(--verde)}
+.beta-badge{display:inline-flex;align-items:center;gap:6px;margin-left:10px;padding:3px 7px 3px 8px;font-size:9.5px;letter-spacing:0.22em;font-weight:700;color:var(--black);background:var(--verde);border-radius:1px;vertical-align:3px;line-height:1}
+.beta-badge .beta-ver{padding:2px 5px;background:rgba(3,6,8,0.78);color:var(--verde);font-weight:600;letter-spacing:0.1em;border-radius:1px}
+.header-meta{text-align:right;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);line-height:1.7}
+.header-meta strong{color:var(--white);font-weight:500}
+
+/* ---------- HERO ---------- */
+.hero{position:relative;padding:48px 40px 36px;border-bottom:1px solid var(--line);background:radial-gradient(ellipse at 80% 0%,rgba(0,144,131,0.14),transparent 55%),radial-gradient(ellipse at 15% 100%,rgba(25,93,131,0.12),transparent 60%);overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;pointer-events:none}
+.hero-inner{position:relative;max-width:1680px;margin:0 auto;display:grid;grid-template-columns:1.4fr 1fr;gap:48px;align-items:end;z-index:2}
+.eyebrow{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--verde);font-weight:600;display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.eyebrow::before{content:'';display:inline-block;width:32px;height:1px;background:var(--verde)}
+h1.hero-title{font-size:36px;line-height:1.15;letter-spacing:-0.025em;font-weight:700;color:var(--white);text-transform:none;max-width:780px}
+h1.hero-title .green{color:var(--verde)}
+.hero-lead{margin-top:18px;font-size:15px;color:var(--muted);max-width:680px;line-height:1.6}
+.pills{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.pill{font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;font-weight:500;padding:8px 12px;border:1px solid var(--line);background:rgba(20,53,101,0.4);color:var(--muted);border-radius:30px}
+.pill.green{border-color:rgba(144,183,40,0.5);color:var(--verde-bright);background:rgba(144,183,40,0.08)}
+
+/* ---------- MAIN LAYOUT ---------- */
+.workspace{display:grid;grid-template-columns:minmax(480px,34%) 1fr;max-width:1480px;margin:0 auto;min-height:calc(100vh - 280px)}
+.panel-left{background:linear-gradient(180deg,rgba(14,43,82,0.55),rgba(10,31,61,0.7));border-right:1px solid var(--line);position:relative;overflow:hidden}
+.panel-left::before{content:'';position:absolute;inset:0;pointer-events:none}
+.panel-left-inner{position:relative;padding:28px 28px 40px;display:flex;flex-direction:column;gap:24px;z-index:2}
+.panel-right{display:flex;flex-direction:column;gap:18px;padding:18px 24px 24px;background:#0a1f3d}
+
+/* ---------- SECTION CARD ---------- */
+.section{background:linear-gradient(145deg,rgba(26,64,120,0.85),rgba(20,53,101,0.92));border:1px solid var(--line);padding:18px 18px 20px;position:relative;border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,0.25)}
+.section-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.section-num{font-size:10px;letter-spacing:0.18em;color:var(--verde-bright);font-weight:600;border:1px solid rgba(144,183,40,0.5);background:rgba(144,183,40,0.06);padding:3px 7px;border-radius:30px;line-height:1}
+.section-title{font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-weight:600;color:var(--white)}
+.section-sub{font-size:12px;color:var(--soft);margin-top:-6px;margin-bottom:14px;line-height:1.5}
+
+/* ---------- INPUTS ---------- */
+label.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+label.field > span.lbl{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.input,select.input,textarea.input{width:100%;background:var(--input-bg);border:1px solid rgba(120,170,230,0.4);color:var(--input-text);padding:9px 10px;font-size:13.5px;border-radius:4px;outline:none;transition:all .15s;font-weight:500}
+.input:focus,select.input:focus,textarea.input:focus{border-color:var(--verde);background:rgba(255,255,255,1);box-shadow:0 0 0 3px rgba(144,183,40,0.18)}
+.input::placeholder,textarea.input::placeholder{color:rgba(10,31,61,0.45);font-weight:400}
+select.input{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--input-text) 50%),linear-gradient(135deg,var(--input-text) 50%,transparent 50%);background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:28px;background-color:var(--input-bg)}
+select.input option{background:#fff;color:var(--input-text)}
+.field-help{font-size:11px;color:var(--soft);line-height:1.5;margin-top:6px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ---------- TABS ---------- */
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--line);margin-bottom:14px;border-radius:6px;overflow:hidden}
+.tab{padding:10px 6px;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;text-align:center;color:var(--muted);background:rgba(8,23,46,0.45);border-right:1px solid var(--line);transition:all .15s;line-height:1.2}
+.tab:last-child{border-right:none}
+.tab.active{background:var(--verde);color:var(--black)}
+.tab:not(.active):hover{color:var(--white);background:rgba(255,255,255,0.04)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* textarea for paste */
+textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;font-size:12.5px;line-height:1.55;resize:vertical;color:var(--input-text)}
+
+/* table */
+.vtx-table{width:100%;border-collapse:collapse;font-size:13px;background:var(--input-bg)}
+.vtx-table th{text-align:left;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(10,31,61,0.62);font-weight:600;padding:8px 8px;border-bottom:1px solid rgba(10,31,61,0.12);background:rgba(255,255,255,0.6)}
+.vtx-table td{padding:4px 4px;border-bottom:1px solid rgba(10,31,61,0.08)}
+.vtx-table td input{width:100%;background:transparent;border:1px solid transparent;color:var(--input-text);padding:6px 6px;font-size:13px;border-radius:3px;outline:none;font-weight:500}
+.vtx-table td input:hover{border-color:rgba(10,31,61,0.16);background:rgba(255,255,255,0.5)}
+.vtx-table td input:focus{border-color:var(--verde);background:#fff;box-shadow:0 0 0 2px rgba(144,183,40,0.18)}
+.vtx-table td input.empty-err{border-color:rgba(220,80,80,0.65)}
+.vtx-table td input::placeholder{color:rgba(10,31,61,0.4)}
+.vtx-table td.actions{width:32px;text-align:center}
+.vtx-table .del-btn{color:rgba(10,31,61,0.5);font-size:14px;line-height:1;padding:4px 6px;transition:color .15s}
+.vtx-table .del-btn:hover{color:#c92020}
+.vtx-wrap{max-height:280px;overflow-y:auto;border:1px solid rgba(120,170,230,0.4);background:var(--input-bg);border-radius:6px}
+
+.dropzone{border:1.5px dashed rgba(120,170,230,0.42);background:rgba(255,255,255,0.04);padding:28px 18px;text-align:center;cursor:pointer;transition:all .15s;border-radius:6px}
+.dropzone:hover,.dropzone.drag{border-color:var(--verde);background:rgba(144,183,40,0.08)}
+.dz-icon{display:block;margin:0 auto 12px;width:36px;height:36px;opacity:.7}
+.dz-title{font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--white);font-weight:600;margin-bottom:4px}
+.dz-sub{font-size:12px;color:var(--muted);line-height:1.5}
+.dz-file{margin-top:10px;font-size:11.5px;color:var(--verde);letter-spacing:0.06em}
+
+/* ---------- BUTTONS ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;border-radius:6px;border:1px solid transparent;transition:all .15s;line-height:1}
+.btn-primary{background:var(--verde);color:var(--black);border-color:var(--verde)}
+.btn-primary:hover{background:var(--verde-bright);border-color:var(--verde-bright)}
+.btn-secondary{background:transparent;border-color:var(--line);color:var(--white)}
+.btn-secondary:hover{border-color:var(--white);background:rgba(255,255,255,0.05)}
+.btn-ghost{background:transparent;color:var(--muted);padding:8px 10px;font-size:10.5px}
+.btn-ghost:hover{color:var(--white)}
+.btn-block{width:100%}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---------- STATUS ---------- */
+.status{margin-top:12px;padding:10px 12px;border:1px solid var(--line);font-size:12.5px;line-height:1.55;background:rgba(0,0,0,0.3);display:none}
+.status.show{display:block}
+.status.ok{border-color:rgba(144,183,40,0.6);color:var(--verde);background:rgba(144,183,40,0.05)}
+.status.warn{border-color:rgba(220,180,60,0.55);color:#e5c878;background:rgba(220,180,60,0.05)}
+.status.err{border-color:rgba(220,80,80,0.6);color:#f08585;background:rgba(220,80,80,0.05)}
+
+/* ---------- METRICS ---------- */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.stat{background:rgba(26,64,120,0.85);padding:14px 14px 16px;display:flex;flex-direction:column;gap:6px}
+.stat .k{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.stat .v{font-size:22px;font-weight:600;color:var(--white);letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.stat .u{font-size:11px;color:var(--soft);margin-left:4px;font-weight:400}
+.stat.closure .v{font-size:13px;display:flex;align-items:center;gap:8px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%}
+.dot.green{background:var(--verde);box-shadow:0 0 0 3px rgba(144,183,40,0.18)}
+.dot.amber{background:#e5b95a;box-shadow:0 0 0 3px rgba(229,185,90,0.18)}
+.dot.gray{background:var(--cinza)}
+
+/* ---------- EXPORT BUTTONS ---------- */
+.export-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.export-btn{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:12px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--line);transition:all .15s;text-align:left;border-radius:6px}
+.export-btn:hover:not(:disabled){border-color:var(--verde);background:rgba(144,183,40,0.10);transform:translateY(-1px)}
+.export-btn:disabled{opacity:.4;cursor:not-allowed}
+.export-btn .eb-k{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--verde);font-weight:600}
+.export-btn .eb-t{font-size:12.5px;color:var(--white);font-weight:500;letter-spacing:0.02em}
+.export-btn .eb-s{font-size:11px;color:var(--soft);line-height:1.4}
+
+/* ---------- MAP ---------- */
+.map-wrap{position:relative;background:#0a1f3d;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+#map{width:100%;height:100%;min-height:520px;background:#0a1f3d}
+.map-overlay{position:absolute;top:14px;right:14px;z-index:500;display:flex;gap:6px}
+.map-btn{padding:8px 10px;background:rgba(6,18,25,0.92);border:1px solid var(--line);color:var(--white);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;backdrop-filter:blur(6px)}
+.map-btn:hover{border-color:var(--verde);color:var(--verde)}
+.map-label{position:absolute;top:14px;left:14px;z-index:500;padding:7px 12px;background:rgba(6,18,25,0.92);border:1px solid var(--line);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);font-weight:500;backdrop-filter:blur(6px)}
+.map-label .vcount{color:var(--verde);font-weight:600}
+.leaflet-container{background:#0a0e10}
+.leaflet-popup-content-wrapper{background:#0b1419;color:var(--white);border-radius:1px;border:1px solid var(--line)}
+.leaflet-popup-content{font-family:Asap,sans-serif;font-size:12px;margin:8px 12px;line-height:1.5}
+.leaflet-popup-tip{background:#0b1419}
+.leaflet-control-zoom a{background:#0b1419!important;color:var(--white)!important;border-color:var(--line)!important}
+.leaflet-control-zoom a:hover{background:#152028!important;color:var(--verde)!important}
+.leaflet-control-attribution{background:rgba(6,18,25,0.85)!important;color:var(--muted)!important;font-size:10px!important}
+.leaflet-control-attribution a{color:var(--verde)!important}
+.vtx-marker{background:var(--verde);color:var(--black);font-size:10px;font-weight:700;letter-spacing:0.02em;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--black);box-shadow:0 0 0 2px rgba(144,183,40,0.4)}
+
+/* base switch */
+.map-base-switch{display:flex;background:rgba(6,18,25,0.92);border:1px solid var(--line);backdrop-filter:blur(6px)}
+.map-base-btn{padding:8px 12px;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;color:var(--muted);border-right:1px solid var(--line);transition:all .15s}
+.map-base-btn:last-child{border-right:none}
+.map-base-btn.active{background:var(--verde);color:var(--black)}
+.map-base-btn:not(.active):hover{color:var(--white)}
+
+.map-fullscreen{position:fixed!important;inset:0!important;z-index:9999;background:var(--black)}
+.map-fullscreen #map{height:100vh!important}
+
+/* ---------- OUTPUT PANEL (in right column, above map) ---------- */
+.output-panel{background:linear-gradient(145deg,rgba(26,64,120,0.85),rgba(20,53,101,0.92));border:1px solid var(--line);padding:20px 22px;border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,0.25)}
+.output-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:16px;flex-wrap:wrap}
+.output-head .left{display:flex;align-items:center;gap:12px}
+.out-textarea{width:100%;min-height:120px;max-height:240px;background:var(--input-bg);border:1px solid rgba(120,170,230,0.4);color:var(--input-text);padding:14px 16px;font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;font-size:13px;line-height:1.6;resize:vertical;border-radius:6px;outline:none;transition:all .15s;font-weight:500}
+.out-textarea:focus{border-color:var(--verde);box-shadow:0 0 0 3px rgba(144,183,40,0.18)}
+.out-textarea::placeholder{color:rgba(10,31,61,0.45);font-weight:400}
+.out-textarea:focus{border-color:var(--verde)}
+
+/* out toggles */
+.out-toggle{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;font-weight:500;color:var(--muted);cursor:pointer;padding:6px 10px;border:1px solid var(--line);background:rgba(0,0,0,0.25);transition:all .15s;border-radius:1px;user-select:none}
+.out-toggle:hover{color:var(--white);border-color:rgba(255,255,255,0.28)}
+.out-toggle input{appearance:none;width:12px;height:12px;border:1px solid var(--line);background:transparent;display:inline-block;position:relative;border-radius:1px;flex-shrink:0;cursor:pointer}
+.out-toggle input:checked{background:var(--verde);border-color:var(--verde)}
+.out-toggle input:checked::after{content:'';position:absolute;top:1px;left:4px;width:3px;height:6px;border:solid var(--black);border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+.out-toggle input:checked + span{color:var(--white)}
+
+/* ---------- FEEDBACK BUTTON + MODAL ---------- */
+.feedback-btn{display:inline-flex;align-items:center;gap:9px;padding:9px 14px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;color:var(--white);background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:1px;transition:all .15s;cursor:pointer}
+.feedback-btn:hover{border-color:var(--verde);color:var(--verde);background:rgba(144,183,40,0.05)}
+.feedback-btn svg{width:15px;height:15px;flex-shrink:0}
+
+.modal-backdrop{position:fixed;inset:0;background:rgba(3,6,8,0.78);backdrop-filter:blur(8px);z-index:10000;display:none;align-items:center;justify-content:center;padding:24px;animation:fadeIn .18s ease-out}
+.modal-backdrop.open{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{width:100%;max-width:520px;background:linear-gradient(145deg,rgba(9,18,24,0.98),rgba(3,6,8,1));border:1px solid var(--line);padding:32px 32px 28px;position:relative;animation:slideUp .22s ease-out}
+@keyframes slideUp{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal::before{content:'';position:absolute;top:-1px;left:32px;width:64px;height:2px;background:var(--verde)}
+.modal .modal-close{position:absolute;top:18px;right:18px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:18px;background:transparent;border:1px solid var(--line);border-radius:1px;transition:all .15s;cursor:pointer}
+.modal .modal-close:hover{color:var(--white);border-color:var(--white)}
+.modal-head{margin-bottom:22px}
+.modal-eyebrow{font-size:10px;letter-spacing:0.22em;text-transform:uppercase;font-weight:600;color:var(--verde);margin-bottom:10px}
+.modal-title{font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--white);line-height:1.2;margin-bottom:8px}
+.modal-sub{font-size:13px;color:var(--muted);line-height:1.55}
+.modal form{display:flex;flex-direction:column;gap:14px}
+.mf-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mf-field{display:flex;flex-direction:column;gap:6px}
+.mf-field label{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.mf-field input,.mf-field select,.mf-field textarea{background:rgba(0,0,0,0.5);border:1px solid var(--line);color:var(--white);padding:10px 12px;font-size:13.5px;font-family:inherit;border-radius:1px;outline:none;transition:border-color .15s}
+.mf-field input:focus,.mf-field select:focus,.mf-field textarea:focus{border-color:var(--verde)}
+.mf-field textarea{resize:vertical;min-height:96px;line-height:1.5}
+.mf-field select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:28px}
+.mf-field select option{background:#0b1419;color:var(--white)}
+.modal-actions{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:8px}
+.modal-actions .note{font-size:11px;color:var(--soft);line-height:1.5}
+.modal-submit{padding:12px 22px;background:var(--verde);color:var(--black);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;border-radius:1px;border:1px solid var(--verde);transition:background .15s;cursor:pointer}
+.modal-submit:hover{background:#9fc835}
+.modal-submit:disabled{opacity:.5;cursor:not-allowed}
+.modal-status{margin-top:14px;padding:10px 12px;font-size:12.5px;line-height:1.5;border:1px solid var(--line);display:none}
+.modal-status.show{display:block}
+.modal-status.ok{border-color:rgba(144,183,40,0.5);color:var(--verde);background:rgba(144,183,40,0.05)}
+.modal-status.err{border-color:rgba(220,80,80,0.5);color:#f08585;background:rgba(220,80,80,0.05)}
+
+/* ---------- MAP ZOOM HINT ---------- */
+.map-zoom-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:450;pointer-events:none;opacity:0;transition:opacity .2s}
+.map-zoom-hint.show{opacity:1}
+.map-zoom-hint .pill{padding:10px 16px;background:rgba(6,18,25,0.92);border:1px solid var(--line);color:var(--white);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;backdrop-filter:blur(6px);display:inline-flex;align-items:center;gap:10px}
+.map-zoom-hint .pill svg{width:14px;height:14px;color:var(--verde)}
+
+
+/* ---------- AG STAMP ---------- */
+.ag-stamp{display:inline-flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(144,183,40,0.06);border:1px solid rgba(144,183,40,0.3);border-radius:6px;text-decoration:none;transition:all .15s;flex-shrink:0}
+.ag-stamp:hover{background:rgba(144,183,40,0.12);border-color:rgba(144,183,40,0.55)}
+.ag-stamp img{flex-shrink:0;height:30px;width:auto;display:block}
+.ag-stamp .txt{font-size:9.5px;letter-spacing:0.14em;color:var(--soft);text-transform:uppercase;line-height:1.35}
+.ag-stamp .txt strong{display:block;color:var(--verde-bright);font-weight:700;font-size:14px;letter-spacing:-0.01em;text-transform:none;margin-bottom:1px}
+
+/* ---------- FOOTER ---------- */
+.site-footer{background:#061229;border-top:1px solid var(--line);padding:18px 40px}
+.footer-inner{max-width:1680px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.footer-disclaimer{font-size:10.5px;letter-spacing:0.06em;color:rgba(244,247,248,0.58);line-height:1.6;text-transform:none;flex:1;min-width:280px;max-width:980px}
+.footer-fb-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:1px;transition:all .15s;cursor:pointer;flex-shrink:0}
+.footer-fb-btn:hover{color:var(--verde);border-color:var(--verde);background:rgba(144,183,40,0.05)}
+.footer-fb-btn svg{width:13px;height:13px;flex-shrink:0}
+
+/* ---------- SCROLLBAR ---------- */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#0a0e10}
+::-webkit-scrollbar-thumb{background:#1c2a33;border:2px solid #0a0e10}
+::-webkit-scrollbar-thumb:hover{background:#2a3b46}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width:1100px){
+  .workspace{grid-template-columns:1fr}
+  .panel-left{border-right:none;border-bottom:1px solid var(--line)}
+  .hero-inner{grid-template-columns:1fr}
+  .pills{justify-content:flex-start}
+  #map{min-height:420px}
+}
+@media (max-width:680px){
+  .header-inner,.hero,.panel-left-inner,.panel-right,.site-footer{padding-left:18px;padding-right:18px}
+  .back-bar{padding-left:18px;padding-right:18px;flex-wrap:wrap;gap:8px}
+  .back-tool{display:none}
+  .ref-links{width:100%;justify-content:flex-start;gap:6px;font-size:9.5px}
+  .header-meta{display:none}
+  h1.hero-title{font-size:26px}
+}
+
+/* ---------- CURSOR VERDE AG (site inteiro + HUD no mapa) ---------- */
+body{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='28' viewBox='0 0 26 28'%3E%3Cpath d='M2 2 L2 24 L8 20 L20 20 Z' fill='%2390b728' stroke='%230a1f3d' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E") 2 2, default}
+a, button, .tab, .export-btn, .dropzone, .feedback-btn, .footer-fb-btn, .btn, .modal-close, .map-btn, .map-base-btn{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='28' viewBox='0 0 26 28'%3E%3Cpath d='M2 2 L2 24 L8 20 L20 20 Z' fill='%2390b728' stroke='%230a1f3d' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E") 2 2, pointer}
+input, textarea, select, [contenteditable]{cursor:text}
+.leaflet-container, .leaflet-grab, .leaflet-interactive{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='28' viewBox='0 0 26 28'%3E%3Cpath d='M2 2 L2 24 L8 20 L20 20 Z' fill='%2390b728' stroke='%230a1f3d' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E") 2 2, crosshair !important}
+.leaflet-dragging .leaflet-grab, .leaflet-dragging .leaflet-interactive{cursor:grabbing !important}
+
+/* HUD com coordenadas sobre o mapa */
+.coord-hud{position:absolute;background:rgba(6,18,36,0.94);border:1px solid rgba(144,183,40,0.55);color:#a8d640;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:11px;padding:6px 10px;border-radius:4px;letter-spacing:0.04em;line-height:1.4;pointer-events:none;box-shadow:0 6px 16px rgba(0,0,0,0.45);white-space:nowrap;display:none;z-index:550;transform:translate(18px,18px);transition:opacity .12s}
+.coord-hud.show{display:block}
+.coord-hud .lbl{color:rgba(168,214,64,0.55);font-size:9px;letter-spacing:0.18em;text-transform:uppercase;display:inline-block;width:18px}
+.coord-hud .row{display:flex;align-items:baseline}
+
+
+/* ---------- EXPERIMENTAL BANNER ---------- */
+.experimental-banner{background:linear-gradient(90deg,rgba(229,185,90,0.14),rgba(229,185,90,0.06));border-bottom:1px solid rgba(229,185,90,0.45);position:relative;z-index:30}
+.experimental-banner.hidden{display:none}
+.exp-banner-inner{max-width:1480px;margin:0 auto;padding:10px 40px;display:flex;align-items:center;gap:14px}
+.exp-icon{width:20px;height:20px;color:#e5b95a;flex-shrink:0}
+.exp-text{font-size:12px;color:rgba(244,247,248,0.82);line-height:1.5;flex:1}
+.exp-text strong{color:#e5b95a;font-weight:600;margin-right:6px}
+.banner-close{flex-shrink:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:rgba(244,247,248,0.5);font-size:16px;background:transparent;border:1px solid rgba(255,255,255,0.12);border-radius:4px;transition:all .15s;cursor:pointer}
+.banner-close:hover{color:#fff;border-color:rgba(255,255,255,0.3)}
+@media (max-width:680px){.exp-banner-inner{padding:10px 18px;gap:10px}.exp-text{font-size:11px}}
+
+/* ---------- LAYERS PANEL ---------- */
+.layer-panel{position:absolute;top:54px;right:14px;z-index:600;background:rgba(6,18,36,0.96);border:1px solid var(--line);border-radius:8px;padding:0;min-width:280px;backdrop-filter:blur(8px);box-shadow:0 12px 40px rgba(0,0,0,0.5);display:none;font-size:12px}
+.layer-panel.open{display:block}
+.layer-panel-head{padding:14px 16px 8px;border-bottom:1px solid var(--line)}
+.layer-panel-head h4{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--verde-bright);font-weight:700;margin:0;line-height:1.2}
+.layer-panel-head p{font-size:11px;color:var(--soft);margin-top:4px;line-height:1.4}
+.layer-group{padding:12px 16px 8px}
+.layer-group:not(:last-of-type){border-bottom:1px solid rgba(120,170,230,0.12)}
+.layer-group .glabel{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--soft);font-weight:600;margin-bottom:8px;display:block}
+.layer-opt{display:flex;align-items:flex-start;gap:9px;padding:6px 0;cursor:pointer;color:var(--white);font-size:12.5px;line-height:1.4}
+.layer-opt input{margin-top:2px;flex-shrink:0;accent-color:#90b728}
+.layer-opt .name{font-weight:500}
+.layer-opt .src{display:block;font-size:10px;letter-spacing:0.04em;color:var(--soft);margin-top:2px;text-transform:none}
+.layer-warn{padding:12px 16px;background:rgba(229,185,90,0.06);border-top:1px solid rgba(229,185,90,0.25);font-size:11px;color:#e5b95a;line-height:1.5}
+.layer-warn strong{color:#f0c870;font-weight:600;display:block;margin-bottom:3px}
+.layer-status{font-size:9px;font-style:italic;color:var(--soft);margin-left:auto}
+.layer-status.loading{color:#e5b95a}
+.layer-status.error{color:#f08585}
+
+</style>
+</head>
+<body>
+
+<!-- ============ EXPERIMENTAL BANNER ============ -->
+<div class="experimental-banner" id="exp-banner">
+  <div class="exp-banner-inner">
+    <svg class="exp-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 2 L18 17 L2 17 Z" stroke-linejoin="round"/><line x1="10" y1="8" x2="10" y2="12" stroke-linecap="round"/><circle cx="10" cy="14.5" r="0.6" fill="currentColor" stroke="none"/></svg>
+    <div class="exp-text">
+      <strong>Ferramenta educacional e auxiliar.</strong> Esta não é a plataforma oficial de registro. O lançamento e a validação do registro são feitos exclusivamente pelo SIGRI da ONR. Uso autorizado para fins educacionais e de aprendizado profissional. Para outras finalidades, entre em contato via feedback.</div>
+    <button class="banner-close" id="banner-close" aria-label="Fechar aviso">×</button>
+  </div>
+</div>
+
+
+<template id="__bundler_thumbnail" data-bg-color="#061219">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#061219"/>
+    <g transform="translate(420 300)" fill="none" stroke-width="22" stroke-linecap="round">
+      <text x="0" y="100" font-family="Arial,sans-serif" font-weight="700" font-size="170" fill="#f4f7f8" letter-spacing="-4">AG</text>
+      <path d="M340 0 C420 20 480 80 500 150" stroke="#195d83" opacity="0.85"/>
+      <path d="M340 50 C410 70 470 120 490 180" stroke="#009083" opacity="0.9"/>
+      <path d="M340 100 C400 120 450 160 470 210" stroke="#90b728"/>
+    </g>
+    <text x="600" y="560" text-anchor="middle" font-family="Arial,sans-serif" font-weight="600" font-size="34" fill="#90b728" letter-spacing="6">UTM → GEOGRÁFICAS (SIRGAS 2000)</text>
+    <text x="600" y="610" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" fill="#f4f7f8" opacity="0.7" letter-spacing="3">SIGRI · ONR</text>
+  </svg>
+</template>
+
+<!-- ============ HEADER ============ -->
+<header class="site-header">
+  <div class="angular-stripe">
+    <div class="s s1"></div>
+    <div class="s s2"></div>
+    <div class="s s3"></div>
+  </div>
+  <div class="back-bar">
+    <a class="back-link" href="index.html">
+      <span class="back-mark">
+        <svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 30 L52 14 L78 38 L70 66 L34 76 L14 56 Z" fill="none" stroke="#90b728" stroke-width="6" stroke-linejoin="round"/>
+          <circle cx="52" cy="14" r="7" fill="#90b728"/>
+          <circle cx="78" cy="38" r="7" fill="#90b728"/>
+          <circle cx="14" cy="56" r="7" fill="#90b728"/>
+        </svg>
+      </span>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4 L6 8 L10 12"/></svg>
+      <span>Voltar para <strong>confrontei.</strong></span>
+    </a>
+    <span class="back-tool">UTM → Geográficas (SIRGAS 2000)</span>
+    <div class="ref-links">
+      <a href="https://mapa.onr.org.br/sigri/" target="_blank" rel="noopener">SIGRI</a>
+      <span class="sep">·</span>
+      <a href="https://mapa.onr.org.br/sigri/manual/manual-profissionais-tecnicos" target="_blank" rel="noopener">Manual</a>
+      <span class="sep">·</span>
+      <a href="https://atos.cnj.jus.br/atos/detalhar/6151" target="_blank" rel="noopener">Provimento CNJ 195/2025</a>
+    </div>
+  </div>
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 30 L52 14 L78 38 L70 66 L34 76 L14 56 Z" fill="none" stroke="#90b728" stroke-width="3.5" stroke-linejoin="round"/>
+          <path d="M18 30 L52 14 L78 38 L70 66 L34 76 L14 56 Z" fill="#90b728" opacity="0.10"/>
+          <circle cx="18" cy="30" r="4" fill="#90b728"/>
+          <circle cx="52" cy="14" r="4" fill="#90b728"/>
+          <circle cx="78" cy="38" r="4" fill="#90b728"/>
+          <circle cx="70" cy="66" r="4" fill="#90b728"/>
+          <circle cx="34" cy="76" r="4" fill="#90b728"/>
+          <circle cx="14" cy="56" r="4" fill="#90b728"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="tool">Conversor UTM <span class="accent">→</span> Geográficas (SIRGAS 2000) <span class="beta-badge">BETA <span class="beta-ver">v0.1</span></span></div>
+      </div>
+    </div>
+    <button class="feedback-btn" id="open-feedback">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 4 L14 4 L14 11 L9 11 L6 14 L6 11 L2 11 Z"/></svg>
+      <span>Enviar feedback</span>
+    </button>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="eyebrow">Ferramenta técnica operacional</div>
+      <h1 class="hero-title">Conversão de coordenadas UTM em <span class="green">geográficas (SIRGAS 2000)</span> no formato aceito pelo SIGRI e pelo mapa público do ONR.</h1>
+      <p class="hero-lead">Aceita UTM em SIRGAS 2000, SAD69 ou WGS 84, planilha colada, DXF (LWPOLYLINE/POLYLINE), KML/KMZ ou digitação manual. Saída em coordenadas geográficas (graus decimais) no SIRGAS 2000 (EPSG:4674), além de Shapefile, KML e CSV. Perímetro e área calculados em UTM pelo método de Gauss. Tudo no navegador — nada é enviado para servidor.</p>
+    </div>
+    <div class="pills">
+      <span class="pill green">EPSG:4674 · SIRGAS 2000</span>
+      <span class="pill">Resolução IBGE PR 01/2015</span>
+      <span class="pill">NBR 13133:2021</span>
+      <span class="pill">Provimento CNJ 195/2025</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WORKSPACE ============ -->
+<main class="workspace">
+
+  <!-- ===== LEFT PANEL ===== -->
+  <aside class="panel-left">
+    <div class="panel-left-inner">
+
+      <!-- 01 — UTM CONFIG -->
+      <div class="section">
+        <div class="section-head">
+          <span class="section-num">01</span>
+          <span class="section-title">Configuração UTM</span>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span class="lbl">Zona UTM</span>
+            <select id="cfg-zone" class="input">
+              <option value="18">18 S</option>
+              <option value="19">19 S</option>
+              <option value="20">20 S</option>
+              <option value="21">21 S</option>
+              <option value="22">22 S</option>
+              <option value="23">23 S</option>
+              <option value="24" selected>24 S — Recife / PE</option>
+              <option value="25">25 S</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="lbl">Hemisfério</span>
+            <select id="cfg-hemi" class="input">
+              <option value="S" selected>Sul</option>
+              <option value="N">Norte</option>
+            </select>
+          </label>
+        </div>
+        <label class="field" style="margin-bottom:0">
+          <span class="lbl">Datum de entrada</span>
+          <select id="cfg-datum" class="input">
+            <option value="SIRGAS2000" selected>SIRGAS 2000 (EPSG:31984 — recomendado)</option>
+            <option value="SAD69">SAD69 (EPSG:29194)</option>
+            <option value="WGS84">WGS 84 (EPSG:32724)</option>
+          </select>
+        </label>
+        <div class="field-help">SIGRI exige coordenadas geográficas em SIRGAS 2000 (EPSG:4674). Entradas em UTM SAD69 ou WGS 84 são transformadas para SIRGAS 2000 via proj4 com parâmetros oficiais.</div>
+      </div>
+
+      <!-- 02 — ENTRADA -->
+      <div class="section">
+        <div class="section-head">
+          <span class="section-num">02</span>
+          <span class="section-title">Entrada de vértices</span>
+        </div>
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="paste" role="tab">Lista</button>
+          <button class="tab" data-tab="manual" role="tab">Ponto a ponto</button>
+          <button class="tab" data-tab="dxf" role="tab">DXF</button>
+          <button class="tab" data-tab="kml" role="tab">KML / KMZ</button>
+        </div>
+
+        <!-- TAB PASTE -->
+        <div class="tab-panel active" data-tab-panel="paste">
+          <textarea id="paste-area" class="input paste" placeholder="Cole de Excel/Sheets. Aceita vírgula, ponto-e-vírgula, tab ou espaço.
+Formato:  NOME  ESTE  NORTE     (ou apenas ESTE NORTE)
+
+Ex.:
+V1  295234.120  9106518.430
+V2  295298.560  9106540.210
+V3  295312.880  9106475.660
+V4  295248.440  9106453.890
+V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
+          <div class="btn-row" style="margin-top:10px">
+            <button class="btn btn-primary" id="btn-paste-import">Importar lista</button>
+            <button class="btn btn-secondary" id="btn-paste-example">Exemplo Recife 24S</button>
+            <button class="btn-ghost" id="btn-paste-clear">Limpar</button>
+          </div>
+        </div>
+
+        <!-- TAB MANUAL -->
+        <div class="tab-panel" data-tab-panel="manual">
+          <div class="vtx-wrap">
+            <table class="vtx-table">
+              <thead>
+                <tr>
+                  <th style="width:64px">Nome</th>
+                  <th>Este (E)</th>
+                  <th>Norte (N)</th>
+                  <th class="actions"></th>
+                </tr>
+              </thead>
+              <tbody id="manual-tbody"></tbody>
+            </table>
+          </div>
+          <div class="btn-row" style="margin-top:10px">
+            <button class="btn btn-primary" id="btn-manual-add">+ Adicionar vértice</button>
+            <button class="btn btn-secondary" id="btn-manual-apply">Converter</button>
+            <button class="btn-ghost" id="btn-manual-reset">Limpar tudo</button>
+          </div>
+        </div>
+
+        <!-- TAB DXF -->
+        <div class="tab-panel" data-tab-panel="dxf">
+          <label class="dropzone" id="dxf-drop">
+            <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+              <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+            </svg>
+            <div class="dz-title">Arquivo DXF</div>
+            <div class="dz-sub">Arraste o arquivo ou clique para selecionar.<br>Aceita LWPOLYLINE e POLYLINE — até 5 MB.</div>
+            <div class="dz-file" id="dxf-file-name"></div>
+            <input type="file" id="dxf-input" accept=".dxf" hidden>
+          </label>
+          <div class="field-help">Para evitar ambiguidade, mantenha a divisa principal numa camada chamada <strong style="color:var(--white)">DIVISA</strong>, <strong style="color:var(--white)">PERIMETRO</strong>, <strong style="color:var(--white)">LIMITE</strong> ou <strong style="color:var(--white)">AG_DIVISA</strong>.</div>
+        </div>
+
+        <!-- TAB KML -->
+        <div class="tab-panel" data-tab-panel="kml">
+          <label class="dropzone" id="kml-drop">
+            <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+              <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            <div class="dz-title">Arquivo KML ou KMZ</div>
+            <div class="dz-sub">Arraste o arquivo ou clique para selecionar.<br>O primeiro polígono encontrado será importado.</div>
+            <div class="dz-file" id="kml-file-name"></div>
+            <input type="file" id="kml-input" accept=".kml,.kmz" hidden>
+          </label>
+          <div class="field-help">KML opera em WGS 84 graus decimais. Para fins cartoriais, WGS 84 ≈ SIRGAS 2000 (diferença subcentimétrica). A origem é registrada nos metadados do KML de saída.</div>
+        </div>
+
+        <div class="status" id="input-status"></div>
+      </div>
+
+      <!-- 03 — MÉTRICAS -->
+      <div class="section">
+        <div class="section-head">
+          <span class="section-num">03</span>
+          <span class="section-title">Métricas do polígono</span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat">
+            <span class="k">Vértices</span>
+            <span class="v" id="m-vert">—</span>
+          </div>
+          <div class="stat">
+            <span class="k">Perímetro</span>
+            <span class="v" id="m-perim">— <span class="u">m</span></span>
+          </div>
+          <div class="stat">
+            <span class="k">Área</span>
+            <span class="v" id="m-area">— <span class="u">m²</span></span>
+          </div>
+          <div class="stat">
+            <span class="k">Hectares</span>
+            <span class="v" id="m-ha">— <span class="u">ha</span></span>
+          </div>
+          <div class="stat closure" style="grid-column:span 2">
+            <span class="k">Fechamento</span>
+            <span class="v" id="m-clos"><span class="dot gray"></span> Aguardando entrada</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 04 — EXPORTAÇÕES -->
+      <div class="section">
+        <div class="section-head">
+          <span class="section-num">04</span>
+          <span class="section-title">Exportações</span>
+        </div>
+        <div class="export-grid">
+          <button class="export-btn" id="exp-txt" disabled>
+            <span class="eb-k">A · TXT</span>
+            <span class="eb-t">Texto SIGRI</span>
+            <span class="eb-s">Copia para área de transferência</span>
+          </button>
+          <button class="export-btn" id="exp-shp" disabled>
+            <span class="eb-k">B · SHP</span>
+            <span class="eb-t">Shapefile ZIP</span>
+            <span class="eb-s">SHP + SHX + DBF + PRJ</span>
+          </button>
+          <button class="export-btn" id="exp-kml" disabled>
+            <span class="eb-k">C · KML</span>
+            <span class="eb-t">Google Earth</span>
+            <span class="eb-s">Polygon com metadados</span>
+          </button>
+          <button class="export-btn" id="exp-csv" disabled>
+            <span class="eb-k">D · CSV</span>
+            <span class="eb-t">Planilha</span>
+            <span class="eb-s">Lat, Lng, UTM E, UTM N</span>
+          </button>
+        </div>
+        <div class="status" id="export-status"></div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ===== RIGHT PANEL ===== -->
+  <section class="panel-right">
+
+    <!-- OUTPUT (primary deliverable, before map) -->
+    <div class="output-panel">
+      <div class="output-head">
+        <div class="left">
+          <span class="section-num">SAÍDA</span>
+          <span class="section-title">Saída SIRGAS 2000 · formato SIGRI · cópia em sequência única</span>
+        </div>
+        <div class="btn-row">
+          <label class="out-toggle"><input type="checkbox" id="opt-names"><span>Incluir nome dos vértices</span></label>
+          <label class="out-toggle"><input type="checkbox" id="opt-close" checked><span>Fechar polígono</span></label>
+          <button class="btn btn-secondary" id="btn-copy-out">Copiar texto</button>
+        </div>
+      </div>
+      <textarea class="out-textarea" id="out-text" readonly placeholder="As coordenadas em formato SIGRI aparecem aqui após a importação dos vértices. Visualização em pares; ao copiar, vira sequência única."></textarea>
+    </div>
+
+    <!-- MAP (verification, after output) -->
+    <div class="map-wrap" id="map-wrap">
+      <div id="map"></div>
+      <div class="map-zoom-hint" id="map-zoom-hint">
+        <span class="pill">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="8" r="6"/><path d="M8 5 L8 8 L10 10"/></svg>
+          Clique no mapa para ativar o zoom
+        </span>
+      </div>
+      <div class="map-label">Pré-visualização · <span class="vcount" id="map-vcount">0 vértices</span></div>
+      <div class="map-overlay">
+        <button class="map-btn" id="btn-layers">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" style="width:13px;height:13px;display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M8 2 L14 5 L8 8 L2 5 Z"/><path d="M2 8 L8 11 L14 8"/><path d="M2 11 L8 14 L14 11"/></svg>
+          Camadas
+        </button>
+        <button class="map-btn" id="btn-map-center">Centralizar</button>
+        <button class="map-btn" id="btn-map-fs">Tela cheia</button>
+      </div>
+      <div class="layer-panel" id="layer-panel">
+        <div class="layer-panel-head">
+          <h4>Camadas do mapa</h4>
+          <p>Camadas oficiais sobrepostas para conferência prévia. Não substituem a consulta direta aos órgãos.</p>
+        </div>
+        <div class="layer-group">
+          <span class="glabel">Camada base</span>
+          <label class="layer-opt"><input type="radio" name="base-layer" value="osm" checked><span><span class="name">OpenStreetMap</span><span class="src">Base cartográfica colaborativa · padrão ONR</span></span></label>
+          <label class="layer-opt"><input type="radio" name="base-layer" value="sat"><span><span class="name">Imagem de satélite</span><span class="src">Esri World Imagery</span></span></label>
+        </div>
+        <div class="layer-group">
+          <span class="glabel">Sobreposições oficiais</span>
+          <label class="layer-opt"><input type="checkbox" data-overlay="sigef"><span><span class="name">Imóveis Rurais Certificados (SIGEF)</span><span class="src">INCRA · geoservicos.incra.gov.br</span></span><span class="layer-status" data-status="sigef"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="snci"><span><span class="name">Imóveis Rurais SNCI</span><span class="src">INCRA · cadastros antigos</span></span><span class="layer-status" data-status="snci"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="ti"><span><span class="name">Terras Indígenas</span><span class="src">FUNAI</span></span><span class="layer-status" data-status="ti"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="quilombo"><span><span class="name">Áreas Quilombolas</span><span class="src">INCRA</span></span><span class="layer-status" data-status="quilombo"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="mun"><span><span class="name">Limites Municipais</span><span class="src">IBGE</span></span><span class="layer-status" data-status="mun"></span></label>
+        </div>
+        <div class="layer-warn">
+          <strong>Consultivas, não definitivas.</strong>
+          As camadas dependem da disponibilidade dos servidores dos órgãos (INCRA, IBGE, FUNAI). Confirme sempre na fonte oficial antes do protocolo.
+        </div>
+      </div>
+    </div>
+
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <a class="ag-stamp" href="https://agtopografia.com.br" target="_blank" rel="noopener">
+      <img src="assets/ag-symbol.png" alt="AG Topografia">
+      <div class="txt"><strong>AGLab</strong>Educacional · por AG Topografia</div>
+    </a>
+    <div class="footer-disclaimer">A conferência das coordenadas, dos cálculos de área e perímetro e da compatibilidade com o SIG-RI é de responsabilidade do profissional responsável técnico pelo levantamento. · Datum oficial brasileiro conforme Resolução do Presidente do IBGE nº 01/2015.</div>
+    <button class="footer-fb-btn" id="open-feedback-footer">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 4 L14 4 L14 11 L9 11 L6 14 L6 11 L2 11 Z"/></svg>
+      <span>Enviar feedback</span>
+    </button>
+  </div>
+</footer>
+
+<script>
+/* ===========================================================
+   CONVERSOR UTM → GEOGRÁFICAS (SIRGAS 2000) — AG TOPOGRAFIA
+   =========================================================== */
+
+/* --- PROJ4 setup --- */
+proj4.defs("EPSG:4674", "+proj=longlat +ellps=GRS80 +no_defs"); // SIRGAS 2000 geográfica
+proj4.defs("EPSG:4326", "+proj=longlat +datum=WGS84 +no_defs");
+proj4.defs("EPSG:4618", "+proj=longlat +ellps=aust_SA +towgs84=-66.87,4.37,-38.52,0,0,0,0 +no_defs"); // SAD69
+
+function utmProjString(zona, hemi, datum){
+  const south = hemi === 'S' ? ' +south' : '';
+  if(datum === 'SIRGAS2000') return `+proj=utm +zone=${zona}${south} +ellps=GRS80 +units=m +no_defs`;
+  if(datum === 'SAD69')      return `+proj=utm +zone=${zona}${south} +ellps=aust_SA +towgs84=-66.87,4.37,-38.52,0,0,0,0 +units=m +no_defs`;
+  if(datum === 'WGS84')      return `+proj=utm +zone=${zona}${south} +datum=WGS84 +units=m +no_defs`;
+  return `+proj=utm +zone=${zona}${south} +ellps=GRS80 +units=m +no_defs`;
+}
+
+/* --- App state --- */
+const state = {
+  vertices: [],   // [{name, e, n, lat, lng}]
+  fromKML: false, // KML bypass UTM
+};
+
+const $ = id => document.getElementById(id);
+const cfg = () => ({ zone: parseInt($('cfg-zone').value,10), hemi: $('cfg-hemi').value, datum: $('cfg-datum').value });
+
+/* ===========================================================
+   STATUS HELPERS
+=========================================================== */
+function setStatus(elId, kind, msg){
+  const el = $(elId);
+  el.className = 'status show ' + (kind || '');
+  el.textContent = msg;
+}
+function clearStatus(elId){ $(elId).className = 'status'; $(elId).textContent = ''; }
+
+/* ===========================================================
+   TABS
+=========================================================== */
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.tabPanel === tab));
+  });
+});
+
+/* ===========================================================
+   PASTE / LIST INPUT
+=========================================================== */
+function parsePasteText(text){
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('#'));
+  const out = [];
+  lines.forEach((line, i) => {
+    const parts = line.split(/[,;\t ]+/).filter(p => p.length);
+    if(parts.length < 2) return;
+    let name, e, n;
+    // Detect first column as name if non-numeric
+    const firstIsNumeric = !isNaN(parseFloat(parts[0])) && /^-?\d/.test(parts[0]);
+    if(!firstIsNumeric && parts.length >= 3){
+      name = parts[0];
+      e = parseFloat(parts[1].replace(',','.'));
+      n = parseFloat(parts[2].replace(',','.'));
+    } else {
+      name = 'V' + (i+1);
+      e = parseFloat(parts[0].replace(',','.'));
+      n = parseFloat(parts[1].replace(',','.'));
+    }
+    if(isFinite(e) && isFinite(n)) out.push({ name, e, n });
+  });
+  return out;
+}
+
+$('btn-paste-import').addEventListener('click', () => {
+  const text = $('paste-area').value;
+  if(!text.trim()){ setStatus('input-status','err','Cole pelo menos 3 vértices antes de importar.'); return; }
+  let verts = parsePasteText(text);
+  // If the polygon is already closed (last vertex == first), drop the duplicate
+  if(verts.length >= 4){
+    const a = verts[0], b = verts[verts.length-1];
+    if(Math.hypot(a.e - b.e, a.n - b.n) < 0.01){
+      verts = verts.slice(0, -1);
+    }
+  }
+  if(verts.length < 3){ setStatus('input-status','err','Foram reconhecidos menos de 3 vértices válidos. Verifique o separador.'); return; }
+  state.fromKML = false;
+  loadFromUTM(verts);
+});
+
+$('btn-paste-example').addEventListener('click', () => {
+  // Polígono real próximo a Recife/PE — Zona 24S (fechado: V1 repete no fim)
+  $('paste-area').value =
+`V1  295234.120  9106518.430
+V2  295298.560  9106540.210
+V3  295312.880  9106475.660
+V4  295248.440  9106453.890
+V1  295234.120  9106518.430`;
+});
+$('btn-paste-clear').addEventListener('click', () => { $('paste-area').value = ''; clearStatus('input-status'); });
+
+/* ===========================================================
+   MANUAL TABLE
+=========================================================== */
+function renderManualRow(name='', e='', n=''){
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" data-k="name" placeholder="V${$('manual-tbody').children.length+1}" value="${name}"></td>
+    <td><input type="text" data-k="e" inputmode="decimal" placeholder="295234.120" value="${e}"></td>
+    <td><input type="text" data-k="n" inputmode="decimal" placeholder="9106518.430" value="${n}"></td>
+    <td class="actions"><button class="del-btn" title="Excluir">×</button></td>
+  `;
+  tr.querySelector('.del-btn').addEventListener('click', () => tr.remove());
+  $('manual-tbody').appendChild(tr);
+}
+function initManualTable(){
+  $('manual-tbody').innerHTML = '';
+  for(let i=0;i<4;i++) renderManualRow();
+}
+initManualTable();
+$('btn-manual-add').addEventListener('click', () => renderManualRow());
+$('btn-manual-reset').addEventListener('click', () => { initManualTable(); clearStatus('input-status'); });
+$('btn-manual-apply').addEventListener('click', () => {
+  const rows = [...$('manual-tbody').querySelectorAll('tr')];
+  const verts = [];
+  let hasErr = false;
+  rows.forEach((tr, idx) => {
+    const ne = tr.querySelector('[data-k="name"]');
+    const ee = tr.querySelector('[data-k="e"]');
+    const nne = tr.querySelector('[data-k="n"]');
+    [ee,nne].forEach(i => i.classList.remove('empty-err'));
+    const eVal = parseFloat((ee.value||'').replace(',','.'));
+    const nVal = parseFloat((nne.value||'').replace(',','.'));
+    if(!ee.value || !nne.value || !isFinite(eVal) || !isFinite(nVal)){
+      if(!ee.value || !isFinite(eVal)) ee.classList.add('empty-err');
+      if(!nne.value || !isFinite(nVal)) nne.classList.add('empty-err');
+      hasErr = true;
+      return;
+    }
+    verts.push({ name: ne.value.trim() || ('V'+(idx+1)), e: eVal, n: nVal });
+  });
+  if(hasErr){ setStatus('input-status','err','Há campos vazios ou inválidos. Corrija as células destacadas.'); return; }
+  if(verts.length < 3){ setStatus('input-status','err','São necessários pelo menos 3 vértices.'); return; }
+  state.fromKML = false;
+  loadFromUTM(verts);
+});
+
+/* ===========================================================
+   DXF IMPORT
+=========================================================== */
+const dxfDrop = $('dxf-drop');
+['dragenter','dragover'].forEach(ev => dxfDrop.addEventListener(ev, e => { e.preventDefault(); dxfDrop.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dxfDrop.addEventListener(ev, e => { e.preventDefault(); dxfDrop.classList.remove('drag'); }));
+dxfDrop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if(f) handleDXF(f); });
+$('dxf-input').addEventListener('change', e => { const f = e.target.files[0]; if(f) handleDXF(f); });
+
+/* ===========================================================
+   DXF — parser inline minimal (LWPOLYLINE / POLYLINE)
+   Substitui dxf-parser (sem build browser estável em CDN).
+=========================================================== */
+function parseDXFPolylines(text){
+  // tokeniza em pares (code, value)
+  const lines = text.split(/\r?\n/);
+  const pairs = [];
+  for(let i = 0; i < lines.length - 1; i += 2){
+    const code = parseInt(lines[i].trim(), 10);
+    const val = lines[i+1] !== undefined ? lines[i+1].trim() : '';
+    if(!isNaN(code)) pairs.push([code, val]);
+  }
+  const polys = [];
+  let i = 0;
+  while(i < pairs.length){
+    const [code, val] = pairs[i];
+    if(code === 0 && val === 'LWPOLYLINE'){
+      i++;
+      let layer = '';
+      const pts = [];
+      let curX = null, curY = null;
+      while(i < pairs.length && !(pairs[i][0] === 0)){
+        const [c, v] = pairs[i];
+        if(c === 8) layer = v;
+        else if(c === 10){
+          if(curX !== null && curY !== null) pts.push({ x: curX, y: curY });
+          curX = parseFloat(v); curY = null;
+        } else if(c === 20){
+          curY = parseFloat(v);
+        }
+        i++;
+      }
+      if(curX !== null && curY !== null) pts.push({ x: curX, y: curY });
+      if(pts.length >= 3) polys.push({ layer, pts });
+    } else if(code === 0 && val === 'POLYLINE'){
+      i++;
+      let layer = '';
+      // consume polyline header until we hit VERTEX or SEQEND
+      while(i < pairs.length && !(pairs[i][0] === 0)){
+        if(pairs[i][0] === 8) layer = pairs[i][1];
+        i++;
+      }
+      const pts = [];
+      while(i < pairs.length && pairs[i][0] === 0 && pairs[i][1] === 'VERTEX'){
+        i++;
+        let vx = null, vy = null;
+        while(i < pairs.length && !(pairs[i][0] === 0)){
+          const [c, v] = pairs[i];
+          if(c === 10) vx = parseFloat(v);
+          else if(c === 20) vy = parseFloat(v);
+          i++;
+        }
+        if(vx !== null && vy !== null) pts.push({ x: vx, y: vy });
+      }
+      // skip SEQEND block
+      if(i < pairs.length && pairs[i][0] === 0 && pairs[i][1] === 'SEQEND'){
+        i++;
+        while(i < pairs.length && !(pairs[i][0] === 0)) i++;
+      }
+      if(pts.length >= 3) polys.push({ layer, pts });
+    } else {
+      i++;
+    }
+  }
+  return polys;
+}
+
+function handleDXF(file){
+  if(!file.name.toLowerCase().endsWith('.dxf')){ setStatus('input-status','err','Arquivo inválido. Selecione um .dxf.'); return; }
+  if(file.size > 5*1024*1024){ setStatus('input-status','err','Arquivo excede 5 MB. Reduza ou explode blocos antes de reenviar.'); return; }
+  $('dxf-file-name').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const polys = parseDXFPolylines(ev.target.result);
+      if(polys.length === 0){
+        setStatus('input-status','err','Arquivo DXF não contém LWPOLYLINE/POLYLINE. Verifique se as entidades foram exportadas como polilinhas.');
+        return;
+      }
+      let chosen;
+      if(polys.length === 1){
+        chosen = polys[0];
+      } else {
+        const RESERVED = ['DIVISA','PERIMETRO','PERÍMETRO','LIMITE','AG_DIVISA'];
+        const tagged = polys.filter(p => RESERVED.includes((p.layer||'').toUpperCase()));
+        if(tagged.length === 1){
+          chosen = tagged[0];
+        } else {
+          setStatus('input-status','warn',`Foram encontradas ${polys.length} polilinhas no arquivo. Para evitar ambiguidade, organize o desenho com a divisa principal numa camada chamada DIVISA, PERIMETRO, LIMITE ou AG_DIVISA. Salve novamente e reenvie.`);
+          return;
+        }
+      }
+      const verts = chosen.pts.map((p,i) => ({ name: 'V'+(i+1), e: p.x, n: p.y }));
+      state.fromKML = false;
+      loadFromUTM(verts);
+    } catch(err){
+      console.error(err);
+      setStatus('input-status','err','Falha ao interpretar o DXF: ' + (err.message || err));
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ===========================================================
+   KML / KMZ IMPORT
+=========================================================== */
+const kmlDrop = $('kml-drop');
+['dragenter','dragover'].forEach(ev => kmlDrop.addEventListener(ev, e => { e.preventDefault(); kmlDrop.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => kmlDrop.addEventListener(ev, e => { e.preventDefault(); kmlDrop.classList.remove('drag'); }));
+kmlDrop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if(f) handleKML(f); });
+$('kml-input').addEventListener('change', e => { const f = e.target.files[0]; if(f) handleKML(f); });
+
+async function handleKML(file){
+  $('kml-file-name').textContent = file.name;
+  const lower = file.name.toLowerCase();
+  try {
+    let kmlText;
+    if(lower.endsWith('.kmz')){
+      const buf = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(buf);
+      let kmlFile = zip.file('doc.kml');
+      if(!kmlFile){
+        const candidates = Object.keys(zip.files).filter(n => n.toLowerCase().endsWith('.kml'));
+        if(candidates.length === 0){ setStatus('input-status','err','KMZ sem arquivo doc.kml.'); return; }
+        kmlFile = zip.file(candidates[0]);
+      }
+      kmlText = await kmlFile.async('string');
+    } else if(lower.endsWith('.kml')){
+      kmlText = await file.text();
+    } else {
+      setStatus('input-status','err','Arquivo inválido. Selecione .kml ou .kmz.'); return;
+    }
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(kmlText, 'text/xml');
+    // Find first Polygon outerBoundaryIs LinearRing coordinates
+    const poly = doc.getElementsByTagName('Polygon')[0];
+    if(!poly){ setStatus('input-status','err','Nenhum Polygon encontrado no KML.'); return; }
+    const outer = poly.getElementsByTagName('outerBoundaryIs')[0];
+    if(!outer){ setStatus('input-status','err','Polygon sem outerBoundaryIs.'); return; }
+    const ring = outer.getElementsByTagName('LinearRing')[0];
+    if(!ring){ setStatus('input-status','err','outerBoundaryIs sem LinearRing.'); return; }
+    const coordsNode = ring.getElementsByTagName('coordinates')[0];
+    if(!coordsNode){ setStatus('input-status','err','LinearRing sem <coordinates>.'); return; }
+    const raw = coordsNode.textContent.trim();
+    const pts = raw.split(/\s+/).map(t => t.split(',')).filter(a => a.length >= 2).map(a => ({ lng: parseFloat(a[0]), lat: parseFloat(a[1]) })).filter(p => isFinite(p.lat) && isFinite(p.lng));
+    // remove duplicate closing point if equal to first
+    if(pts.length > 3 && pts[0].lat === pts[pts.length-1].lat && pts[0].lng === pts[pts.length-1].lng){
+      pts.pop();
+    }
+    if(pts.length < 3){ setStatus('input-status','err','Polígono com menos de 3 vértices.'); return; }
+    state.fromKML = true;
+    loadFromKMLPoints(pts);
+  } catch(err){
+    console.error(err);
+    setStatus('input-status','err','Falha ao ler KML/KMZ: ' + (err.message || err));
+  }
+}
+
+/* ===========================================================
+   LOAD INTO STATE
+=========================================================== */
+function loadFromUTM(verts){
+  // verts: [{name,e,n}]
+  const { zone, hemi, datum } = cfg();
+  const projUTM = utmProjString(zone, hemi, datum);
+  // Convert each to geographic (SIRGAS 2000)
+  // Pipeline: UTM(datum X) -> longlat(datum X) -> longlat(SIRGAS 2000 = EPSG:4674)
+  let sourceGeo;
+  if(datum === 'SIRGAS2000') sourceGeo = 'EPSG:4674';
+  else if(datum === 'SAD69') sourceGeo = 'EPSG:4618';
+  else sourceGeo = 'EPSG:4326';
+
+  const result = verts.map(v => {
+    const [lngSrc, latSrc] = proj4(projUTM, sourceGeo, [v.e, v.n]);
+    const [lng, lat] = proj4(sourceGeo, 'EPSG:4674', [lngSrc, latSrc]);
+    return { name: v.name, e: v.e, n: v.n, lat, lng };
+  });
+  state.vertices = result;
+  state.fromKML = false;
+  refreshAll();
+  setStatus('input-status','ok',`Polígono importado: ${result.length} vértices · datum origem ${labelDatum(datum)} · saída SIRGAS 2000.`);
+}
+
+function loadFromKMLPoints(pts){
+  // KML is WGS84 ≈ SIRGAS2000 for cartorial purposes
+  // Compute UTM(SIRGAS2000) projection on configured zone for metric area/perimeter
+  const { zone, hemi } = cfg();
+  const projUTM = utmProjString(zone, hemi, 'SIRGAS2000');
+  const result = pts.map((p,i) => {
+    const [e, n] = proj4('EPSG:4326', projUTM, [p.lng, p.lat]);
+    return { name: 'V'+(i+1), e, n, lat: p.lat, lng: p.lng };
+  });
+  state.vertices = result;
+  state.fromKML = true;
+  refreshAll();
+  setStatus('input-status','ok',`Polígono KML importado: ${result.length} vértices · origem WGS 84 · tratado como SIRGAS 2000 (diferença subcentimétrica).`);
+}
+
+function labelDatum(d){
+  return d === 'SIRGAS2000' ? 'SIRGAS 2000' : d === 'SAD69' ? 'SAD69' : 'WGS 84';
+}
+
+/* ===========================================================
+   GEOMETRY — area (Gauss, UTM meters), perimeter
+=========================================================== */
+function polyArea(verts){
+  // Shoelace on (e, n) — UTM meters
+  let s = 0;
+  const n = verts.length;
+  for(let i=0;i<n;i++){
+    const a = verts[i], b = verts[(i+1)%n];
+    s += a.e * b.n - b.e * a.n;
+  }
+  return Math.abs(s) / 2;
+}
+function polyPerimeter(verts){
+  let p = 0;
+  const n = verts.length;
+  for(let i=0;i<n;i++){
+    const a = verts[i], b = verts[(i+1)%n];
+    p += Math.hypot(b.e - a.e, b.n - a.n);
+  }
+  return p;
+}
+function isClosed(verts){
+  if(verts.length < 3) return false;
+  const a = verts[0], b = verts[verts.length-1];
+  if(a === b) return true;
+  return Math.hypot(b.e - a.e, b.n - a.n) < 0.01;
+}
+
+/* ===========================================================
+   REFRESH (map + metrics + output + exports)
+=========================================================== */
+function refreshAll(){
+  drawMap();
+  refreshMetrics();
+  refreshOutput();
+  refreshExportButtons();
+}
+
+/* ===========================================================
+   MAP
+=========================================================== */
+let map, polyLayer, markersLayer, baseLayers = {};
+function initMap(){
+  map = L.map('map', { zoomControl: true, attributionControl: true, scrollWheelZoom: false }).setView([-8.0476, -34.8770], 12);
+  baseLayers.osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap · base ONR'
+  });
+  baseLayers.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19,
+    attribution: 'Tiles © Esri — World Imagery'
+  });
+  baseLayers.osm.addTo(map);
+  polyLayer = L.layerGroup().addTo(map);
+  markersLayer = L.layerGroup().addTo(map);
+
+  // Scroll-wheel zoom: requires click to activate, disables when mouse leaves
+  const mapEl = document.getElementById('map');
+  const hint = document.getElementById('map-zoom-hint');
+  let hintTimer;
+  function showHint(){
+    if(!map.scrollWheelZoom.enabled()){
+      hint.classList.add('show');
+      clearTimeout(hintTimer);
+      hintTimer = setTimeout(() => hint.classList.remove('show'), 1400);
+    }
+  }
+  mapEl.addEventListener('wheel', e => {
+    if(!map.scrollWheelZoom.enabled()){ showHint(); }
+  }, { passive: true });
+  map.on('click', () => {
+    map.scrollWheelZoom.enable();
+    hint.classList.remove('show');
+  });
+  mapEl.addEventListener('mouseleave', () => {
+    map.scrollWheelZoom.disable();
+  });
+}
+initMap();
+
+
+// Banner close
+const $bannerClose = document.getElementById('banner-close');
+if($bannerClose){
+  $bannerClose.addEventListener('click', () => {
+    document.getElementById('exp-banner').classList.add('hidden');
+    try { localStorage.setItem('confrontei_banner_dismissed', '1'); } catch(e){}
+  });
+  try {
+    if(localStorage.getItem('confrontei_banner_dismissed') === '1'){
+      // Optional: re-show on each session, comment line below if so
+      // document.getElementById('exp-banner').classList.add('hidden');
+    }
+  } catch(e){}
+}
+
+// HUD coordinate display
+(() => {
+  const hud = document.getElementById('coord-hud');
+  const $lat = document.getElementById('hud-lat');
+  const $lng = document.getElementById('hud-lng');
+  const wrap = document.getElementById('map-wrap');
+  if (!hud || !map || !wrap) return;
+
+  map.on('mouseover', () => hud.classList.add('show'));
+  map.on('mouseout', () => hud.classList.remove('show'));
+  map.on('mousemove', e => {
+    const wrapRect = wrap.getBoundingClientRect();
+    // Position HUD relative to .map-wrap using mouse client coords
+    const x = e.originalEvent.clientX - wrapRect.left;
+    const y = e.originalEvent.clientY - wrapRect.top;
+    hud.style.left = x + 'px';
+    hud.style.top  = y + 'px';
+    $lat.textContent = e.latlng.lat.toFixed(6);
+    $lng.textContent = e.latlng.lng.toFixed(6);
+  });
+})();
+
+
+// ===== LAYER PANEL TOGGLE =====
+const $layersPanel = document.getElementById('layer-panel');
+const $btnLayers = document.getElementById('btn-layers');
+$btnLayers.addEventListener('click', e => {
+  e.stopPropagation();
+  $layersPanel.classList.toggle('open');
+});
+document.addEventListener('click', e => {
+  if(!$layersPanel.contains(e.target) && e.target !== $btnLayers && !$btnLayers.contains(e.target)){
+    $layersPanel.classList.remove('open');
+  }
+});
+
+// ===== BASE LAYER SWITCH =====
+document.querySelectorAll('input[name="base-layer"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    const target = radio.value;
+    Object.keys(baseLayers).forEach(k => {
+      if(k === target){ if(!map.hasLayer(baseLayers[k])) baseLayers[k].addTo(map); }
+      else { if(map.hasLayer(baseLayers[k])) map.removeLayer(baseLayers[k]); }
+    });
+  });
+});
+
+// ===== OFFICIAL OVERLAYS (WMS) =====
+const overlayDefs = {
+  sigef: {
+    name: 'SIGEF · INCRA',
+    layer: () => L.tileLayer.wms('https://geoservicos.incra.gov.br/geoserver/Sigef/wms', {
+      layers: 'Sigef:Imoveis_Certificados',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.65,
+      attribution: '© INCRA · SIGEF'
+    })
+  },
+  snci: {
+    name: 'SNCI · INCRA',
+    layer: () => L.tileLayer.wms('https://geoservicos.incra.gov.br/geoserver/SNCI/wms', {
+      layers: 'SNCI:Imoveis_SNCI',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.55,
+      attribution: '© INCRA · SNCI'
+    })
+  },
+  ti: {
+    name: 'Terras Indígenas · FUNAI',
+    layer: () => L.tileLayer.wms('https://geoserver.funai.gov.br/geoserver/Funai/wms', {
+      layers: 'Funai:tis_poligonais',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.55,
+      attribution: '© FUNAI'
+    })
+  },
+  quilombo: {
+    name: 'Áreas Quilombolas · INCRA',
+    layer: () => L.tileLayer.wms('https://geoservicos.incra.gov.br/geoserver/Quilombola/wms', {
+      layers: 'Quilombola:Areas_Quilombolas',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.55,
+      attribution: '© INCRA'
+    })
+  },
+  mun: {
+    name: 'Limites Municipais · IBGE',
+    layer: () => L.tileLayer.wms('https://geoservicos.ibge.gov.br/geoserver/wms', {
+      layers: 'CCAR:BCIM_Municipio_A',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.6,
+      attribution: '© IBGE'
+    })
+  }
+};
+
+const activeOverlays = {};
+document.querySelectorAll('input[data-overlay]').forEach(chk => {
+  chk.addEventListener('change', () => {
+    const id = chk.dataset.overlay;
+    const status = document.querySelector(`[data-status="${id}"]`);
+    if(chk.checked){
+      try {
+        status.textContent = 'carregando…';
+        status.className = 'layer-status loading';
+        const layer = overlayDefs[id].layer();
+        layer.on('tileerror', () => {
+          status.textContent = 'indisponível';
+          status.className = 'layer-status error';
+        });
+        layer.on('load', () => {
+          status.textContent = 'ativa';
+          status.className = 'layer-status';
+        });
+        layer.addTo(map);
+        activeOverlays[id] = layer;
+      } catch(err){
+        status.textContent = 'erro';
+        status.className = 'layer-status error';
+        chk.checked = false;
+      }
+    } else {
+      if(activeOverlays[id]){
+        map.removeLayer(activeOverlays[id]);
+        delete activeOverlays[id];
+      }
+      status.textContent = '';
+      status.className = 'layer-status';
+    }
+  });
+});
+
+function drawMap(){
+  polyLayer.clearLayers();
+  markersLayer.clearLayers();
+  const v = state.vertices;
+  if(v.length < 2){ $('map-vcount').textContent = v.length + ' vértices'; return; }
+  const latlngs = v.map(p => [p.lat, p.lng]);
+  // close visually
+  const closed = [...latlngs, latlngs[0]];
+  L.polygon(closed, {
+    color: '#90b728',
+    weight: 2.5,
+    fillColor: '#90b728',
+    fillOpacity: 0.18,
+    opacity: 1
+  }).addTo(polyLayer);
+  v.forEach((p,i) => {
+    const icon = L.divIcon({
+      className: '',
+      iconSize: [24,24],
+      iconAnchor: [12,12],
+      html: `<div class="vtx-marker" style="width:24px;height:24px">${p.name}</div>`
+    });
+    L.marker([p.lat, p.lng], { icon })
+      .bindPopup(`<strong>${p.name}</strong><br>Lat ${p.lat.toFixed(6)}<br>Lng ${p.lng.toFixed(6)}<br><span style="color:#90b728">E</span> ${p.e.toFixed(3)}<br><span style="color:#90b728">N</span> ${p.n.toFixed(3)}`)
+      .addTo(markersLayer);
+  });
+  map.fitBounds(L.polygon(closed).getBounds(), { padding: [40,40] });
+  $('map-vcount').textContent = v.length + ' vértices';
+}
+
+$('btn-map-center').addEventListener('click', () => {
+  if(state.vertices.length < 2) return;
+  const ll = state.vertices.map(p => [p.lat,p.lng]);
+  map.fitBounds(L.polygon(ll).getBounds(), { padding: [40,40] });
+});
+$('btn-map-fs').addEventListener('click', () => {
+  const w = $('map-wrap');
+  w.classList.toggle('map-fullscreen');
+  setTimeout(() => map.invalidateSize(), 50);
+  $('btn-map-fs').textContent = w.classList.contains('map-fullscreen') ? 'Fechar' : 'Tela cheia';
+});
+
+/* ===========================================================
+   METRICS
+=========================================================== */
+function refreshMetrics(){
+  const v = state.vertices;
+  if(v.length < 3){
+    $('m-vert').textContent = v.length || '—';
+    $('m-perim').innerHTML = '— <span class="u">m</span>';
+    $('m-area').innerHTML = '— <span class="u">m²</span>';
+    $('m-ha').innerHTML = '— <span class="u">ha</span>';
+    $('m-clos').innerHTML = '<span class="dot gray"></span> Aguardando entrada';
+    return;
+  }
+  const area = polyArea(v);
+  const perim = polyPerimeter(v);
+  const ha = area / 10000;
+  $('m-vert').textContent = v.length;
+  $('m-perim').innerHTML = fmtNum(perim,2) + ' <span class="u">m</span>';
+  $('m-area').innerHTML = fmtNum(area,2) + ' <span class="u">m²</span>';
+  $('m-ha').innerHTML = fmtNum(ha,4) + ' <span class="u">ha</span>';
+  // Closure
+  const a = v[0], b = v[v.length-1];
+  const gap = Math.hypot(b.e - a.e, b.n - a.n);
+  if(gap < 0.01){
+    $('m-clos').innerHTML = '<span class="dot green"></span> Fechado (gap < 1 cm)';
+  } else {
+    $('m-clos').innerHTML = `<span class="dot amber"></span> Aberto · gap ${fmtNum(gap,3)} m`;
+  }
+}
+function fmtNum(n, dec){
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+/* ===========================================================
+   OUTPUT
+=========================================================== */
+function refreshOutput(){
+  const v = state.vertices;
+  if(v.length === 0){ $('out-text').value = ''; return; }
+  const withNames = $('opt-names').checked;
+  const closed = $('opt-close').checked;
+  // Close polygon by repeating first vertex at end (required by SIGRI)
+  const list = closed && v.length >= 3 ? [...v, v[0]] : v;
+  // Build each pair as "lng,lat" (or "Vn,lng,lat" if names enabled)
+  const segs = list.map((p, i) => {
+    const lat = p.lat.toFixed(6);
+    const lng = p.lng.toFixed(6);
+    if(withNames){
+      const name = (i < v.length) ? p.name : v[0].name;
+      return `${name},${lng},${lat}`;
+    }
+    return `${lng},${lat}`;
+  });
+  // Visual: each pair on its own line, ; after each except the last
+  const visual = segs.map((s, i) => i < segs.length - 1 ? s + ';' : s).join('\n');
+  $('out-text').value = visual;
+}
+$('opt-names').addEventListener('change', () => {
+  if($('opt-names').checked){
+    setStatus('export-status', 'warn', 'Atenção: o padrão oficial do SIGRI não inclui nomes nos vértices. Esta opção é útil apenas para visualização ou compartilhamento informal. Desligue antes de colar no formulário SIGRI.');
+  } else {
+    clearStatus('export-status');
+  }
+  refreshOutput();
+});
+$('opt-close').addEventListener('change', refreshOutput);
+
+// Intercept copy: strip line breaks so clipboard receives single sequence
+$('out-text').addEventListener('copy', e => {
+  const sel = document.getSelection().toString();
+  const source = sel.length > 0 ? sel : $('out-text').value;
+  const stripped = source.replace(/\n/g, '');
+  e.clipboardData.setData('text/plain', stripped);
+  e.preventDefault();
+});
+$('btn-copy-out').addEventListener('click', async () => {
+  const txt = $('out-text').value.replace(/\n/g, '');
+  if(!txt){ setStatus('export-status','err','Nenhuma saída disponível.'); return; }
+  try {
+    await navigator.clipboard.writeText(txt);
+    setStatus('export-status','ok','Texto SIGRI copiado para a área de transferência.');
+  } catch(err){
+    $('out-text').select(); document.execCommand('copy');
+    setStatus('export-status','ok','Texto SIGRI copiado.');
+  }
+});
+
+/* ===========================================================
+   EXPORTS
+=========================================================== */
+function refreshExportButtons(){
+  const ok = state.vertices.length >= 3;
+  ['exp-txt','exp-shp','exp-kml','exp-csv'].forEach(id => $(id).disabled = !ok);
+}
+
+$('exp-txt').addEventListener('click', async () => {
+  const txt = $('out-text').value.replace(/\n/g, '');
+  if(!txt) return;
+  try {
+    await navigator.clipboard.writeText(txt);
+    setStatus('export-status','ok','Texto SIGRI copiado para a área de transferência.');
+  } catch(err){
+    downloadBlob(new Blob([txt],{type:'text/plain'}), 'vertices_sigri.txt');
+    setStatus('export-status','ok','Texto exportado como vertices_sigri.txt (clipboard indisponível).');
+  }
+});
+
+$('exp-csv').addEventListener('click', () => {
+  const v = state.vertices;
+  if(v.length === 0) return;
+  const rows = ['VERTICE,LATITUDE,LONGITUDE,UTM_E,UTM_N'];
+  v.forEach(p => rows.push(`${p.name},${p.lat.toFixed(6)},${p.lng.toFixed(6)},${p.e.toFixed(3)},${p.n.toFixed(3)}`));
+  downloadBlob(new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'}), 'vertices_sigri.csv');
+  setStatus('export-status','ok','CSV exportado: vertices_sigri.csv');
+});
+
+$('exp-kml').addEventListener('click', () => {
+  const v = state.vertices;
+  if(v.length === 0) return;
+  const area = polyArea(v);
+  const perim = polyPerimeter(v);
+  const coords = [...v, v[0]].map(p => `${p.lng.toFixed(8)},${p.lat.toFixed(8)},0`).join(' ');
+  // Build individual Placemarks for each vertex (named V1, V2, …)
+  const vertexPlacemarks = v.map((p, i) => `
+  <Placemark>
+    <name>${p.name || ('V' + (i+1))}</name>
+    <description>Lat: ${p.lat.toFixed(6)} | Lng: ${p.lng.toFixed(6)}</description>
+    <styleUrl>#vertex</styleUrl>
+    <Point><coordinates>${p.lng.toFixed(8)},${p.lat.toFixed(8)},0</coordinates></Point>
+  </Placemark>`).join('');
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+  <name>Poligono SIGRI</name>
+  <description><![CDATA[
+Gerado pelo Conversor UTM → Geográficas (SIRGAS 2000) — Confrontei · AG Topografia
+Datum saída: SIRGAS 2000 (EPSG:4674)
+Datum origem: ${state.fromKML ? 'WGS 84 (KML)' : labelDatum(cfg().datum)}
+Zona UTM origem: ${cfg().zone}${cfg().hemi}
+Vértices: ${v.length}
+Perímetro: ${fmtNum(perim,2)} m
+Área: ${fmtNum(area,2)} m² (${fmtNum(area/10000,4)} ha)
+  ]]></description>
+  <Style id="ag">
+    <LineStyle><color>ff28b790</color><width>3</width></LineStyle>
+    <PolyStyle><color>4628b790</color></PolyStyle>
+  </Style>
+  <Style id="vertex">
+    <IconStyle>
+      <color>ff28b790</color>
+      <scale>1.0</scale>
+      <Icon><href>http://maps.google.com/mapfiles/kml/paddle/grn-circle.png</href></Icon>
+    </IconStyle>
+    <LabelStyle><color>ffffffff</color><scale>0.9</scale></LabelStyle>
+  </Style>
+  <Folder>
+    <name>Polígono</name>
+    <Placemark>
+      <name>Polígono fechado</name>
+      <styleUrl>#ag</styleUrl>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>${coords}</coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Folder>
+  <Folder>
+    <name>Vértices</name>${vertexPlacemarks}
+  </Folder>
+</Document>
+</kml>`;
+  downloadBlob(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'}), 'poligono_sigri.kml');
+  setStatus('export-status','ok','KML exportado: poligono_sigri.kml · vértices nomeados V1…V' + v.length);
+});
+
+$('exp-shp').addEventListener('click', async () => {
+  const v = state.vertices;
+  if(v.length === 0) return;
+  try {
+    const area = polyArea(v);
+    const ring = [...v.map(p => [p.lng, p.lat]), [v[0].lng, v[0].lat]];
+    const { shp, shx, dbf } = buildShapefile(ring, { NOME: 'Poligono', AREA_M2: +area.toFixed(2) });
+    const PRJ = 'GEOGCS["SIRGAS 2000",DATUM["D_SIRGAS_2000",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
+    const zip = new JSZip();
+    zip.file('poligono_sigri.shp', shp);
+    zip.file('poligono_sigri.shx', shx);
+    zip.file('poligono_sigri.dbf', dbf);
+    zip.file('poligono_sigri.prj', PRJ);
+    zip.file('poligono_sigri.cpg', 'UTF-8');
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob(blob, 'poligono_sigri.zip');
+    setStatus('export-status','ok','Shapefile exportado: poligono_sigri.zip');
+  } catch(err){
+    console.error(err);
+    setStatus('export-status','err','Falha ao gerar Shapefile: ' + (err.message || err));
+  }
+});
+
+/* ===========================================================
+   SHAPEFILE WRITER (inline) — Polygon, single feature
+   ESRI Shapefile + SHX + DBF dBase III
+=========================================================== */
+function buildShapefile(ring, props){
+  // ring: [[lng,lat],...] closed (first === last). Single outer ring polygon.
+  const numPoints = ring.length;
+  let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+  ring.forEach(([x,y]) => {
+    if(x < xmin) xmin = x; if(x > xmax) xmax = x;
+    if(y < ymin) ymin = y; if(y > ymax) ymax = y;
+  });
+
+  // ---- SHP record (one polygon) ----
+  // content: shapeType(4) + box(32) + numParts(4) + numPoints(4) + parts(4*numParts) + points(16*numPoints)
+  const recContentLen = 4 + 32 + 4 + 4 + 4 + 16 * numPoints; // bytes
+  const recHeaderLen = 8; // record header
+  const shpFileLen = 100 + recHeaderLen + recContentLen;
+
+  const shpBuf = new ArrayBuffer(shpFileLen);
+  const shpDV = new DataView(shpBuf);
+
+  // SHP header (100 bytes)
+  shpDV.setInt32(0, 9994, false);        // file code (big-endian)
+  // 5 unused ints (4-23) left as 0
+  shpDV.setInt32(24, shpFileLen / 2, false); // file length in 16-bit words
+  shpDV.setInt32(28, 1000, true);        // version
+  shpDV.setInt32(32, 5, true);           // shape type 5 = Polygon
+  shpDV.setFloat64(36, xmin, true);
+  shpDV.setFloat64(44, ymin, true);
+  shpDV.setFloat64(52, xmax, true);
+  shpDV.setFloat64(60, ymax, true);
+  shpDV.setFloat64(68, 0, true); // zmin
+  shpDV.setFloat64(76, 0, true); // zmax
+  shpDV.setFloat64(84, 0, true); // mmin
+  shpDV.setFloat64(92, 0, true); // mmax
+
+  // Record header at offset 100
+  let off = 100;
+  shpDV.setInt32(off, 1, false);                // record number (1)
+  shpDV.setInt32(off + 4, recContentLen / 2, false); // content length (16-bit words)
+  off += 8;
+  // Record contents
+  shpDV.setInt32(off, 5, true); off += 4;       // shape type
+  shpDV.setFloat64(off, xmin, true); off += 8;
+  shpDV.setFloat64(off, ymin, true); off += 8;
+  shpDV.setFloat64(off, xmax, true); off += 8;
+  shpDV.setFloat64(off, ymax, true); off += 8;
+  shpDV.setInt32(off, 1, true); off += 4;       // numParts
+  shpDV.setInt32(off, numPoints, true); off += 4;
+  shpDV.setInt32(off, 0, true); off += 4;       // part 0 starts at index 0
+  ring.forEach(([x,y]) => {
+    shpDV.setFloat64(off, x, true); off += 8;
+    shpDV.setFloat64(off, y, true); off += 8;
+  });
+
+  // ---- SHX (index) ----
+  const shxFileLen = 100 + 8;
+  const shxBuf = new ArrayBuffer(shxFileLen);
+  const shxDV = new DataView(shxBuf);
+  // Header (same as SHP but file length is shx length)
+  shxDV.setInt32(0, 9994, false);
+  shxDV.setInt32(24, shxFileLen / 2, false);
+  shxDV.setInt32(28, 1000, true);
+  shxDV.setInt32(32, 5, true);
+  shxDV.setFloat64(36, xmin, true);
+  shxDV.setFloat64(44, ymin, true);
+  shxDV.setFloat64(52, xmax, true);
+  shxDV.setFloat64(60, ymax, true);
+  // Index record: offset(50 = 100 bytes / 2), content length (recContentLen/2)
+  shxDV.setInt32(100, 50, false);
+  shxDV.setInt32(104, recContentLen / 2, false);
+
+  // ---- DBF (dBase III) ----
+  const fields = [
+    { name: 'NOME', type: 'C', len: 32, dec: 0 },
+    { name: 'AREA_M2', type: 'N', len: 18, dec: 2 }
+  ];
+  const headerLen = 32 + fields.length * 32 + 1;
+  const recordLen = 1 + fields.reduce((s,f) => s + f.len, 0);
+  const numRecords = 1;
+  const dbfTotalLen = headerLen + recordLen * numRecords + 1;
+  const dbfBuf = new ArrayBuffer(dbfTotalLen);
+  const dbfDV = new DataView(dbfBuf);
+  const dbfBytes = new Uint8Array(dbfBuf);
+
+  // Header
+  dbfDV.setUint8(0, 0x03);
+  const now = new Date();
+  dbfDV.setUint8(1, now.getFullYear() - 1900);
+  dbfDV.setUint8(2, now.getMonth() + 1);
+  dbfDV.setUint8(3, now.getDate());
+  dbfDV.setInt32(4, numRecords, true);
+  dbfDV.setInt16(8, headerLen, true);
+  dbfDV.setInt16(10, recordLen, true);
+  // remaining header bytes left as 0
+
+  // Field descriptors
+  fields.forEach((f, idx) => {
+    const base = 32 + idx * 32;
+    const nameBytes = new TextEncoder().encode(f.name);
+    for(let i = 0; i < Math.min(11, nameBytes.length); i++) dbfBytes[base + i] = nameBytes[i];
+    dbfBytes[base + 11] = f.type.charCodeAt(0);
+    dbfBytes[base + 16] = f.len;
+    dbfBytes[base + 17] = f.dec;
+  });
+  dbfBytes[headerLen - 1] = 0x0D; // terminator
+
+  // Record
+  let rOff = headerLen;
+  dbfBytes[rOff++] = 0x20; // deletion flag (active)
+  fields.forEach(f => {
+    let val = '';
+    if(f.name === 'NOME') val = String(props.NOME || '').slice(0, f.len);
+    else if(f.name === 'AREA_M2') val = Number(props.AREA_M2 || 0).toFixed(f.dec);
+    // For N type, right-pad with leading spaces; for C, right-pad with spaces
+    let padded;
+    if(f.type === 'N') padded = val.padStart(f.len, ' ');
+    else padded = val.padEnd(f.len, ' ');
+    const enc = new TextEncoder().encode(padded);
+    for(let i = 0; i < f.len; i++) dbfBytes[rOff + i] = enc[i] !== undefined ? enc[i] : 0x20;
+    rOff += f.len;
+  });
+  dbfBytes[dbfTotalLen - 1] = 0x1A; // EOF
+
+  return { shp: shpBuf, shx: shxBuf, dbf: dbfBuf };
+}
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ===========================================================
+   INIT
+=========================================================== */
+refreshAll();
+setTimeout(() => map.invalidateSize(), 200);
+</script>
+
+<!-- ============ FEEDBACK MODAL ============ -->
+<div class="modal-backdrop" id="feedback-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="fb-title">
+    <button class="modal-close" id="close-feedback" aria-label="Fechar">×</button>
+    <div class="modal-head">
+      <div class="modal-eyebrow">Beta v0.1 · envie seu feedback</div>
+      <div class="modal-title" id="fb-title">Seu feedback é muito importante.</div>
+      <div class="modal-sub">Sua observação ajuda a melhorar a ferramenta. Leva 30 segundos.</div>
+    </div>
+    <form id="feedback-form" action="https://api.web3forms.com/submit" method="POST">
+      <input type="hidden" name="access_key" value="c16d5305-5ca0-4811-9456-519c13d2af70">
+      <input type="hidden" name="subject" value="[Confrontei BETA] Novo feedback do conversor">
+      <input type="hidden" name="from_name" value="Confrontei · Conversor BETA v0.1">
+      <input type="hidden" name="versao" value="v0.1">
+      <input type="checkbox" name="botcheck" style="display:none" tabindex="-1" autocomplete="off">
+      <div class="mf-row">
+        <div class="mf-field">
+          <label for="fb-nome">Nome</label>
+          <input type="text" id="fb-nome" name="nome" placeholder="Seu nome" required>
+        </div>
+        <div class="mf-field">
+          <label for="fb-funcao">Função</label>
+          <select id="fb-funcao" name="funcao" required>
+            <option value="">Selecione</option>
+            <option>Topógrafo</option>
+            <option>Engenheiro civil / agrônomo</option>
+            <option>Advogado</option>
+            <option>Cartório / oficial</option>
+            <option>Empresa de georreferenciamento</option>
+            <option>Estudante / acadêmico</option>
+            <option>Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="mf-field">
+        <label for="fb-contato">Contato (opcional)</label>
+        <input type="text" id="fb-contato" name="contato" placeholder="E-mail ou WhatsApp — para retorno, se desejar">
+      </div>
+      <div class="mf-field">
+        <label for="fb-funcionou">Funcionou para o seu caso?</label>
+        <select id="fb-funcionou" name="funcionou" required>
+          <option value="">Selecione</option>
+          <option>Sim, sem ressalvas</option>
+          <option>Sim, com pequenas observações</option>
+          <option>Parcialmente — alguns pontos a ajustar</option>
+          <option>Não funcionou</option>
+        </select>
+      </div>
+      <div class="mf-field">
+        <label for="fb-mensagem">Comentário / sugestão</label>
+        <textarea id="fb-mensagem" name="mensagem" placeholder="Conte como usou, o que faltou, o que pode melhorar..." required></textarea>
+      </div>
+      <div class="modal-actions">
+        <span class="note">Seu envio chega direto na nossa caixa.</span>
+        <button type="submit" class="modal-submit" id="fb-submit">Enviar feedback</button>
+      </div>
+      <div class="modal-status" id="fb-status"></div>
+    </form>
+  </div>
+</div>
+
+<script>
+/* ===========================================================
+   FEEDBACK MODAL
+=========================================================== */
+(() => {
+  const $m = document.getElementById('feedback-modal');
+  const $open = document.getElementById('open-feedback');
+  const $openFooter = document.getElementById('open-feedback-footer');
+  const $close = document.getElementById('close-feedback');
+  const $form = document.getElementById('feedback-form');
+  const $submit = document.getElementById('fb-submit');
+  const $status = document.getElementById('fb-status');
+
+  function open(){ $m.classList.add('open'); document.body.style.overflow = 'hidden'; }
+  function close(){ $m.classList.remove('open'); document.body.style.overflow = ''; $status.className = 'modal-status'; }
+
+  $open.addEventListener('click', open);
+  if($openFooter){ $openFooter.addEventListener('click', open); }
+  $close.addEventListener('click', close);
+  $m.addEventListener('click', e => { if(e.target === $m) close(); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && $m.classList.contains('open')) close(); });
+
+  $form.addEventListener('submit', async e => {
+    e.preventDefault();
+    $submit.disabled = true;
+    $submit.textContent = 'Enviando...';
+    $status.className = 'modal-status';
+    try {
+      const data = new FormData($form);
+      const res = await fetch($form.action, {
+        method: 'POST',
+        body: data
+      });
+      const json = await res.json().catch(() => ({}));
+      if(res.ok && json.success !== false){
+        $status.className = 'modal-status show ok';
+        $status.textContent = 'Feedback enviado. Obrigada pela contribuição — todo retorno é lido individualmente.';
+        $form.reset();
+        setTimeout(close, 2800);
+      } else {
+        throw new Error(json.message || 'Falha no envio');
+      }
+    } catch(err){
+      $status.className = 'modal-status show err';
+      $status.textContent = 'Não foi possível enviar agora. Tente novamente em alguns instantes.';
+    } finally {
+      $submit.disabled = false;
+      $submit.textContent = 'Enviar feedback';
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

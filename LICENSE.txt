@@ -1,0 +1,84 @@
+LICENÇA DE USO — AGLAB · CONFRONTEI
+
+Copyright (c) 2026 Aryanna Gonzaga / AG Topografia e Construções
+Todos os direitos reservados.
+
+═══════════════════════════════════════════════════════════════════
+1. AUTORIZAÇÃO DE USO
+
+Esta ferramenta é disponibilizada gratuitamente para os seguintes
+usos, sem necessidade de autorização prévia:
+
+  a) Uso PESSOAL por profissionais de topografia, engenharia, direito
+     e áreas correlatas para conferência e preparação de dados antes
+     do envio ao SIGRI/ONR.
+
+  b) Uso EDUCACIONAL em cursos, treinamentos, aulas, workshops e
+     pesquisa acadêmica, desde que mantida a atribuição visível ao
+     projeto AGLab e ao link agtopografia.com.br.
+
+  c) ESTUDO do código-fonte para fins de aprendizado.
+
+═══════════════════════════════════════════════════════════════════
+2. USOS NÃO AUTORIZADOS
+
+Os seguintes usos exigem autorização prévia e expressa de
+Aryanna Gonzaga, mediante contato pelo formulário de feedback da
+ferramenta:
+
+  a) Redistribuição comercial do código ou da ferramenta.
+
+  b) Incorporação em produto ou serviço pago a terceiros.
+
+  c) Oferta como serviço SaaS (Software as a Service) para clientes
+     pagantes.
+
+  d) Remoção, alteração ou ocultação dos créditos AGLab e
+     AG Topografia.
+
+  e) Criação de ferramenta derivada com marca diferente sem menção
+     ao projeto AGLab original.
+
+═══════════════════════════════════════════════════════════════════
+3. RESPONSABILIDADE TÉCNICA
+
+  a) A ferramenta é fornecida "como está", sem garantias de qualquer
+     espécie, expressas ou implícitas.
+
+  b) A conferência das coordenadas convertidas, dos cálculos de área
+     e perímetro, e da compatibilidade dos arquivos exportados com
+     o SIGRI da ONR é de responsabilidade EXCLUSIVA do profissional
+     responsável técnico pelo levantamento.
+
+  c) O AGLab não é a plataforma oficial de registro. O lançamento
+     da matrícula é feito exclusivamente pelo SIGRI/ONR
+     (https://mapa.onr.org.br/sigri/).
+
+  d) Aryanna Gonzaga e a AG Topografia não se responsabilizam por
+     decisões técnicas, registros, indeferimentos ou prejuízos
+     decorrentes do uso da ferramenta.
+
+═══════════════════════════════════════════════════════════════════
+4. CONTATO PARA AUTORIZAÇÕES
+
+Para solicitar autorização de uso não previsto nesta licença, utilize
+o canal "Enviar feedback" disponível em todas as páginas da
+ferramenta, ou envie mensagem a:
+
+    Aryanna Gonzaga
+    AG Topografia e Construções
+    Recife / PE — Brasil
+    https://agtopografia.com.br
+
+Será um prazer conversar sobre parcerias, integrações e usos
+institucionais.
+
+═══════════════════════════════════════════════════════════════════
+5. ALTERAÇÕES DESTA LICENÇA
+
+Esta licença pode ser revista a qualquer momento, com aviso prévio
+publicado na própria ferramenta e no repositório oficial. Versões
+anteriormente baixadas mantêm os termos vigentes na data do
+download.
+
+Última atualização: maio de 2026.

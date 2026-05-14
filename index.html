@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 90"><path d="M18 30 L52 14 L78 38 L70 66 L34 76 L14 56 Z" fill="none" stroke="%23195d83" stroke-width="6" stroke-linejoin="round"/><circle cx="18" cy="30" r="7" fill="%2390b728"/><circle cx="52" cy="14" r="7" fill="%2390b728"/><circle cx="78" cy="38" r="7" fill="%2390b728"/><circle cx="70" cy="66" r="7" fill="%2390b728"/><circle cx="34" cy="76" r="7" fill="%2390b728"/><circle cx="14" cy="56" r="7" fill="%2390b728"/></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confrontei — Toolkit técnico para SIG-RI e ONR</title>
+<link href="https://fonts.googleapis.com/css2?family=Asap:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --azul:#195d83;
+  --azul-light:#4a8fb8;
+  --verde:#90b728;
+  --verde-bright:#a8d640;
+  --teal:#009083;
+  --cinza:#7b7c7b;
+  --black:#0a1f3d;
+  --navy:#0e2b52;
+  --card:#1a4078;
+  --card-soft:rgba(26,64,120,0.85);
+  --line:rgba(120,170,230,0.22);
+  --white:#f4f7f8;
+  --muted:rgba(244,247,248,0.78);
+  --soft:rgba(244,247,248,0.56);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0a1f3d;color:var(--white);font-family:'Asap',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+/* ---------- HEADER / NAV ---------- */
+.site-header{position:sticky;top:0;z-index:20;background:rgba(10,31,61,0.86);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.header-inner{max-width:1440px;margin:0 auto;padding:18px 40px;display:flex;align-items:center;justify-content:space-between;gap:32px}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{width:42px;height:42px;flex-shrink:0;position:relative}
+.brand-mark svg{width:100%;height:100%}
+.brand-name{font-size:22px;font-weight:700;letter-spacing:-0.025em;color:var(--white);line-height:1}
+.brand-name .dot{color:var(--verde)}
+.brand-tag{font-size:9.5px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+
+.nav{display:flex;align-items:center;gap:6px}
+.nav-link{padding:8px 14px;font-size:13px;color:var(--muted);font-weight:500;border-radius:1px;transition:color .15s}
+.nav-link:hover{color:var(--white)}
+.nav-link.green{color:var(--verde)}
+
+.beta-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;font-size:9.5px;letter-spacing:0.22em;font-weight:700;color:var(--black);background:var(--verde);border-radius:1px;line-height:1}
+.beta-badge .v{padding:2px 5px;background:rgba(3,6,8,0.78);color:var(--verde);font-weight:600;letter-spacing:0.1em;border-radius:1px}
+
+/* ---------- HERO ---------- */
+.hero{position:relative;padding:64px 40px 80px;overflow:hidden;background:radial-gradient(ellipse at 80% -20%, rgba(0,144,131,0.18), transparent 50%), radial-gradient(ellipse at 20% 120%, rgba(25,93,131,0.14), transparent 60%)}
+.hero::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.035) 1px,transparent 1px);background-size:40px 40px;opacity:0.5;mask-image:linear-gradient(180deg,#000 0%,transparent 90%);pointer-events:none}
+.hero-bg-stripe{position:absolute;top:0;right:-10%;width:60%;height:120%;pointer-events:none;opacity:.7}
+.hero-bg-stripe::before,.hero-bg-stripe::after{content:'';position:absolute;top:-10%;height:140%;width:80px;transform:rotate(18deg);transform-origin:top}
+.hero-bg-stripe::before{right:30%;background:linear-gradient(180deg,transparent,var(--teal),transparent);opacity:.12}
+.hero-bg-stripe::after{right:10%;background:linear-gradient(180deg,transparent,var(--verde),transparent);opacity:.16}
+.hero-inner{position:relative;max-width:1440px;margin:0 auto;display:grid;grid-template-columns:1.15fr 1fr;gap:60px;align-items:start;z-index:2}
+
+.hero-left{padding-top:8px}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--verde-bright);font-weight:600;border:1px solid rgba(144,183,40,0.5);background:rgba(144,183,40,0.07);padding:6px 12px;margin-bottom:22px;border-radius:30px}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--verde-bright);box-shadow:0 0 0 3px rgba(168,214,64,0.2)}
+h1.hero-title{font-size:54px;line-height:1.05;letter-spacing:-0.03em;font-weight:700;color:var(--white);text-wrap:balance}
+h1.hero-title .green{color:var(--verde)}
+.hero-lead{margin-top:22px;font-size:16px;color:var(--muted);max-width:540px;line-height:1.6}
+.features-row{display:flex;flex-wrap:wrap;gap:14px 22px;margin-top:24px}
+.f-item{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--white);font-weight:500}
+.f-item svg{width:16px;height:16px;flex-shrink:0;color:var(--verde)}
+.cta-row{display:flex;gap:10px;margin-top:32px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:14px 22px;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;border-radius:6px;transition:all .15s;line-height:1;border:1px solid transparent}
+.btn-primary{background:var(--verde);color:var(--black);border-color:var(--verde)}
+.btn-primary:hover{background:var(--verde-bright);border-color:var(--verde-bright)}
+.btn-secondary{border-color:var(--line);color:var(--white)}
+.btn-secondary:hover{border-color:var(--white);background:rgba(255,255,255,0.05)}
+
+.ag-endorsement{margin-top:36px;display:inline-flex;align-items:center;gap:16px;padding:14px 20px;border:1px solid var(--line);background:rgba(255,255,255,0.03);border-radius:1px}
+.ag-endorsement img{flex-shrink:0;height:46px;width:auto;display:block}
+.ag-endorsement .txt{font-size:11.5px;letter-spacing:0.06em;color:var(--muted);line-height:1.5}
+.ag-endorsement .txt strong{color:var(--white);font-weight:600;letter-spacing:0.04em}
+
+/* hero right — converter quick widget */
+.quick-widget{background:linear-gradient(145deg,rgba(26,64,120,0.85),rgba(20,53,101,0.92));border:1px solid var(--line);padding:26px;position:relative;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,0.32)}
+.quick-widget::before{content:'';position:absolute;top:-1px;right:26px;width:42px;height:2px;background:var(--verde)}
+.qw-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px}
+.qw-title{font-size:11px;letter-spacing:0.2em;text-transform:uppercase;font-weight:600;color:var(--white)}
+.qw-title .arrow{color:var(--verde);margin:0 6px}
+.qw-title .green{color:var(--verde)}
+.qw-step{font-size:10px;letter-spacing:0.16em;color:var(--soft);padding:4px 8px;border:1px solid var(--line);text-transform:uppercase;font-weight:600}
+.dropzone{display:block;border:1.5px dashed rgba(120,170,230,0.42);background:rgba(255,255,255,0.04);padding:36px 18px;text-align:center;border-radius:8px;transition:all .15s;cursor:pointer;text-decoration:none;color:inherit}
+.dropzone:hover{border-color:var(--verde);background:rgba(144,183,40,0.08)}
+.dz-icon{margin:0 auto 14px;width:42px;height:42px;color:var(--muted)}
+.dz-title{font-size:13.5px;color:var(--white);font-weight:500;margin-bottom:6px}
+.dz-sub{font-size:12px;color:var(--soft);line-height:1.5}
+
+.qw-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:18px}
+.qw-field{display:flex;flex-direction:column;gap:6px}
+.qw-field .lbl{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.qw-select{background:rgba(240,244,250,0.96);border:1px solid rgba(120,170,230,0.4);color:#0a1f3d;padding:10px 10px;font-size:13.5px;font-family:inherit;border-radius:6px;appearance:none;background-image:linear-gradient(45deg,transparent 50%,#0a1f3d 50%),linear-gradient(135deg,#0a1f3d 50%,transparent 50%);background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:28px;font-weight:500}
+.qw-cta{width:100%;margin-top:18px;padding:14px;background:var(--verde);color:var(--black);font-size:12px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;border-radius:6px;border:1px solid var(--verde);transition:background .15s}
+.qw-cta:hover{background:var(--verde-bright)}
+.qw-note{margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--soft);letter-spacing:0.02em}
+.qw-note svg{width:13px;height:13px;color:var(--verde)}
+
+/* ---------- TOOLS GRID ---------- */
+.tools-section{padding:80px 40px;border-top:1px solid var(--line);background:linear-gradient(180deg,#0a1f3d 0%,#0e2b52 100%);position:relative;overflow:hidden}
+.tools-section::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px);background-size:40px 40px;opacity:.5;mask-image:linear-gradient(90deg,#000,transparent 80%);pointer-events:none}
+.section-inner{position:relative;max-width:1440px;margin:0 auto;z-index:2}
+.section-head{display:flex;align-items:end;justify-content:space-between;margin-bottom:44px;gap:32px;flex-wrap:wrap}
+.section-head .left{max-width:560px}
+.section-head .num{font-size:10px;letter-spacing:0.22em;color:var(--verde);font-weight:600;display:flex;align-items:center;gap:10px;margin-bottom:14px;text-transform:uppercase}
+.section-head .num::before{content:'';display:inline-block;width:28px;height:1px;background:var(--verde)}
+.section-head h2{font-size:38px;line-height:1.1;letter-spacing:-0.025em;font-weight:700;color:var(--white);text-wrap:balance}
+.section-head h2 .green{color:var(--verde)}
+.section-head .sub{margin-top:14px;font-size:15px;color:var(--muted);line-height:1.6}
+.section-head .right{font-size:11px;letter-spacing:0.16em;color:var(--soft);text-transform:uppercase}
+
+.tools-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.tool-card{background:linear-gradient(145deg,rgba(26,64,120,0.85),rgba(20,53,101,0.92));border:1px solid var(--line);padding:24px 22px 26px;position:relative;transition:all .2s;display:flex;flex-direction:column;gap:14px;min-height:220px;border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,0.22)}
+.tool-card:hover{border-color:rgba(144,183,40,0.55);transform:translateY(-3px);box-shadow:0 10px 32px rgba(0,0,0,0.35)}
+.tool-card.disabled{opacity:0.62}
+.tool-card.disabled:hover{transform:none;border-color:var(--line)}
+.tool-card .corner{position:absolute;top:0;right:0;width:32px;height:32px;border-left:1px solid var(--verde);border-bottom:1px solid var(--verde)}
+.tool-card.disabled .corner{display:none}
+.tool-status{display:inline-flex;align-items:center;gap:7px;font-size:9.5px;letter-spacing:0.22em;text-transform:uppercase;font-weight:600;padding:4px 8px;border-radius:1px;align-self:flex-start}
+.tool-status.live{color:var(--black);background:var(--verde)}
+.tool-status.soon{color:var(--muted);border:1px solid var(--line)}
+.tool-icon{width:48px;height:48px;color:var(--verde);margin-top:4px}
+.tool-card.disabled .tool-icon{color:var(--cinza)}
+.tool-card h3{font-size:18px;font-weight:600;letter-spacing:-0.01em;color:var(--white)}
+.tool-card p{font-size:13.5px;color:var(--muted);line-height:1.55}
+.tool-card .arrow-link{margin-top:auto;display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;font-weight:600;color:var(--verde)}
+.tool-card.disabled .arrow-link{color:var(--soft)}
+
+/* ---------- HOW IT WORKS ---------- */
+.how-section{padding:80px 40px;background:#0a1f3d;border-top:1px solid var(--line)}
+.how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:32px;border-radius:8px;overflow:hidden}
+.how-step{background:linear-gradient(145deg,rgba(26,64,120,0.85),rgba(20,53,101,0.92));padding:32px 28px;display:flex;flex-direction:column;gap:14px;position:relative}
+.how-step .step-num{font-size:48px;font-weight:700;letter-spacing:-0.04em;color:var(--verde);line-height:1;font-variant-numeric:tabular-nums}
+.how-step h4{font-size:16px;font-weight:600;color:var(--white);letter-spacing:-0.01em}
+.how-step p{font-size:13.5px;color:var(--muted);line-height:1.55}
+
+/* ---------- TRUST BAR ---------- */
+.trust-bar{padding:36px 40px;background:linear-gradient(180deg,#0e2b52,#0a1f3d);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.trust-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:48px;flex-wrap:wrap}
+.trust-pills{display:flex;flex-wrap:wrap;gap:8px}
+.t-pill{font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;font-weight:500;padding:8px 12px;border:1px solid var(--line);background:rgba(20,53,101,0.4);color:var(--muted);border-radius:30px;text-decoration:none;transition:all .15s}
+.t-pill:hover{border-color:rgba(144,183,40,0.5);color:var(--verde-bright);background:rgba(144,183,40,0.06)}
+.t-pill.green{border-color:rgba(144,183,40,0.5);color:var(--verde-bright);background:rgba(144,183,40,0.08)}
+.t-pill .ext{font-size:9px;opacity:.65;margin-left:2px}
+.trust-text{font-size:12px;letter-spacing:0.06em;color:var(--soft);line-height:1.55;max-width:380px}
+
+/* ---------- FOOTER ---------- */
+.site-footer{padding:48px 40px 36px;background:#06132a;border-top:1px solid var(--line)}
+.footer-inner{max-width:1440px;margin:0 auto;display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:48px}
+.footer-brand .brand-name{font-size:20px}
+.footer-brand .brand-tag{margin-top:6px}
+.footer-brand-desc{margin-top:18px;font-size:12.5px;color:var(--muted);line-height:1.6;max-width:320px}
+.footer-col h5{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--soft);font-weight:600;margin-bottom:14px}
+.footer-col ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+.footer-col li a{font-size:13px;color:var(--muted);transition:color .15s}
+.footer-col li a:hover{color:var(--white)}
+.footer-bottom{max-width:1440px;margin:40px auto 0;padding-top:24px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap}
+.footer-bottom-left{display:flex;align-items:center;gap:18px}
+.ag-stamp{display:inline-flex;align-items:center;gap:12px;padding:10px 16px;background:rgba(144,183,40,0.06);border:1px solid rgba(144,183,40,0.3);border-radius:6px;text-decoration:none;transition:all .15s}
+.ag-stamp:hover{background:rgba(144,183,40,0.12);border-color:rgba(144,183,40,0.55)}
+.ag-stamp img{flex-shrink:0;height:36px;width:auto;display:block}
+.ag-stamp .txt{font-size:9.5px;letter-spacing:0.14em;color:var(--soft);text-transform:uppercase;line-height:1.35}
+.ag-stamp .txt strong{display:block;color:var(--verde-bright);font-weight:700;font-size:14px;letter-spacing:-0.01em;text-transform:none;margin-bottom:1px}
+.footer-meta{font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft);line-height:1.7;text-align:right;max-width:380px}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width:1100px){
+  .hero-inner{grid-template-columns:1fr;gap:48px}
+  .tools-grid{grid-template-columns:repeat(2,1fr)}
+  .how-grid{grid-template-columns:repeat(2,1fr)}
+  h1.hero-title{font-size:42px}
+  .footer-inner{grid-template-columns:1fr 1fr}
+}
+@media (max-width:680px){
+  .hero,.tools-section,.how-section,.trust-bar,.site-footer{padding-left:20px;padding-right:20px}
+  .header-inner{padding:14px 20px}
+  .nav{display:none}
+  .tools-grid{grid-template-columns:1fr}
+  .how-grid{grid-template-columns:1fr}
+  h1.hero-title{font-size:34px}
+  .section-head h2{font-size:28px}
+  .footer-inner{grid-template-columns:1fr}
+  .footer-bottom{flex-direction:column;align-items:flex-start}
+  .footer-meta{text-align:left}
+}
+
+/* ---------- FEEDBACK BUTTON + MODAL ---------- */
+.feedback-btn{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;font-size:12px;letter-spacing:0.06em;font-weight:500;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:6px;transition:all .15s;cursor:pointer;text-decoration:none;margin-left:14px}
+.feedback-btn:hover{color:var(--verde-bright);border-color:rgba(144,183,40,0.5);background:rgba(144,183,40,0.05)}
+.feedback-btn svg{width:14px;height:14px;flex-shrink:0}
+
+.modal-backdrop{position:fixed;inset:0;background:rgba(6,18,36,0.78);backdrop-filter:blur(8px);z-index:10000;display:none;align-items:center;justify-content:center;padding:24px;animation:fadeIn .18s ease-out}
+.modal-backdrop.open{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-box{width:100%;max-width:540px;background:linear-gradient(145deg,rgba(26,64,120,0.95),rgba(20,53,101,1));border:1px solid var(--line);padding:32px 32px 28px;position:relative;border-radius:10px;box-shadow:0 24px 60px rgba(0,0,0,0.5);animation:slideUp .22s ease-out}
+@keyframes slideUp{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-box::before{content:'';position:absolute;top:-1px;left:32px;width:64px;height:2px;background:var(--verde)}
+.modal-box .modal-close{position:absolute;top:18px;right:18px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:18px;background:transparent;border:1px solid var(--line);border-radius:6px;transition:all .15s;cursor:pointer}
+.modal-box .modal-close:hover{color:var(--white);border-color:var(--white)}
+.modal-head{margin-bottom:22px}
+.modal-eyebrow{font-size:10px;letter-spacing:0.22em;text-transform:uppercase;font-weight:600;color:var(--verde-bright);margin-bottom:10px}
+.modal-title{font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--white);line-height:1.2;margin-bottom:8px}
+.modal-sub{font-size:13px;color:var(--muted);line-height:1.55}
+.modal-box form{display:flex;flex-direction:column;gap:14px}
+.mf-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mf-field{display:flex;flex-direction:column;gap:6px}
+.mf-field label{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.mf-field input,.mf-field select,.mf-field textarea{background:rgba(240,244,250,0.96);border:1px solid rgba(120,170,230,0.4);color:#0a1f3d;padding:10px 12px;font-size:13.5px;font-family:inherit;border-radius:6px;outline:none;transition:all .15s;font-weight:500}
+.mf-field input:focus,.mf-field select:focus,.mf-field textarea:focus{border-color:var(--verde);background:#fff;box-shadow:0 0 0 3px rgba(144,183,40,0.18)}
+.mf-field input::placeholder,.mf-field textarea::placeholder{color:rgba(10,31,61,0.45);font-weight:400}
+.mf-field textarea{resize:vertical;min-height:96px;line-height:1.5}
+.mf-field select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#0a1f3d 50%),linear-gradient(135deg,#0a1f3d 50%,transparent 50%);background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:28px}
+.modal-actions{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:8px}
+.modal-actions .note{font-size:11px;color:var(--soft);line-height:1.5}
+.modal-submit{padding:12px 22px;background:var(--verde);color:#0a1f3d;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;border-radius:6px;border:1px solid var(--verde);transition:background .15s;cursor:pointer}
+.modal-submit:hover{background:var(--verde-bright)}
+.modal-submit:disabled{opacity:.5;cursor:not-allowed}
+.modal-status{margin-top:14px;padding:10px 12px;font-size:12.5px;line-height:1.5;border:1px solid var(--line);display:none;border-radius:6px}
+.modal-status.show{display:block}
+.modal-status.ok{border-color:rgba(144,183,40,0.5);color:var(--verde-bright);background:rgba(144,183,40,0.08)}
+.modal-status.err{border-color:rgba(220,80,80,0.5);color:#f08585;background:rgba(220,80,80,0.05)}
+
+
+/* ---------- CURSOR VERDE AG (site inteiro) ---------- */
+body{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='28' viewBox='0 0 26 28'%3E%3Cpath d='M2 2 L2 24 L8 20 L20 20 Z' fill='%2390b728' stroke='%230a1f3d' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E") 2 2, default}
+a, button, .feedback-btn, .dropzone, .tool-card, .nav-link, .qw-cta, .btn{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='28' viewBox='0 0 26 28'%3E%3Cpath d='M2 2 L2 24 L8 20 L20 20 Z' fill='%2390b728' stroke='%230a1f3d' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E") 2 2, pointer}
+input, textarea, select{cursor:text}
+
+</style>
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="#">
+      <div class="brand-mark">
+        <!-- Logo: polígono fechado -->
+        <svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 30 L52 14 L78 38 L70 66 L34 76 L14 56 Z" fill="none" stroke="#195d83" stroke-width="2.8" stroke-linejoin="round"/>
+          <path d="M18 30 L52 14 L78 38 L70 66 L34 76 L14 56 Z" fill="#009083" opacity="0.14"/>
+          <circle cx="18" cy="30" r="3.5" fill="#90b728"/>
+          <circle cx="52" cy="14" r="3.5" fill="#90b728"/>
+          <circle cx="78" cy="38" r="3.5" fill="#90b728"/>
+          <circle cx="70" cy="66" r="3.5" fill="#90b728"/>
+          <circle cx="34" cy="76" r="3.5" fill="#90b728"/>
+          <circle cx="14" cy="56" r="3.5" fill="#90b728"/>
+          <path d="M14 28 L17 31 L23 25" fill="none" stroke="#90b728" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">confrontei<span class="dot">.</span></div>
+        <div class="brand-tag">Toolkit · Conversão · Entrega</div>
+      </div>
+    </a>
+    <nav class="nav">
+      <a class="nav-link" href="#tools">Ferramentas</a>
+      <a class="nav-link" href="#how">Como funciona</a>
+      <a class="nav-link" href="#">Ajuda</a>
+      <span class="beta-badge" style="margin-left:14px">BETA <span class="v">v0.1</span></span>
+      <button class="feedback-btn" id="open-feedback">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 4 L14 4 L14 11 L9 11 L6 14 L6 11 L2 11 Z"/></svg>
+        <span>Enviar feedback</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="hero-bg-stripe"></div>
+  <div class="hero-inner">
+    <div class="hero-left">
+      <span class="eyebrow"><span class="dot"></span> Toolkit técnico · conferência + entrega para SIG-RI e ONR</span>
+      <h1 class="hero-title">Da coordenada UTM ao arquivo aceito pelo <span class="green">SIG-RI e pelo ONR</span> — num só lugar.</h1>
+      <p class="hero-lead">Converte coordenadas, calcula área e perímetro pelo método de Gauss, valida fechamento, importa DXF, KML e KMZ, visualiza no mapa e exporta nos formatos exatos exigidos pelo manual do SIG-RI e pelo mapa público do ONR. Tudo no navegador, sem cadastro, sem upload para servidor.</p>
+
+      <div class="features-row">
+        <span class="f-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8l3.5 3.5L13 5"/></svg> Conversão + cálculo + validação</span>
+        <span class="f-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8l3.5 3.5L13 5"/></svg> Saída pronta para protocolar</span>
+        <span class="f-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8l3.5 3.5L13 5"/></svg> 100% no navegador</span>
+        <span class="f-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8l3.5 3.5L13 5"/></svg> Sem cadastro, sem servidor</span>
+      </div>
+
+      <div class="cta-row">
+        <a class="btn btn-primary" href="conversor.html">Abrir conversor →</a>
+        <a class="btn btn-secondary" href="#how">Ver como funciona</a>
+      </div>
+    </div>
+
+    <!-- Right: Quick widget -->
+    <div class="quick-widget">
+      <div class="qw-head">
+        <div class="qw-title">UTM <span class="arrow">→</span> <span class="green">Geográficas (SIRGAS 2000)</span></div>
+        <span class="qw-step">Passo 1</span>
+      </div>
+
+      <a class="dropzone" href="conversor.html" title="Abrir o conversor completo">
+        <svg class="dz-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+          <path d="M24 6 L24 30 M24 30 L16 22 M24 30 L32 22"/>
+          <path d="M8 34 L8 38 A4 4 0 0 0 12 42 L36 42 A4 4 0 0 0 40 38 L40 34"/>
+        </svg>
+        <div class="dz-title">Abrir o conversor para enviar seu arquivo</div>
+        <div class="dz-sub">No conversor você arrasta DXF, KML, KMZ ou cola a lista de coordenadas</div>
+      </a>
+
+      <div class="qw-grid">
+        <div class="qw-field">
+          <span class="lbl">Zona UTM</span>
+          <select class="qw-select"><option>24 S</option></select>
+        </div>
+        <div class="qw-field">
+          <span class="lbl">Hemisfério</span>
+          <select class="qw-select"><option>Sul</option></select>
+        </div>
+        <div class="qw-field">
+          <span class="lbl">Datum</span>
+          <select class="qw-select"><option>SIRGAS 2000</option></select>
+        </div>
+      </div>
+
+      <a href="conversor.html" class="qw-cta" style="display:block;text-align:center;text-decoration:none">Abrir conversor completo →</a>
+
+      <div class="qw-note">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 1 L13 4 L13 8 C13 11.5 8 14.5 8 14.5 C8 14.5 3 11.5 3 8 L3 4 Z"/></svg>
+        Seus dados não saem do seu navegador
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TOOLS ============ -->
+<section class="tools-section" id="tools">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="left">
+        <div class="num">01 · Toolkit</div>
+        <h2>Tudo no mesmo lugar — da conversão à <span class="green">entrega</span>.</h2>
+        <p class="sub">Mais do que um conversor: um toolkit técnico construído sobre as exigências reais do Manual SIG-RI, do mapa do ONR e do Provimento CNJ 195/2025. Você opera sem reescrever planilha, sem alternar entre quatro programas, sem dúvida sobre formato.</p>
+      </div>
+      <div class="right">5 disponíveis · 1 em desenvolvimento</div>
+    </div>
+
+    <div class="tools-grid">
+      <!-- LIVE 1: Conversão -->
+      <a class="tool-card" href="conversor.html">
+        <div class="corner"></div>
+        <span class="tool-status live">Disponível</span>
+        <svg class="tool-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M8 14 L24 6 L40 14 L40 34 L24 42 L8 34 Z"/>
+          <path d="M24 6 L24 42 M8 14 L40 14 M8 34 L40 34"/>
+          <circle cx="24" cy="22" r="2.5" fill="currentColor" stroke="none"/>
+        </svg>
+        <h3>UTM → Geográficas (SIRGAS 2000)</h3>
+        <p>Converte coordenadas UTM em SIRGAS 2000, SAD69 ou WGS 84 para coordenadas geográficas decimais no datum SIRGAS 2000 (EPSG:4674). Transformação via proj4 com parâmetros oficiais do IBGE.</p>
+        <span class="arrow-link">Abrir ferramenta →</span>
+      </a>
+
+      <!-- LIVE 2: Área e Perímetro -->
+      <a class="tool-card" href="conversor.html">
+        <div class="corner"></div>
+        <span class="tool-status live">Disponível</span>
+        <svg class="tool-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M8 12 L20 8 L34 14 L42 10 L42 36 L34 40 L20 34 L8 38 Z"/>
+          <circle cx="20" cy="8" r="2" fill="currentColor" stroke="none"/>
+          <circle cx="34" cy="14" r="2" fill="currentColor" stroke="none"/>
+          <circle cx="42" cy="10" r="2" fill="currentColor" stroke="none"/>
+        </svg>
+        <h3>Área e Perímetro</h3>
+        <p>Cálculo pelo método de Gauss em projeção UTM com saída em metros, m², hectare e indicador de fechamento (tolerância de 1 cm). Atualização em tempo real conforme você edita.</p>
+        <span class="arrow-link">Abrir ferramenta →</span>
+      </a>
+
+      <!-- LIVE 3: Importação multiformato -->
+      <a class="tool-card" href="conversor.html">
+        <div class="corner"></div>
+        <span class="tool-status live">Disponível</span>
+        <svg class="tool-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="6" y="10" width="14" height="14" rx="1"/>
+          <rect x="28" y="24" width="14" height="14" rx="1"/>
+          <path d="M20 17 L28 31" stroke-dasharray="2 2"/>
+        </svg>
+        <h3>Importação multiformato</h3>
+        <p>Aceita DXF (LWPOLYLINE/POLYLINE), KML, KMZ, lista colada de planilha e digitação ponto-a-ponto. Detecção automática de camadas DIVISA / PERIMETRO / LIMITE no DXF.</p>
+        <span class="arrow-link">Abrir ferramenta →</span>
+      </a>
+
+      <!-- LIVE 4: Visualização e validação -->
+      <a class="tool-card" href="conversor.html">
+        <div class="corner"></div>
+        <span class="tool-status live">Disponível</span>
+        <svg class="tool-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M24 4 C16 4 10 10 10 18 C10 26 24 42 24 42 C24 42 38 26 38 18 C38 10 32 4 24 4 Z"/>
+          <circle cx="24" cy="18" r="6"/>
+          <path d="M20 18 L23 21 L29 14" stroke="#90b728" stroke-width="2.2"/>
+        </svg>
+        <h3>Visualização e Validação</h3>
+        <p>Polígono renderizado em tempo real sobre OpenStreetMap ou imagem de satélite. Vértices numerados, popup com coordenadas geográficas e UTM, validação de fechamento e alerta de gap.</p>
+        <span class="arrow-link">Abrir ferramenta →</span>
+      </a>
+
+      <!-- LIVE 5: Exportação SIG-RI / ONR -->
+      <a class="tool-card" href="conversor.html">
+        <div class="corner"></div>
+        <span class="tool-status live">Disponível</span>
+        <svg class="tool-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M24 6 L24 30 M24 30 L16 22 M24 30 L32 22"/>
+          <path d="M8 34 L8 38 A4 4 0 0 0 12 42 L36 42 A4 4 0 0 0 40 38 L40 34"/>
+        </svg>
+        <h3>Exportação SIG-RI / ONR</h3>
+        <p>Texto no formato exato do Manual SIG-RI (lat/long em graus decimais, polígono fechado), Shapefile completo (SHP+SHX+DBF+PRJ+CPG), KML com metadados de origem e CSV para planilha.</p>
+        <span class="arrow-link">Abrir ferramenta →</span>
+      </a>
+
+      <!-- SOON: Memorial PDF -->
+      <div class="tool-card disabled">
+        <span class="tool-status soon">Em desenvolvimento</span>
+        <svg class="tool-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="10" y="6" width="28" height="36" rx="1"/>
+          <path d="M16 14 L32 14 M16 20 L32 20 M16 26 L32 26 M16 32 L26 32"/>
+        </svg>
+        <h3>Memorial Descritivo (PDF)</h3>
+        <p>Memorial descritivo automático no padrão técnico, com tabela de vértices, confrontantes, azimutes e distâncias. Saída em PDF pronto para protocolar.</p>
+        <span class="arrow-link">Em breve</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="how-section" id="how">
+  <div class="section-inner">
+    <div class="section-head">
+      <div class="left">
+        <div class="num">02 · Fluxo</div>
+        <h2>Como funciona em <span class="green">quatro passos</span>.</h2>
+        <p class="sub">Sem instalação. Sem cadastro. Sem servidor intermediando seus dados. Você opera direto no navegador, da entrada à exportação.</p>
+      </div>
+    </div>
+
+    <div class="how-grid">
+      <div class="how-step">
+        <div class="step-num">01</div>
+        <h4>Envie seus dados</h4>
+        <p>Cole de planilha, digite vértice a vértice, ou arraste arquivos DXF, KML e KMZ. Detecção automática de formato e de camada de divisa.</p>
+      </div>
+      <div class="how-step">
+        <div class="step-num">02</div>
+        <h4>Configure a origem</h4>
+        <p>Selecione zona UTM, hemisfério e datum de origem — SIRGAS 2000, SAD69 ou WGS 84. Transformação via parâmetros oficiais do IBGE.</p>
+      </div>
+      <div class="how-step">
+        <div class="step-num">03</div>
+        <h4>Visualize e valide</h4>
+        <p>Polígono no mapa OSM ou satélite, com vértices numerados. Área, perímetro e fechamento atualizam em tempo real conforme você edita.</p>
+      </div>
+      <div class="how-step">
+        <div class="step-num">04</div>
+        <h4>Exporte e protocole</h4>
+        <p>Texto no formato exato do Manual SIG-RI, Shapefile completo com PRJ, KML com metadados ou CSV para planilha. Um clique, arquivo pronto.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TRUST BAR ============ -->
+<section class="trust-bar">
+  <div class="trust-inner">
+    <div class="trust-pills">
+      <a class="t-pill green" href="https://mapa.onr.org.br/sigri/" target="_blank" rel="noopener">SIGRI · ONR <span class="ext">↗</span></a>
+      <a class="t-pill" href="https://mapa.onr.org.br/sigri/manual/manual-profissionais-tecnicos" target="_blank" rel="noopener">Manual SIG-RI <span class="ext">↗</span></a>
+      <a class="t-pill" href="https://atos.cnj.jus.br/atos/detalhar/6151" target="_blank" rel="noopener">Provimento CNJ 195/2025 <span class="ext">↗</span></a>
+      <a class="t-pill" href="https://mapa.onr.org.br/" target="_blank" rel="noopener">Mapa público ONR <span class="ext">↗</span></a>
+    </div>
+    <p class="trust-text">Versão beta em homologação. A conferência das coordenadas, cálculos e compatibilidade com o SIG-RI é de responsabilidade do profissional técnico pelo levantamento.</p>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a class="brand" href="#">
+        <div class="brand-mark">
+          <svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+  <path d="M18 30 L52 14 L78 38 L70 66 L34 76 L14 56 Z" fill="none" stroke="#195d83" stroke-width="2.8" stroke-linejoin="round"/>
+  <path d="M18 30 L52 14 L78 38 L70 66 L34 76 L14 56 Z" fill="#009083" opacity="0.14"/>
+  <circle cx="18" cy="30" r="3.5" fill="#90b728"/>
+  <circle cx="52" cy="14" r="3.5" fill="#90b728"/>
+  <circle cx="78" cy="38" r="3.5" fill="#90b728"/>
+  <circle cx="70" cy="66" r="3.5" fill="#90b728"/>
+  <circle cx="34" cy="76" r="3.5" fill="#90b728"/>
+  <circle cx="14" cy="56" r="3.5" fill="#90b728"/>
+  <path d="M14 28 L17 31 L23 25" fill="none" stroke="#90b728" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+        </div>
+        <div>
+          <div class="brand-name">confrontei<span class="dot">.</span></div>
+          <div class="brand-tag">Toolkit · Conversão · Entrega</div>
+        </div>
+      </a>
+      <p class="footer-brand-desc">Toolkit técnico para profissionais que protocolam no SIG-RI, ONR e órgãos de regularização fundiária — e para quem está aprendendo a fazer. Construído por quem faz.</p>
+    </div>
+
+    <div class="footer-col">
+      <h5>Ferramentas</h5>
+      <ul>
+        <li><a href="conversor.html">UTM → Geográficas (SIRGAS 2000)</a></li>
+        <li><a href="conversor.html">Área e perímetro</a></li>
+        <li><a href="conversor.html">Importação DXF / KML / KMZ</a></li>
+        <li><a href="conversor.html">Exportação SIG-RI / ONR</a></li>
+        <li><a href="#tools">Memorial descritivo (em breve)</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h5>Recursos</h5>
+      <ul>
+        <li><a href="#how">Como funciona</a></li>
+        <li><a href="#">Documentação técnica</a></li>
+        <li><a href="#">Sobre o SIG-RI</a></li>
+        <li><a href="#">Provimento CNJ 195/2025</a></li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h5>Contato</h5>
+      <ul>
+        <li><a href="#" id="open-feedback-footer" onclick="event.preventDefault();document.getElementById('feedback-modal').classList.add('open');document.body.style.overflow='hidden';">Enviar feedback</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <div class="footer-bottom-left">
+      <a class="ag-stamp" href="https://agtopografia.com.br" target="_blank" rel="noopener">
+        <img src="assets/ag-symbol.png" alt="AG Topografia">
+        <div class="txt"><strong>AGLab</strong>Educacional · por AG Topografia</div>
+      </a>
+    </div>
+    <div class="footer-meta">Datum oficial brasileiro conforme Resolução do Presidente do IBGE nº 01/2015 · © 2026</div>
+  </div>
+</footer>
+
+
+
+<!-- ============ FEEDBACK MODAL ============ -->
+<div class="modal-backdrop" id="feedback-modal">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="fb-title">
+    <button class="modal-close" id="close-feedback" aria-label="Fechar">×</button>
+    <div class="modal-head">
+      <div class="modal-eyebrow">Beta v0.1 · envie seu feedback</div>
+      <div class="modal-title" id="fb-title">Seu feedback é muito importante.</div>
+      <div class="modal-sub">Sua observação ajuda a melhorar a ferramenta. Leva 30 segundos.</div>
+    </div>
+    <form id="feedback-form" action="https://api.web3forms.com/submit" method="POST">
+      <input type="hidden" name="access_key" value="c16d5305-5ca0-4811-9456-519c13d2af70">
+      <input type="hidden" name="subject" value="[Confrontei BETA] Novo feedback da landing">
+      <input type="hidden" name="from_name" value="Confrontei · Landing BETA v0.1">
+      <input type="hidden" name="versao" value="v0.1">
+      <input type="checkbox" name="botcheck" style="display:none" tabindex="-1" autocomplete="off">
+      <div class="mf-row">
+        <div class="mf-field">
+          <label for="fb-nome">Nome</label>
+          <input type="text" id="fb-nome" name="nome" placeholder="Seu nome" required>
+        </div>
+        <div class="mf-field">
+          <label for="fb-funcao">Função</label>
+          <select id="fb-funcao" name="funcao" required>
+            <option value="">Selecione</option>
+            <option>Topógrafo</option>
+            <option>Engenheiro civil / agrônomo</option>
+            <option>Advogado</option>
+            <option>Cartório / oficial</option>
+            <option>Empresa de georreferenciamento</option>
+            <option>Estudante / acadêmico</option>
+            <option>Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="mf-field">
+        <label for="fb-contato">Contato (opcional)</label>
+        <input type="text" id="fb-contato" name="contato" placeholder="E-mail ou WhatsApp — para retorno, se desejar">
+      </div>
+      <div class="mf-field">
+        <label for="fb-mensagem">Comentário / sugestão</label>
+        <textarea id="fb-mensagem" name="mensagem" placeholder="Conte o que achou, o que faltou, o que pode melhorar..." required></textarea>
+      </div>
+      <div class="modal-actions">
+        <span class="note">Seu envio chega direto na nossa caixa.</span>
+        <button type="submit" class="modal-submit" id="fb-submit">Enviar feedback</button>
+      </div>
+      <div class="modal-status" id="fb-status"></div>
+    </form>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $m = document.getElementById('feedback-modal');
+  const $open = document.getElementById('open-feedback');
+  const $openFooter = document.getElementById('open-feedback-footer');
+  const $close = document.getElementById('close-feedback');
+  const $form = document.getElementById('feedback-form');
+  const $submit = document.getElementById('fb-submit');
+  const $status = document.getElementById('fb-status');
+
+  function open(){ $m.classList.add('open'); document.body.style.overflow = 'hidden'; }
+  function close(){ $m.classList.remove('open'); document.body.style.overflow = ''; $status.className = 'modal-status'; }
+
+  if($open) $open.addEventListener('click', open);
+  if($openFooter){ $openFooter.addEventListener('click', e => { e.preventDefault(); open(); }); }
+  $close.addEventListener('click', close);
+  $m.addEventListener('click', e => { if(e.target === $m) close(); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && $m.classList.contains('open')) close(); });
+
+  $form.addEventListener('submit', async e => {
+    e.preventDefault();
+    $submit.disabled = true;
+    $submit.textContent = 'Enviando...';
+    $status.className = 'modal-status';
+    try {
+      const data = new FormData($form);
+      const res = await fetch($form.action, { method: 'POST', body: data });
+      const json = await res.json().catch(() => ({}));
+      if(res.ok && json.success !== false){
+        $status.className = 'modal-status show ok';
+        $status.textContent = 'Feedback enviado. Obrigada pela contribuição — todo retorno é lido individualmente.';
+        $form.reset();
+        setTimeout(close, 2800);
+      } else {
+        throw new Error(json.message || 'Falha no envio');
+      }
+    } catch(err){
+      $status.className = 'modal-status show err';
+      $status.textContent = 'Não foi possível enviar agora. Tente novamente em alguns instantes.';
+    } finally {
+      $submit.disabled = false;
+      $submit.textContent = 'Enviar feedback';
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
