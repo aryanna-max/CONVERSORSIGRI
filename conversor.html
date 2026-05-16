@@ -678,6 +678,10 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
         </span>
       </div>
       <div class="map-label">Pré-visualização · <span class="vcount" id="map-vcount">0 vértices</span></div>
+      <div class="coord-hud" id="coord-hud">
+        <div class="row"><span class="lbl">Lat</span><span id="hud-lat">—</span></div>
+        <div class="row"><span class="lbl">Lng</span><span id="hud-lng">—</span></div>
+      </div>
       <div class="map-overlay">
         <button class="map-btn" id="btn-layers">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" style="width:13px;height:13px;display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M8 2 L14 5 L8 8 L2 5 Z"/><path d="M2 8 L8 11 L14 8"/><path d="M2 11 L8 14 L14 11"/></svg>
@@ -708,9 +712,6 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
           <strong>Consultivas, não definitivas.</strong>
           As camadas dependem da disponibilidade dos servidores dos órgãos (INCRA, IBGE, FUNAI). Confirme sempre na fonte oficial antes do protocolo.
         </div>
-      </div>
-    </div>
-
       </div>
     </div>
 
@@ -981,7 +982,14 @@ function handleDXF(file){
           return;
         }
       }
-      const verts = chosen.pts.map((p,i) => ({ name: 'V'+(i+1), e: p.x, n: p.y }));
+      let verts = chosen.pts.map((p,i) => ({ name: 'V'+(i+1), e: p.x, n: p.y }));
+      // Remove vértice de fechamento duplicado (último == primeiro), como nos demais importadores
+      if(verts.length >= 4){
+        const a = verts[0], b = verts[verts.length-1];
+        if(Math.hypot(a.e - b.e, a.n - b.n) < 0.01){
+          verts = verts.slice(0, -1);
+        }
+      }
       state.fromKML = false;
       loadFromUTM(verts);
     } catch(err){

@@ -37,12 +37,20 @@ Versão online: [confrontei.agtopografia.com.br](https://confrontei.agtopografia
 ```
 .
 ├── index.html              ← Landing
-├── conversor.html          ← Ferramenta principal
+├── conversor.html          ← Ferramenta principal (fonte)
+├── conversor-offline.html  ← Build offline (artefato derivado)
 ├── assets/
 │   └── ag-symbol.png       ← Símbolo AGLab
 ├── LICENSE.txt             ← Termos de uso
 └── README.md
 ```
+
+> **Sobre `conversor-offline.html`** — é um *build* single-file gerado a
+> partir de `conversor.html`, com todas as bibliotecas de CDN (Leaflet,
+> proj4, turf, JSZip) embutidas inline. Serve para uso 100% sem internet.
+> É um **artefato derivado**: não edite diretamente — altere
+> `conversor.html` e regere o offline. Por ser gerado, ele pode estar
+> defasado em relação à fonte; em caso de dúvida, use `conversor.html`.
 
 ---
 
