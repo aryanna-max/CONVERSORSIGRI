@@ -9,7 +9,9 @@
 
 ## O que é
 
-Toolkit web que converte coordenadas UTM (em SIRGAS 2000, SAD69 ou WGS 84) em coordenadas geográficas decimais no datum SIRGAS 2000 (EPSG:4674), no formato exato exigido pelo SIGRI da ONR e pelo Provimento CNJ 195/2025.
+Toolkit web que converte coordenadas UTM (em SIRGAS 2000 ou WGS 84) em coordenadas geográficas decimais no datum SIRGAS 2000 (EPSG:4674), no formato exato exigido pelo SIGRI da ONR e pelo Provimento CNJ 195/2025.
+
+> **Datum.** A conversão é a inversão exata da projeção UTM sobre o elipsoide GRS80 (SIRGAS 2000), precisão milimétrica. WGS 84 é tratado como SIRGAS 2000 (diferença sub-decimétrica, universalmente aceita). **SAD69 não é suportado**: a rede SAD69 tem distorções regionais de vários metros que só a grade oficial NTv2 do IBGE (ProGriD/MapGeo) corrige — incompatível com a precisão exigida pelas NBR 13133 e NBR 17047. Dados em SAD69 devem ser transformados previamente no ProGriD/MapGeo oficial do IBGE.
 
 Inclui:
 
@@ -37,12 +39,20 @@ Versão online: [confrontei.agtopografia.com.br](https://confrontei.agtopografia
 ```
 .
 ├── index.html              ← Landing
-├── conversor.html          ← Ferramenta principal
+├── conversor.html          ← Ferramenta principal (fonte)
+├── conversor-offline.html  ← Build offline (artefato derivado)
 ├── assets/
 │   └── ag-symbol.png       ← Símbolo AGLab
 ├── LICENSE.txt             ← Termos de uso
 └── README.md
 ```
+
+> **Sobre `conversor-offline.html`** — é um *build* single-file gerado a
+> partir de `conversor.html`, com todas as bibliotecas de CDN (Leaflet,
+> proj4, turf, JSZip) embutidas inline. Serve para uso 100% sem internet.
+> É um **artefato derivado**: não edite diretamente — altere
+> `conversor.html` e regere o offline. Por ser gerado, ele pode estar
+> defasado em relação à fonte; em caso de dúvida, use `conversor.html`.
 
 ---
 

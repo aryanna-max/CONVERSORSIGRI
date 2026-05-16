@@ -5,7 +5,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 90"><path d="M18 30 L52 14 L78 38 L70 66 L34 76 L14 56 Z" fill="none" stroke="%23195d83" stroke-width="6" stroke-linejoin="round"/><circle cx="18" cy="30" r="7" fill="%2390b728"/><circle cx="52" cy="14" r="7" fill="%2390b728"/><circle cx="78" cy="38" r="7" fill="%2390b728"/><circle cx="70" cy="66" r="7" fill="%2390b728"/><circle cx="34" cy="76" r="7" fill="%2390b728"/><circle cx="14" cy="56" r="7" fill="%2390b728"/></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Conversor de coordenadas UTM → Geográficas (SIRGAS 2000) para SIGRI / ONR | AG Topografia</title>
-<meta name="description" content="Converte coordenadas UTM em coordenadas geográficas (lat/long em graus decimais) no datum SIRGAS 2000, formato aceito pelo SIGRI e pelo mapa do ONR. Aceita UTM em SIRGAS 2000, SAD69 e WGS 84. Exporta texto, Shapefile, KML e CSV.">
+<meta name="description" content="Converte coordenadas UTM em coordenadas geográficas (lat/long em graus decimais) no datum SIRGAS 2000, formato aceito pelo SIGRI e pelo mapa do ONR. Aceita UTM em SIRGAS 2000 ou WGS 84. Exporta texto, Shapefile, KML e CSV.">
 
 <link href="https://fonts.googleapis.com/css2?family=Asap:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -443,7 +443,7 @@ input, textarea, select, [contenteditable]{cursor:text}
     <div>
       <div class="eyebrow">Ferramenta técnica operacional</div>
       <h1 class="hero-title">Conversão de coordenadas UTM em <span class="green">geográficas (SIRGAS 2000)</span> no formato aceito pelo SIGRI e pelo mapa público do ONR.</h1>
-      <p class="hero-lead">Aceita UTM em SIRGAS 2000, SAD69 ou WGS 84, planilha colada, DXF (LWPOLYLINE/POLYLINE), KML/KMZ ou digitação manual. Saída em coordenadas geográficas (graus decimais) no SIRGAS 2000 (EPSG:4674), além de Shapefile, KML e CSV. Perímetro e área calculados em UTM pelo método de Gauss. Tudo no navegador — nada é enviado para servidor.</p>
+      <p class="hero-lead">Aceita UTM em SIRGAS 2000 ou WGS 84, planilha colada, DXF (LWPOLYLINE/POLYLINE), KML/KMZ ou digitação manual. Saída em coordenadas geográficas (graus decimais) no SIRGAS 2000 (EPSG:4674), além de Shapefile, KML e CSV. Perímetro e área calculados em UTM pelo método de Gauss. Tudo no navegador — nada é enviado para servidor.</p>
     </div>
     <div class="pills">
       <span class="pill green">EPSG:4674 · SIRGAS 2000</span>
@@ -477,8 +477,8 @@ input, textarea, select, [contenteditable]{cursor:text}
               <option value="21">21 S</option>
               <option value="22">22 S</option>
               <option value="23">23 S</option>
-              <option value="24" selected>24 S — Recife / PE</option>
-              <option value="25">25 S</option>
+              <option value="24">24 S</option>
+              <option value="25" selected>25 S — Recife / PE</option>
             </select>
           </label>
           <label class="field">
@@ -493,11 +493,10 @@ input, textarea, select, [contenteditable]{cursor:text}
           <span class="lbl">Datum de entrada</span>
           <select id="cfg-datum" class="input">
             <option value="SIRGAS2000" selected>SIRGAS 2000 (EPSG:31984 — recomendado)</option>
-            <option value="SAD69">SAD69 (EPSG:29194)</option>
             <option value="WGS84">WGS 84 (EPSG:32724)</option>
           </select>
         </label>
-        <div class="field-help">SIGRI exige coordenadas geográficas em SIRGAS 2000 (EPSG:4674). Entradas em UTM SAD69 ou WGS 84 são transformadas para SIRGAS 2000 via proj4 com parâmetros oficiais.</div>
+        <div class="field-help">SIGRI exige coordenadas geográficas em SIRGAS 2000 (EPSG:4674). Entrada em UTM WGS 84 é tratada como SIRGAS 2000 (diferença sub-decimétrica). Dados em SAD69 devem ser transformados previamente no ProGriD/MapGeo oficial do IBGE — não há transformação exata de SAD69 por software cliente.</div>
       </div>
 
       <!-- 02 — ENTRADA -->
@@ -526,7 +525,7 @@ V4  295248.440  9106453.890
 V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
           <div class="btn-row" style="margin-top:10px">
             <button class="btn btn-primary" id="btn-paste-import">Importar lista</button>
-            <button class="btn btn-secondary" id="btn-paste-example">Exemplo Recife 24S</button>
+            <button class="btn btn-secondary" id="btn-paste-example">Exemplo Recife 25S</button>
             <button class="btn-ghost" id="btn-paste-clear">Limpar</button>
           </div>
         </div>
@@ -678,6 +677,10 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
         </span>
       </div>
       <div class="map-label">Pré-visualização · <span class="vcount" id="map-vcount">0 vértices</span></div>
+      <div class="coord-hud" id="coord-hud">
+        <div class="row"><span class="lbl">Lat</span><span id="hud-lat">—</span></div>
+        <div class="row"><span class="lbl">Lng</span><span id="hud-lng">—</span></div>
+      </div>
       <div class="map-overlay">
         <button class="map-btn" id="btn-layers">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" style="width:13px;height:13px;display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M8 2 L14 5 L8 8 L2 5 Z"/><path d="M2 8 L8 11 L14 8"/><path d="M2 11 L8 14 L14 11"/></svg>
@@ -711,9 +714,6 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
       </div>
     </div>
 
-      </div>
-    </div>
-
   </section>
 </main>
 
@@ -740,12 +740,10 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
 /* --- PROJ4 setup --- */
 proj4.defs("EPSG:4674", "+proj=longlat +ellps=GRS80 +no_defs"); // SIRGAS 2000 geográfica
 proj4.defs("EPSG:4326", "+proj=longlat +datum=WGS84 +no_defs");
-proj4.defs("EPSG:4618", "+proj=longlat +ellps=aust_SA +towgs84=-66.87,4.37,-38.52,0,0,0,0 +no_defs"); // SAD69
 
 function utmProjString(zona, hemi, datum){
   const south = hemi === 'S' ? ' +south' : '';
   if(datum === 'SIRGAS2000') return `+proj=utm +zone=${zona}${south} +ellps=GRS80 +units=m +no_defs`;
-  if(datum === 'SAD69')      return `+proj=utm +zone=${zona}${south} +ellps=aust_SA +towgs84=-66.87,4.37,-38.52,0,0,0,0 +units=m +no_defs`;
   if(datum === 'WGS84')      return `+proj=utm +zone=${zona}${south} +datum=WGS84 +units=m +no_defs`;
   return `+proj=utm +zone=${zona}${south} +ellps=GRS80 +units=m +no_defs`;
 }
@@ -823,7 +821,7 @@ $('btn-paste-import').addEventListener('click', () => {
 });
 
 $('btn-paste-example').addEventListener('click', () => {
-  // Polígono real próximo a Recife/PE — Zona 24S (fechado: V1 repete no fim)
+  // Polígono real próximo a Recife/PE — Zona 25S (fechado: V1 repete no fim)
   $('paste-area').value =
 `V1  295234.120  9106518.430
 V2  295298.560  9106540.210
@@ -981,7 +979,14 @@ function handleDXF(file){
           return;
         }
       }
-      const verts = chosen.pts.map((p,i) => ({ name: 'V'+(i+1), e: p.x, n: p.y }));
+      let verts = chosen.pts.map((p,i) => ({ name: 'V'+(i+1), e: p.x, n: p.y }));
+      // Remove vértice de fechamento duplicado (último == primeiro), como nos demais importadores
+      if(verts.length >= 4){
+        const a = verts[0], b = verts[verts.length-1];
+        if(Math.hypot(a.e - b.e, a.n - b.n) < 0.01){
+          verts = verts.slice(0, -1);
+        }
+      }
       state.fromKML = false;
       loadFromUTM(verts);
     } catch(err){
@@ -1058,7 +1063,6 @@ function loadFromUTM(verts){
   // Pipeline: UTM(datum X) -> longlat(datum X) -> longlat(SIRGAS 2000 = EPSG:4674)
   let sourceGeo;
   if(datum === 'SIRGAS2000') sourceGeo = 'EPSG:4674';
-  else if(datum === 'SAD69') sourceGeo = 'EPSG:4618';
   else sourceGeo = 'EPSG:4326';
 
   const result = verts.map(v => {
@@ -1088,7 +1092,7 @@ function loadFromKMLPoints(pts){
 }
 
 function labelDatum(d){
-  return d === 'SIRGAS2000' ? 'SIRGAS 2000' : d === 'SAD69' ? 'SAD69' : 'WGS 84';
+  return d === 'SIRGAS2000' ? 'SIRGAS 2000' : 'WGS 84';
 }
 
 /* ===========================================================

@@ -310,7 +310,7 @@ input, textarea, select{cursor:text}
       <div class="qw-grid">
         <div class="qw-field">
           <span class="lbl">Zona UTM</span>
-          <select class="qw-select"><option>24 S</option></select>
+          <select class="qw-select"><option>25 S — Recife / PE</option></select>
         </div>
         <div class="qw-field">
           <span class="lbl">Hemisfério</span>
@@ -355,7 +355,7 @@ input, textarea, select{cursor:text}
           <circle cx="24" cy="22" r="2.5" fill="currentColor" stroke="none"/>
         </svg>
         <h3>UTM → Geográficas (SIRGAS 2000)</h3>
-        <p>Converte coordenadas UTM em SIRGAS 2000, SAD69 ou WGS 84 para coordenadas geográficas decimais no datum SIRGAS 2000 (EPSG:4674). Transformação via proj4 com parâmetros oficiais do IBGE.</p>
+        <p>Converte coordenadas UTM em SIRGAS 2000 ou WGS 84 para coordenadas geográficas decimais no datum SIRGAS 2000 (EPSG:4674). Inversão exata da projeção (elipsoide GRS80) via proj4 — sem transformação de datum.</p>
         <span class="arrow-link">Abrir ferramenta →</span>
       </a>
 
@@ -450,7 +450,7 @@ input, textarea, select{cursor:text}
       <div class="how-step">
         <div class="step-num">02</div>
         <h4>Configure a origem</h4>
-        <p>Selecione zona UTM, hemisfério e datum de origem — SIRGAS 2000, SAD69 ou WGS 84. Transformação via parâmetros oficiais do IBGE.</p>
+        <p>Selecione zona UTM, hemisfério e datum de origem — SIRGAS 2000 ou WGS 84. Inversão exata da projeção sobre o elipsoide GRS80, em conformidade com o sistema de referência oficial (SIRGAS 2000).</p>
       </div>
       <div class="how-step">
         <div class="step-num">03</div>
