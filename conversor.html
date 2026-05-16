@@ -477,8 +477,8 @@ input, textarea, select, [contenteditable]{cursor:text}
               <option value="21">21 S</option>
               <option value="22">22 S</option>
               <option value="23">23 S</option>
-              <option value="24" selected>24 S — Recife / PE</option>
-              <option value="25">25 S</option>
+              <option value="24">24 S</option>
+              <option value="25" selected>25 S — Recife / PE</option>
             </select>
           </label>
           <label class="field">
@@ -526,7 +526,7 @@ V4  295248.440  9106453.890
 V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
           <div class="btn-row" style="margin-top:10px">
             <button class="btn btn-primary" id="btn-paste-import">Importar lista</button>
-            <button class="btn btn-secondary" id="btn-paste-example">Exemplo Recife 24S</button>
+            <button class="btn btn-secondary" id="btn-paste-example">Exemplo Recife 25S</button>
             <button class="btn-ghost" id="btn-paste-clear">Limpar</button>
           </div>
         </div>
@@ -824,7 +824,7 @@ $('btn-paste-import').addEventListener('click', () => {
 });
 
 $('btn-paste-example').addEventListener('click', () => {
-  // Polígono real próximo a Recife/PE — Zona 24S (fechado: V1 repete no fim)
+  // Polígono real próximo a Recife/PE — Zona 25S (fechado: V1 repete no fim)
   $('paste-area').value =
 `V1  295234.120  9106518.430
 V2  295298.560  9106540.210
