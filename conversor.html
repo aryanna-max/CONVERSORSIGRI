@@ -1066,22 +1066,46 @@ async function handleKML(file){
     }
     const parser = new DOMParser();
     const doc = parser.parseFromString(kmlText, 'text/xml');
-    // Find first Polygon outerBoundaryIs LinearRing coordinates
-    const poly = doc.getElementsByTagName('Polygon')[0];
-    if(!poly){ setStatus('input-status','err','Nenhum Polygon encontrado no KML.'); return; }
-    const outer = poly.getElementsByTagName('outerBoundaryIs')[0];
-    if(!outer){ setStatus('input-status','err','Polygon sem outerBoundaryIs.'); return; }
-    const ring = outer.getElementsByTagName('LinearRing')[0];
-    if(!ring){ setStatus('input-status','err','outerBoundaryIs sem LinearRing.'); return; }
-    const coordsNode = ring.getElementsByTagName('coordinates')[0];
-    if(!coordsNode){ setStatus('input-status','err','LinearRing sem <coordinates>.'); return; }
-    const raw = coordsNode.textContent.trim();
+    // Aceita Polygon, LineString ou gx:Track — em qualquer namespace (kml, kml22, etc).
+    const polys  = doc.getElementsByTagNameNS('*', 'Polygon');
+    const lines  = doc.getElementsByTagNameNS('*', 'LineString');
+    const tracks = doc.getElementsByTagNameNS('*', 'Track');
+    let coordsText = null, found = null;
+    for(const p of polys){
+      const outer = p.getElementsByTagNameNS('*','outerBoundaryIs')[0];
+      const ring  = outer && outer.getElementsByTagNameNS('*','LinearRing')[0];
+      const c     = ring  && ring.getElementsByTagNameNS('*','coordinates')[0];
+      if(c){ coordsText = c.textContent; found = 'Polygon'; break; }
+    }
+    if(!coordsText){
+      for(const l of lines){
+        const c = l.getElementsByTagNameNS('*','coordinates')[0];
+        if(c){ coordsText = c.textContent; found = 'LineString'; break; }
+      }
+    }
+    if(!coordsText && tracks.length){
+      const coords = tracks[0].getElementsByTagNameNS('*','coord');
+      if(coords.length >= 3){
+        coordsText = Array.from(coords).map(c => c.textContent.trim().split(/\s+/).slice(0,2).join(',')).join(' ');
+        found = 'gx:Track';
+      }
+    }
+    if(!coordsText){
+      const placemarks = doc.getElementsByTagNameNS('*','Placemark').length;
+      const points     = doc.getElementsByTagNameNS('*','Point').length;
+      const parseErr   = doc.getElementsByTagName('parsererror').length;
+      if(parseErr){ setStatus('input-status','err','KML inválido: erro de parsing do XML.'); return; }
+      setStatus('input-status','err',
+        `Nenhuma geometria utilizável. Encontrado: ${placemarks} Placemark, ${polys.length} Polygon, ${lines.length} LineString, ${points} Point, ${tracks.length} Track. Use Polygon ou LineString com pelo menos 3 vértices.`);
+      return;
+    }
+    const raw = coordsText.trim();
     const pts = raw.split(/\s+/).map(t => t.split(',')).filter(a => a.length >= 2).map(a => ({ lng: parseFloat(a[0]), lat: parseFloat(a[1]) })).filter(p => isFinite(p.lat) && isFinite(p.lng));
     // remove duplicate closing point if equal to first
     if(pts.length > 3 && pts[0].lat === pts[pts.length-1].lat && pts[0].lng === pts[pts.length-1].lng){
       pts.pop();
     }
-    if(pts.length < 3){ setStatus('input-status','err','Polígono com menos de 3 vértices.'); return; }
+    if(pts.length < 3){ setStatus('input-status','err','Geometria com menos de 3 vértices distintos.'); return; }
     state.fromKML = true;
     loadFromKMLPoints(pts);
   } catch(err){
