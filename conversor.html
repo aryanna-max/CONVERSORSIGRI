@@ -2200,22 +2200,84 @@ function generateMemorialPDF(){
   setStatus('export-status','ok','Memorial Descritivo (PDF) gerado.');
 }
 
+// Centroide do polígono em lat/lng (média simples — suficiente para reverse geocode)
+function polyCentroidLatLng(verts){
+  let lat = 0, lng = 0;
+  for(const v of verts){ lat += v.lat; lng += v.lng; }
+  return { lat: lat / verts.length, lng: lng / verts.length };
+}
+
+// Persistência de RT/empresa (independente de polígono)
+const MEM_RT_KEYS = ['mem-rt-nome','mem-rt-reg','mem-empresa','mem-empresa-endereco'];
+function loadMemorialRT(){
+  try { const saved = JSON.parse(localStorage.getItem('confrontei_rt') || '{}');
+    MEM_RT_KEYS.forEach(k => { if(saved[k] && !$(k).value) $(k).value = saved[k]; });
+  } catch {}
+}
+function saveMemorialRT(){
+  const data = {}; MEM_RT_KEYS.forEach(k => data[k] = $(k).value);
+  try { localStorage.setItem('confrontei_rt', JSON.stringify(data)); } catch {}
+}
+
+// Pré-preenchimento por localização via Nominatim (OSM reverse geocoding)
+async function prefillFromLocation(){
+  if(state.vertices.length < 3) return;
+  const c = polyCentroidLatLng(state.vertices);
+  const $mun = $('mem-municipio'), $uf = $('mem-uf'), $imo = $('mem-imovel');
+  // Não sobrescreve o que o usuário já digitou
+  if($mun.value.trim() && $uf.value.trim()) return;
+  const hint = $mun.value.trim() ? '' : 'Buscando município pela localização…';
+  if(hint){ $mun.placeholder = hint; }
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${c.lat}&lon=${c.lng}&zoom=18&accept-language=pt-BR&addressdetails=1`;
+    const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if(!r.ok) throw new Error('nominatim ' + r.status);
+    const j = await r.json();
+    const a = j.address || {};
+    const municipio = a.city || a.town || a.village || a.municipality || a.county || '';
+    const ufFull = a['ISO3166-2-lvl4'] || '';
+    const uf = ufFull.startsWith('BR-') ? ufFull.slice(3) : '';
+    const bairro = a.suburb || a.neighbourhood || a.city_district || '';
+    const rua = a.road || '';
+    if(municipio && !$mun.value.trim()) $mun.value = municipio;
+    if(uf && !$uf.value.trim()) $uf.value = uf;
+    if(!$imo.value.trim() && (rua || bairro)){
+      const partes = [];
+      if(rua) partes.push(`Rua ${rua}`);
+      if(bairro) partes.push(`bairro ${bairro}`);
+      if(municipio) partes.push(municipio);
+      $imo.value = `Imóvel situado na ${partes.join(', ')}.`;
+    }
+    $mun.placeholder = 'Recife';
+    refreshMemorialPreview();
+  } catch(err){
+    $mun.placeholder = 'Recife';
+  }
+}
+
 // Wire up modal
 (function initMemorial(){
   const $modal = $('memorial-modal');
-  // Set today's date as default
+  // Data de hoje como padrão
   const today = new Date(); const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   $('mem-data').value = iso;
-  $('exp-mem').addEventListener('click', () => {
-    if(state.vertices.length < 3) return;
+  loadMemorialRT();
+
+  function openMemorial(){
+    if(state.vertices.length < 3){ setStatus('export-status','warn','Importe um polígono antes de gerar o memorial.'); return; }
     renderMemorialEdges();
+    prefillFromLocation();
     refreshMemorialPreview();
     $modal.classList.add('open');
-  });
+  }
+  $('exp-mem').addEventListener('click', openMemorial);
   $('close-memorial').addEventListener('click', () => $modal.classList.remove('open'));
   $modal.addEventListener('click', e => { if(e.target === $modal) $modal.classList.remove('open'); });
-  // Live preview on any field change
-  $modal.addEventListener('input', refreshMemorialPreview);
+  // Live preview + persistência do RT enquanto edita
+  $modal.addEventListener('input', e => {
+    refreshMemorialPreview();
+    if(MEM_RT_KEYS.includes(e.target.id)) saveMemorialRT();
+  });
   $modal.addEventListener('change', refreshMemorialPreview);
   $('mem-copy').addEventListener('click', async () => {
     const txt = $('mem-preview').textContent;
@@ -2223,6 +2285,21 @@ function generateMemorialPDF(){
     catch { setStatus('export-status','err','Não foi possível copiar.'); }
   });
   $('mem-pdf').addEventListener('click', generateMemorialPDF);
+
+  // Deep-link #memorial vindo da landing — abre o modal automaticamente quando houver polígono
+  if(location.hash === '#memorial'){
+    const tryOpen = () => { if(state.vertices.length >= 3){ openMemorial(); return true; } return false; };
+    if(!tryOpen()){
+      // Espera o usuário importar o polígono e tenta de novo na próxima refreshAll
+      const origRefresh = refreshAll;
+      window.refreshAll = function(){
+        origRefresh.apply(this, arguments);
+        if(location.hash === '#memorial' && tryOpen()){ location.hash = ''; window.refreshAll = origRefresh; }
+      };
+    } else {
+      location.hash = '';
+    }
+  }
 })();
 </script>
 
