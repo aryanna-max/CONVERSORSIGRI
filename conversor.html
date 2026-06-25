@@ -244,6 +244,16 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .vtx-marker:hover{transform:scale(1.18)}
 .vtx-marker.vtx-start{background:#f4f7f8;color:#0a1f3d;border-color:var(--verde);box-shadow:0 0 0 3px rgba(144,183,40,0.7)}
 
+/* Legend panel (overlays ativas) */
+.legend-panel{position:absolute;bottom:34px;left:14px;z-index:500;background:rgba(10,31,61,0.94);border:1px solid var(--line);border-radius:5px;padding:9px 11px;max-width:220px;max-height:300px;overflow-y:auto;display:none;backdrop-filter:blur(6px)}
+.legend-panel.show{display:block}
+.legend-panel .lg-head{font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--verde);font-weight:600;margin-bottom:8px;line-height:1.3}
+.legend-panel .lg-item{margin-bottom:10px}
+.legend-panel .lg-item:last-child{margin-bottom:0}
+.legend-panel .lg-name{font-size:10.5px;color:var(--white);font-weight:600;margin-bottom:3px;display:block}
+.legend-panel img{max-width:100%;background:#fff;padding:3px;border-radius:2px;display:block}
+.legend-panel img.lg-err{display:none}
+
 /* base switch */
 .map-base-switch{display:flex;background:rgba(6,18,25,0.92);border:1px solid var(--line);backdrop-filter:blur(6px)}
 .map-base-btn{padding:8px 12px;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;color:var(--muted);border-right:1px solid var(--line);transition:all .15s}
@@ -740,6 +750,10 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
         </span>
       </div>
       <div class="map-label">Pré-visualização · <span class="vcount" id="map-vcount">0 vértices</span></div>
+      <div class="legend-panel" id="legend-panel">
+        <div class="lg-head">Legenda · clique no mapa para detalhes</div>
+        <div id="lg-items"></div>
+      </div>
       <div class="coord-hud" id="coord-hud">
         <div class="row"><span class="lbl">Lat</span><span id="hud-lat">—</span></div>
         <div class="row"><span class="lbl">Lng</span><span id="hud-lng">—</span></div>
@@ -1344,77 +1358,23 @@ document.querySelectorAll('input[name="base-layer"]').forEach(radio => {
 
 // ===== OFFICIAL OVERLAYS (WMS) =====
 const overlayDefs = {
-  sigef: {
-    name: 'SIGEF · INCRA',
-    layer: () => L.tileLayer.wms('https://geoservicos.incra.gov.br/geoserver/Sigef/wms', {
-      layers: 'Sigef:Imoveis_Certificados',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.65,
-      attribution: '© INCRA · SIGEF'
-    })
-  },
-  snci: {
-    name: 'SNCI · INCRA',
-    layer: () => L.tileLayer.wms('https://geoservicos.incra.gov.br/geoserver/SNCI/wms', {
-      layers: 'SNCI:Imoveis_SNCI',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.55,
-      attribution: '© INCRA · SNCI'
-    })
-  },
-  car: {
-    name: 'CAR · SFB',
-    layer: () => L.tileLayer.wms('https://geoserver.car.gov.br/SICAR/wms', {
-      layers: 'sicar:area_imovel',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.55,
-      attribution: '© SFB · SiCAR'
-    })
-  },
-  spu: {
-    name: 'Faixa de Marinha · SPU',
-    layer: () => L.tileLayer.wms('https://sigespa.economia.gov.br/sigespa/wms', {
-      layers: 'sigespa:faixa_marinha',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.55,
-      attribution: '© SPU · Sigespa'
-    })
-  },
-  ti: {
-    name: 'Terras Indígenas · FUNAI',
-    layer: () => L.tileLayer.wms('https://geoserver.funai.gov.br/geoserver/Funai/wms', {
-      layers: 'Funai:tis_poligonais',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.55,
-      attribution: '© FUNAI'
-    })
-  },
-  quilombo: {
-    name: 'Áreas Quilombolas · INCRA',
-    layer: () => L.tileLayer.wms('https://geoservicos.incra.gov.br/geoserver/Quilombola/wms', {
-      layers: 'Quilombola:Areas_Quilombolas',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.55,
-      attribution: '© INCRA'
-    })
-  },
-  mun: {
-    name: 'Limites Municipais · IBGE',
-    layer: () => L.tileLayer.wms('https://geoservicos.ibge.gov.br/geoserver/wms', {
-      layers: 'CCAR:BCIM_Municipio_A',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.6,
-      attribution: '© IBGE'
-    })
-  }
+  sigef:    { name: 'SIGEF · INCRA',              wmsUrl: 'https://geoservicos.incra.gov.br/geoserver/Sigef/wms',       wmsLayer: 'Sigef:Imoveis_Certificados', opacity: 0.65, attribution: '© INCRA · SIGEF' },
+  snci:     { name: 'SNCI · INCRA',               wmsUrl: 'https://geoservicos.incra.gov.br/geoserver/SNCI/wms',        wmsLayer: 'SNCI:Imoveis_SNCI',          opacity: 0.55, attribution: '© INCRA · SNCI' },
+  car:      { name: 'CAR · SFB',                  wmsUrl: 'https://geoserver.car.gov.br/SICAR/wms',                     wmsLayer: 'sicar:area_imovel',          opacity: 0.55, attribution: '© SFB · SiCAR' },
+  spu:      { name: 'Faixa de Marinha · SPU',     wmsUrl: 'https://sigespa.economia.gov.br/sigespa/wms',                wmsLayer: 'sigespa:faixa_marinha',      opacity: 0.55, attribution: '© SPU · Sigespa' },
+  ti:       { name: 'Terras Indígenas · FUNAI',   wmsUrl: 'https://geoserver.funai.gov.br/geoserver/Funai/wms',         wmsLayer: 'Funai:tis_poligonais',       opacity: 0.55, attribution: '© FUNAI' },
+  quilombo: { name: 'Áreas Quilombolas · INCRA',  wmsUrl: 'https://geoservicos.incra.gov.br/geoserver/Quilombola/wms',  wmsLayer: 'Quilombola:Areas_Quilombolas', opacity: 0.55, attribution: '© INCRA' },
+  mun:      { name: 'Limites Municipais · IBGE',  wmsUrl: 'https://geoservicos.ibge.gov.br/geoserver/wms',              wmsLayer: 'CCAR:BCIM_Municipio_A',      opacity: 0.6,  attribution: '© IBGE' },
 };
+function makeWmsLayer(def){
+  return L.tileLayer.wms(def.wmsUrl, {
+    layers: def.wmsLayer,
+    format: 'image/png',
+    transparent: true,
+    opacity: def.opacity || 0.6,
+    attribution: def.attribution || ''
+  });
+}
 
 const activeOverlays = {};
 document.querySelectorAll('input[data-overlay]').forEach(chk => {
@@ -1425,7 +1385,7 @@ document.querySelectorAll('input[data-overlay]').forEach(chk => {
       try {
         status.textContent = 'carregando…';
         status.className = 'layer-status loading';
-        const layer = overlayDefs[id].layer();
+        const layer = makeWmsLayer(overlayDefs[id]);
         layer.on('tileerror', () => {
           status.textContent = 'indisponível';
           status.className = 'layer-status error';
@@ -1449,6 +1409,7 @@ document.querySelectorAll('input[data-overlay]').forEach(chk => {
       status.textContent = '';
       status.className = 'layer-status';
     }
+    refreshLegendPanel();
   });
 });
 
@@ -1513,6 +1474,89 @@ function reverseVertices(){
   setStatus('input-status','ok', 'Sentido invertido (V1 mantido).');
 }
 $('btn-reverse').addEventListener('click', reverseVertices);
+
+// ===== LEGENDA DAS CAMADAS ATIVAS =====
+function refreshLegendPanel(){
+  const panel = $('legend-panel');
+  const items = $('lg-items');
+  items.innerHTML = '';
+  const ids = Object.keys(activeOverlays);
+  if(!ids.length){ panel.classList.remove('show'); return; }
+  panel.classList.add('show');
+  for(const id of ids){
+    const def = overlayDefs[id];
+    const sep = def.wmsUrl.includes('?') ? '&' : '?';
+    const url = `${def.wmsUrl}${sep}service=WMS&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(def.wmsLayer)}&legend_options=fontColor:0xffffff;bgColor:0x0e2b52;dpi:96;fontAntiAliasing:true`;
+    const item = document.createElement('div');
+    item.className = 'lg-item';
+    item.innerHTML = `<span class="lg-name">${def.name}</span><img alt="Legenda ${def.name}" src="${url}" onerror="this.classList.add('lg-err');this.replaceWith(Object.assign(document.createElement('span'),{textContent:'(legenda indisponível)',style:'color:rgba(244,247,248,0.5);font-size:10px;font-style:italic'}))">`;
+    items.appendChild(item);
+  }
+}
+
+// ===== INFO DAS FEIÇÕES NO CLIQUE (WMS GetFeatureInfo) =====
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+map.on('click', async (e) => {
+  const ids = Object.keys(activeOverlays);
+  if(!ids.length) return;
+  const popup = L.popup({ maxWidth: 360, autoPan: true })
+    .setLatLng(e.latlng)
+    .setContent('<div style="font-size:12px;color:#0a1f3d;padding:2px">Consultando camadas…</div>')
+    .openOn(map);
+  const size = map.getSize();
+  const point = map.latLngToContainerPoint(e.latlng);
+  const bbox = map.getBounds().toBBoxString();
+  const results = [];
+  for(const id of ids){
+    const def = overlayDefs[id];
+    const params = new URLSearchParams({
+      service: 'WMS', version: '1.1.1', request: 'GetFeatureInfo',
+      layers: def.wmsLayer, query_layers: def.wmsLayer, info_format: 'application/json',
+      srs: 'EPSG:4326', bbox, width: size.x, height: size.y,
+      x: Math.round(point.x), y: Math.round(point.y), feature_count: 5
+    });
+    const sep = def.wmsUrl.includes('?') ? '&' : '?';
+    const url = `${def.wmsUrl}${sep}${params.toString()}`;
+    const htmlUrl = url.replace('info_format=application%2Fjson', 'info_format=text%2Fhtml');
+    try {
+      const r = await fetch(url, { mode: 'cors' });
+      if(!r.ok) throw new Error('http ' + r.status);
+      const j = await r.json();
+      results.push({ id, name: def.name, features: (j.features || []), htmlUrl });
+    } catch(err){
+      results.push({ id, name: def.name, error: true, htmlUrl });
+    }
+  }
+  let html = '<div style="font-size:11.5px;color:#0a1f3d;max-height:300px;overflow-y:auto;padding:2px">';
+  const anyFeature = results.some(r => r.features && r.features.length);
+  const anyError = results.some(r => r.error);
+  if(!anyFeature && !anyError){ html += '<em>Nenhuma feição encontrada neste ponto.</em>'; }
+  for(const r of results){
+    html += `<div style="margin-bottom:10px"><div style="font-weight:700;color:#195d83;font-size:10.5px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">${escapeHtml(r.name)}</div>`;
+    if(r.error){
+      html += `<div style="font-size:10.5px;color:#7b7c7b">Servidor não permite consulta direta. <a href="${escapeHtml(r.htmlUrl)}" target="_blank" rel="noopener" style="color:#195d83;text-decoration:underline">Abrir informações em nova aba</a>.</div>`;
+    } else if(!r.features.length){
+      html += '<div style="font-size:10.5px;color:#7b7c7b;font-style:italic">Sem feição neste ponto.</div>';
+    } else {
+      for(const f of r.features.slice(0,3)){
+        const props = f.properties || {};
+        const entries = Object.entries(props).filter(([k,v]) => v != null && v !== '');
+        if(entries.length){
+          html += '<table style="font-size:10.5px;border-collapse:collapse;width:100%;margin-bottom:4px"><tbody>';
+          for(const [k,v] of entries.slice(0,10)){
+            html += `<tr><td style="padding:1px 8px 1px 0;color:#7b7c7b;vertical-align:top;white-space:nowrap">${escapeHtml(k)}</td><td style="padding:1px 0;word-break:break-word">${escapeHtml(String(v).slice(0,120))}</td></tr>`;
+          }
+          html += '</tbody></table>';
+        } else {
+          html += '<div style="color:#7b7c7b;font-style:italic">Feição sem atributos.</div>';
+        }
+      }
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  popup.setContent(html);
+});
 $('btn-map-fs').addEventListener('click', () => {
   const w = $('map-wrap');
   w.classList.toggle('map-fullscreen');
