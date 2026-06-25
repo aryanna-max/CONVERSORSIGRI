@@ -53,6 +53,7 @@
 <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
 
 <style>
 :root{
@@ -1921,6 +1922,13 @@ setTimeout(() => map.invalidateSize(), 200);
       <div class="modal-sub">Geometria, azimutes e coordenadas vêm do polígono importado. Preencha a identificação, classifique cada lado e o RT, e exporte em PDF.</div>
     </div>
 
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;padding:10px 12px;background:rgba(144,183,40,0.08);border:1px dashed rgba(144,183,40,0.4);border-radius:5px">
+      <div style="flex:1;font-size:11.5px;color:var(--white);line-height:1.45"><strong>Importar ART/RRT (PDF):</strong> extrai automaticamente nome do RT, registro CAU/CREA, empresa, município, UF e endereço da obra para pré-preencher o memorial.</div>
+      <input type="file" id="mem-art-file" accept=".pdf,application/pdf" style="display:none">
+      <button class="btn btn-secondary" id="mem-art-btn" type="button">📎 Importar ART / RRT</button>
+    </div>
+    <div id="mem-art-status" style="font-size:11px;color:var(--soft);margin-bottom:14px;min-height:14px"></div>
+
     <div class="mem-section-title">Identificação do imóvel</div>
     <div class="mem-grid">
       <div class="mem-field mem-full">
@@ -2003,6 +2011,57 @@ function buildMemorialEdges(verts){
   return edges;
 }
 
+// Auto-atribuição de lados a partir do V1 voltado para a rua principal.
+// Convenção: observador parado em V1 olhando para a rua. V1→V2 = Frente.
+// Lado direito/esquerdo = direção relativa ao observador. Fundo = aresta oposta à Frente.
+function autoAssignSides(verts){
+  const n = verts.length;
+  const sides = new Array(n).fill('');
+  if(n < 3) return sides;
+
+  // 1. Frente = primeira aresta
+  sides[0] = 'Frente';
+
+  // 2. Sentido do polígono (positivo = CCW em E,N)
+  let signed = 0;
+  for(let i = 0; i < n; i++){
+    const a = verts[i], b = verts[(i+1)%n];
+    signed += (a.e * b.n - b.e * a.n);
+  }
+  const isCCW = signed > 0;
+
+  // 3. Fundo = aresta cujo ponto médio está mais distante da Frente, na direção do interior
+  const v1 = verts[0], v2 = verts[1 % n];
+  const fE = v2.e - v1.e, fN = v2.n - v1.n;
+  const fLen = Math.hypot(fE, fN) || 1;
+  // Normal interior à Frente (depende do sentido do polígono)
+  const nx = isCCW ? -fN/fLen : fN/fLen;
+  const ny = isCCW ?  fE/fLen : -fE/fLen;
+  let fundoIdx = -1, maxDist = -Infinity;
+  for(let i = 1; i < n; i++){
+    const a = verts[i], b = verts[(i+1)%n];
+    const mx = (a.e + b.e)/2, my = (a.n + b.n)/2;
+    const dist = (mx - v1.e) * nx + (my - v1.n) * ny;
+    if(dist > maxDist){ maxDist = dist; fundoIdx = i; }
+  }
+  if(fundoIdx > 0) sides[fundoIdx] = 'Fundo';
+
+  // 4. Demais arestas: antes do fundo = um lado, depois do fundo = o outro lado
+  // No sentido CCW, com V1 voltado para a rua (frente externa), V2→...→fundo é o lado ESQUERDO
+  // do observador (olhando p/ rua, esquerdo é onde a poligonal "sai" de V2 para dentro do imóvel).
+  // No sentido CW, fica invertido.
+  for(let i = 1; i < n; i++){
+    if(i === fundoIdx) continue;
+    const isFirstGroup = i < fundoIdx;
+    if(isCCW){
+      sides[i] = isFirstGroup ? 'Lado esquerdo' : 'Lado direito';
+    } else {
+      sides[i] = isFirstGroup ? 'Lado direito' : 'Lado esquerdo';
+    }
+  }
+  return sides;
+}
+
 function buildMemorialText(meta, verts){
   if(!verts || verts.length < 3) return 'Importe um polígono com pelo menos 3 vértices.';
   const n = verts.length;
@@ -2082,7 +2141,10 @@ function renderMemorialEdges(){
   const v = state.vertices;
   if(v.length < 3){ container.innerHTML = '<div style="color:var(--soft);font-size:11.5px;padding:8px">Importe um polígono com pelo menos 3 vértices antes de gerar o memorial.</div>'; return; }
   const edges = buildMemorialEdges(v);
+  const autoSides = autoAssignSides(v);
+  const optFor = (name, sel) => `<option${sel===name?' selected':''}>${name}</option>`;
   for(const e of edges){
+    const sel = autoSides[e.idx];
     const row = document.createElement('div');
     row.className = 'mem-edge-row';
     row.innerHTML = `
@@ -2090,11 +2152,11 @@ function renderMemorialEdges(){
       <span class="e-meta">Az ${decToDMS(e.az)}<br>${fmtNum(e.dist,2)} m</span>
       <select data-edge-side="${e.idx}">
         <option value="">— sem lado —</option>
-        <option>Frente</option>
-        <option>Fundo</option>
-        <option>Lado direito</option>
-        <option>Lado esquerdo</option>
-        <option>Outro</option>
+        ${optFor('Frente', sel)}
+        ${optFor('Fundo', sel)}
+        ${optFor('Lado direito', sel)}
+        ${optFor('Lado esquerdo', sel)}
+        ${optFor('Outro', sel)}
       </select>
       <input type="text" data-edge-conf="${e.idx}" placeholder="Confrontante (ex: Rua Álvaro Macedo / Imóvel n° 178)">
     `;
@@ -2255,6 +2317,104 @@ async function prefillFromLocation(){
   }
 }
 
+// ===== Import ART (CREA) / RRT (CAU) — extrai texto do PDF e preenche campos =====
+async function extractPdfText(file){
+  if(!window.pdfjsLib){ throw new Error('pdf.js não carregou'); }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  for(let i = 1; i <= pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it => it.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+function parseArtRrt(text){
+  const t = text.replace(/\s+/g, ' ').trim();
+  const out = {};
+  let m;
+
+  // CAU (RRT)
+  m = t.match(/CAU[\s\/\-]*([A-Z]{2})[^A-Z0-9]{0,12}([A-Z]?\d[\d\.\-]{2,})/i);
+  if(m) out.rtReg = `CAU-${m[1].toUpperCase()} N° ${m[2]}`;
+  // CREA (ART)
+  if(!out.rtReg && (m = t.match(/CREA[\s\/\-]*([A-Z]{2})[^A-Z0-9]{0,12}(\d[\d\.\-]{3,})/i))){
+    out.rtReg = `CREA-${m[1].toUpperCase()} N° ${m[2]}`;
+  }
+  // Nome do profissional
+  m = t.match(/(?:Profissional|Respons[áa]vel\s+T[ée]cnico|Nome\s+do\s+Profissional)\s*:?\s*([A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑ][A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑa-záéíóúàâêôãõçñ\s]{6,80}?)\s+(?:CPF|CAU|CREA|RNP|Endere|Munic|Atividad|T[íi]tulo|RG)\b/);
+  if(m) out.rtNome = m[1].trim().replace(/\s+/g, ' ');
+  // Empresa / Razão Social / Contratada
+  m = t.match(/(?:Empresa(?:\s+Contratada)?|Raz[ãa]o\s+Social|Contratada)\s*:?\s*([A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑ][A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑa-záéíóúàâêôãõçñ0-9&\s\.\-]{4,120}?)\s+(?:CNPJ|Endere|Munic|CPF|N°|UF)\b/);
+  if(m) out.empresa = m[1].trim().replace(/\s+/g, ' ');
+  // Município (procura primeiro o do imóvel/obra; senão qualquer)
+  m = t.match(/Munic[ií]pio\s*(?:da\s+(?:obra|atividade|servi[çc]o))?\s*:?\s*([A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑa-záéíóúàâêôãõçñ\s\-']{3,60}?)\s+(?:UF|Estado|CEP|Endere|N°|Bairro)\b/);
+  if(m) out.municipio = m[1].trim().replace(/\s+/g, ' ');
+  // UF
+  m = t.match(/\bUF\s*:?\s*([A-Z]{2})\b/);
+  if(m) out.uf = m[1];
+  // Endereço da obra
+  m = t.match(/Endere[çc]o\s*(?:da\s+(?:obra|atividade|servi[çc]o))?\s*:?\s*([^.]{8,200}?)\s+(?:Munic[ií]pio|N°|Bairro|CEP|UF|Complemento)\b/);
+  if(m) out.endereco = m[1].trim().replace(/\s+/g, ' ');
+  // Contratante / Proprietário
+  m = t.match(/(?:Contratante|Propriet[áa]rio)\s*:?\s*([A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑ][A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑa-záéíóúàâêôãõçñ\s\.\-']{4,120}?)\s+(?:CPF|CNPJ|Endere|Munic|N°)\b/);
+  if(m) out.contratante = m[1].trim().replace(/\s+/g, ' ');
+  return out;
+}
+
+function applyArtRrtData(data){
+  const filled = [];
+  const tryFill = (id, val, label) => {
+    if(!val) return;
+    const el = $(id);
+    if(!el.value.trim()){ el.value = val; filled.push(label); }
+  };
+  tryFill('mem-rt-nome', data.rtNome, 'RT');
+  tryFill('mem-rt-reg', data.rtReg, 'registro');
+  tryFill('mem-empresa', data.empresa, 'empresa');
+  tryFill('mem-municipio', data.municipio, 'município');
+  tryFill('mem-uf', data.uf, 'UF');
+  // Endereço/Contratante alimentam a descrição do imóvel
+  if((data.endereco || data.contratante) && !$('mem-imovel').value.trim()){
+    const partes = [];
+    if(data.endereco) partes.push(data.endereco);
+    if(data.municipio && data.uf) partes.push(`${data.municipio}/${data.uf}`);
+    if(partes.length){ $('mem-imovel').value = `Imóvel situado em ${partes.join(', ')}.`; filled.push('descrição'); }
+  }
+  if(data.contratante && !$('mem-prop').value.trim()){
+    $('mem-prop').value = data.contratante;
+    filled.push('proprietário');
+  }
+  return filled;
+}
+
+async function handleArtRrtFile(file){
+  const $status = $('mem-art-status');
+  $status.style.color = 'var(--soft)';
+  $status.textContent = `Lendo ${file.name}…`;
+  try {
+    const text = await extractPdfText(file);
+    if(!text || text.length < 50){ throw new Error('PDF sem texto extraível (digitalizado?)'); }
+    const data = parseArtRrt(text);
+    const filled = applyArtRrtData(data);
+    saveMemorialRT();
+    refreshMemorialPreview();
+    if(filled.length){
+      $status.style.color = 'var(--verde)';
+      $status.textContent = `✓ ART/RRT lida. Preenchidos: ${filled.join(', ')}. Revise antes de gerar o PDF.`;
+    } else {
+      $status.style.color = '#e8b04a';
+      $status.textContent = '⚠ ART/RRT lida, mas nenhum campo correspondeu aos padrões. Preencha manualmente.';
+    }
+  } catch(err){
+    $status.style.color = '#ff7b7b';
+    $status.textContent = `✗ Falha: ${err.message || err}. PDFs digitalizados (imagem) não têm texto — use a versão original do CAU/CREA.`;
+  }
+}
+
 // Wire up modal
 (function initMemorial(){
   const $modal = $('memorial-modal');
@@ -2285,6 +2445,13 @@ async function prefillFromLocation(){
     catch { setStatus('export-status','err','Não foi possível copiar.'); }
   });
   $('mem-pdf').addEventListener('click', generateMemorialPDF);
+
+  // Import ART/RRT
+  $('mem-art-btn').addEventListener('click', () => $('mem-art-file').click());
+  $('mem-art-file').addEventListener('change', e => {
+    const f = e.target.files[0]; if(f) handleArtRrtFile(f);
+    e.target.value = ''; // permite re-importar o mesmo arquivo
+  });
 
   // Deep-link #memorial vindo da landing — abre o modal automaticamente quando houver polígono
   if(location.hash === '#memorial'){
