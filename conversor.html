@@ -52,6 +52,7 @@
 <script src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"></script>
 <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
 <style>
 :root{
@@ -283,6 +284,23 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .modal::before{content:'';position:absolute;top:-1px;left:32px;width:64px;height:2px;background:var(--verde)}
 .modal .modal-close{position:absolute;top:18px;right:18px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:18px;background:transparent;border:1px solid var(--line);border-radius:1px;transition:all .15s;cursor:pointer}
 .modal .modal-close:hover{color:var(--white);border-color:var(--white)}
+
+/* Memorial modal */
+.modal.modal-memorial{max-width:920px;max-height:90vh;overflow-y:auto}
+.mem-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.mem-field{display:flex;flex-direction:column;gap:4px}
+.mem-field.mem-full{grid-column:1 / -1}
+.mem-field label{font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft);font-weight:600}
+.mem-field input,.mem-field textarea,.mem-field select{background:#f4f7f8;border:1px solid rgba(120,170,230,0.4);color:#0a1f3d;padding:8px 10px;font-size:13px;border-radius:4px;outline:none;font-family:inherit;font-weight:500}
+.mem-field textarea{min-height:54px;resize:vertical;font-family:inherit}
+.mem-section-title{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--verde);font-weight:700;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.mem-edges{display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto;padding-right:4px}
+.mem-edge-row{display:grid;grid-template-columns:80px 1fr 130px 1.4fr;gap:8px;align-items:center;padding:6px 8px;background:rgba(255,255,255,0.03);border:1px solid var(--line);border-radius:4px;font-size:12px}
+.mem-edge-row .e-id{font-weight:700;color:var(--verde);font-size:11.5px}
+.mem-edge-row .e-meta{color:var(--soft);font-size:10.5px;line-height:1.3}
+.mem-edge-row select,.mem-edge-row input{background:#f4f7f8;color:#0a1f3d;border:1px solid rgba(120,170,230,0.35);border-radius:3px;padding:4px 6px;font-size:11.5px;font-family:inherit;outline:none}
+.mem-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}
+.mem-preview{margin-top:12px;padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:4px;max-height:220px;overflow-y:auto;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10.5px;line-height:1.55;color:var(--white);white-space:pre-wrap}
 .modal-head{margin-bottom:22px}
 .modal-eyebrow{font-size:10px;letter-spacing:0.22em;text-transform:uppercase;font-weight:600;color:var(--verde);margin-bottom:10px}
 .modal-title{font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--white);line-height:1.2;margin-bottom:8px}
@@ -680,6 +698,11 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
             <span class="eb-k">D · CSV</span>
             <span class="eb-t">Planilha</span>
             <span class="eb-s">Lat, Lng, UTM E, UTM N</span>
+          </button>
+          <button class="export-btn" id="exp-mem" disabled style="grid-column:span 2">
+            <span class="eb-k">E · MEMORIAL DESCRITIVO</span>
+            <span class="eb-t">Memorial em PDF · NBR 13133 / NBR 17047</span>
+            <span class="eb-s">Identificação, perímetro com azimutes, confrontantes por lado e RT</span>
           </button>
         </div>
         <div class="status" id="export-status"></div>
@@ -1592,7 +1615,7 @@ $('btn-copy-out').addEventListener('click', async () => {
 =========================================================== */
 function refreshExportButtons(){
   const ok = state.vertices.length >= 3;
-  ['exp-txt','exp-shp','exp-kml','exp-csv'].forEach(id => $(id).disabled = !ok);
+  ['exp-txt','exp-shp','exp-kml','exp-csv','exp-mem'].forEach(id => $(id).disabled = !ok);
 }
 
 $('exp-txt').addEventListener('click', async () => {
@@ -1842,6 +1865,321 @@ function downloadBlob(blob, filename){
 =========================================================== */
 refreshAll();
 setTimeout(() => map.invalidateSize(), 200);
+</script>
+
+<!-- ============ MEMORIAL DESCRITIVO MODAL ============ -->
+<div class="modal-backdrop" id="memorial-modal">
+  <div class="modal modal-memorial" role="dialog" aria-modal="true" aria-labelledby="mem-title">
+    <button class="modal-close" id="close-memorial" aria-label="Fechar">×</button>
+    <div class="modal-head">
+      <div class="modal-eyebrow">Memorial Descritivo · NBR 13133 / NBR 17047</div>
+      <div class="modal-title" id="mem-title">Gerar Memorial Descritivo</div>
+      <div class="modal-sub">Geometria, azimutes e coordenadas vêm do polígono importado. Preencha a identificação, classifique cada lado e o RT, e exporte em PDF.</div>
+    </div>
+
+    <div class="mem-section-title">Identificação do imóvel</div>
+    <div class="mem-grid">
+      <div class="mem-field mem-full">
+        <label for="mem-imovel">Descrição do imóvel</label>
+        <textarea id="mem-imovel" placeholder="Ex: Área de terreno da antiga casa de n° 174, Gleba A, situada na Rua Marechal Bittencourt, bairro do Poço da Panela, Recife."></textarea>
+      </div>
+      <div class="mem-field mem-full">
+        <label for="mem-prop">Proprietário(s) e CPF/CNPJ</label>
+        <textarea id="mem-prop" placeholder="Ex: Fulano de Tal / CPF: 000.000.000-00&#10;Sicrano de Tal / CPF: 000.000.000-00"></textarea>
+      </div>
+      <div class="mem-field"><label for="mem-municipio">Município</label><input id="mem-municipio" placeholder="Recife"></div>
+      <div class="mem-field"><label for="mem-uf">UF</label><input id="mem-uf" placeholder="PE" maxlength="2"></div>
+      <div class="mem-field"><label for="mem-matricula">Matrícula / Registro (opcional)</label><input id="mem-matricula" placeholder="Matrícula n° XXX do CRI 1° ofício"></div>
+      <div class="mem-field"><label for="mem-data">Data</label><input id="mem-data" type="date"></div>
+    </div>
+
+    <div class="mem-section-title">Confrontantes por lado</div>
+    <div style="font-size:11.5px;color:var(--soft);margin-bottom:10px;line-height:1.5">
+      Para cada aresta V<sub>i</sub>→V<sub>i+1</sub>, escolha o lado e o confrontante.
+      Arestas <strong>consecutivas com o mesmo lado</strong> são automaticamente agrupadas no texto final (e os comprimentos somados).
+    </div>
+    <div class="mem-edges" id="mem-edges"></div>
+
+    <div class="mem-section-title">Responsável Técnico</div>
+    <div class="mem-grid">
+      <div class="mem-field"><label for="mem-rt-nome">Nome do RT</label><input id="mem-rt-nome" placeholder="Ex: Aryanna Barbosa de Araújo Gonzaga"></div>
+      <div class="mem-field"><label for="mem-rt-reg">Registro profissional</label><input id="mem-rt-reg" placeholder="Ex: CAU-PE N° A88.162-7 ou CREA-PE N° 1234"></div>
+      <div class="mem-field"><label for="mem-empresa">Empresa (opcional · cabeçalho)</label><input id="mem-empresa" placeholder="Ex: AG Topografia e Construções"></div>
+      <div class="mem-field"><label for="mem-empresa-endereco">Endereço da empresa (opcional · rodapé)</label><input id="mem-empresa-endereco" placeholder="Rua, número, bairro, cidade/UF · CEP · telefone"></div>
+    </div>
+
+    <div class="mem-section-title">Pré-visualização do texto</div>
+    <div class="mem-preview" id="mem-preview">Preencha os campos acima para gerar a pré-visualização.</div>
+
+    <div class="mem-actions">
+      <button class="btn btn-secondary" id="mem-copy">Copiar texto</button>
+      <button class="btn btn-primary" id="mem-pdf">Baixar PDF</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================
+   MEMORIAL DESCRITIVO
+=========================================================== */
+function azimuthUTM(p1, p2){
+  // Azimute geodésico no plano UTM: ângulo a partir do Norte, sentido horário, em graus [0, 360)
+  const dE = p2.e - p1.e;
+  const dN = p2.n - p1.n;
+  let a = Math.atan2(dE, dN) * 180 / Math.PI;
+  if(a < 0) a += 360;
+  return a;
+}
+function decToDMS(deg){
+  const d = Math.floor(deg);
+  const mFull = (deg - d) * 60;
+  const m = Math.floor(mFull);
+  const s = (mFull - m) * 60;
+  return `${d}° ${String(m).padStart(2,'0')}' ${s.toFixed(2).replace('.', ',').padStart(5,'0')}''`;
+}
+function fmtDateBR(iso){
+  if(!iso) return '__ de _________ de ____';
+  const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const [y,m,d] = iso.split('-').map(Number);
+  return `${d} de ${meses[m-1]} de ${y}`;
+}
+
+function buildMemorialEdges(verts){
+  const n = verts.length;
+  const edges = [];
+  for(let i = 0; i < n; i++){
+    const a = verts[i], b = verts[(i+1) % n];
+    edges.push({
+      idx: i,
+      from: a, to: b,
+      az: azimuthUTM(a, b),
+      dist: Math.hypot(b.e - a.e, b.n - a.n),
+    });
+  }
+  return edges;
+}
+
+function buildMemorialText(meta, verts){
+  if(!verts || verts.length < 3) return 'Importe um polígono com pelo menos 3 vértices.';
+  const n = verts.length;
+  const edges = buildMemorialEdges(verts);
+  const sides = meta.sides || [], confs = meta.confs || [];
+
+  let txt = 'MEMORIAL DESCRITIVO\n\n';
+  if(meta.imovel) txt += `Imóvel: ${meta.imovel}\n`;
+  if(meta.prop){
+    const lines = meta.prop.split('\n').map(s => s.trim()).filter(Boolean);
+    lines.forEach((l, i) => txt += (i === 0 ? `Proprietário/CPF: ${l}\n` : `${' '.repeat(18)}${l}\n`));
+  }
+  if(meta.municipio || meta.uf) txt += `Município: ${meta.municipio||'________'}    UF: ${meta.uf||'__'}\n`;
+  if(meta.matricula) txt += `${meta.matricula}\n`;
+  const area = polyArea(verts);
+  const perim = polyPerimeter(verts);
+  txt += `Área: ${fmtNum(area,2)} m²    Perímetro: ${fmtNum(perim,2)} m\n\n`;
+
+  // Descrição perimetral (parágrafo único, estilo NBR/AG)
+  let para = `Inicia-se a descrição deste perímetro no vértice ${verts[0].name}, definido pelas coordenadas E: ${fmtNum(verts[0].e,3)} m e N: ${fmtNum(verts[0].n,3)} m`;
+  for(let i = 0; i < n; i++){
+    const e = edges[i], next = e.to, last = (i === n-1);
+    if(last){
+      para += ` com azimute ${decToDMS(e.az)} e distância de ${fmtNum(e.dist,2)} m até o vértice ${next.name}, encerrando este perímetro.`;
+    } else {
+      para += ` com azimute ${decToDMS(e.az)} e distância de ${fmtNum(e.dist,2)} m até o vértice ${next.name}, definido pelas coordenadas E: ${fmtNum(next.e,3)} m e N: ${fmtNum(next.n,3)} m`;
+    }
+  }
+  txt += para + '\n\n';
+
+  // Sistema de referência
+  const cfg_ = cfg();
+  const mc = -183 + 6 * cfg_.zone;
+  const mcAbs = Math.abs(mc);
+  const hemiMC = mc < 0 ? 'WGr' : 'EGr';
+  txt += `Todas as coordenadas aqui descritas estão georreferenciadas no Sistema Geodésico Brasileiro, e encontram-se representadas no Sistema UTM, referenciadas ao Meridiano Central ${mcAbs}°00'00" ${hemiMC}, tendo como Datum o SIRGAS 2000 (EPSG:4674). Todos os azimutes e distâncias, áreas e perímetros foram calculados no plano de projeção UTM, em conformidade com a NBR 13133 e a NBR 17047.\n\n`;
+
+  // Confrontantes — agrupa arestas consecutivas com o mesmo lado
+  const groups = [];
+  let cur = null;
+  for(const e of edges){
+    const side = (sides[e.idx] || '').trim();
+    if(!side){ cur = null; continue; }
+    if(cur && cur.side === side && cur.endIdx === e.idx - 1){
+      cur.endIdx = e.idx;
+      cur.length += e.dist;
+      if(!cur.conf) cur.conf = (confs[e.idx] || '').trim();
+    } else {
+      cur = { side, startIdx: e.idx, endIdx: e.idx, length: e.dist, conf: (confs[e.idx] || '').trim() };
+      groups.push(cur);
+    }
+  }
+  if(groups.length){
+    txt += 'Descrição dos seguintes confrontantes:\n\n';
+    const order = ['Frente','Fundo','Lado direito','Lado esquerdo','Outro'];
+    groups.sort((a,b) => (order.indexOf(a.side) - order.indexOf(b.side)) || (a.startIdx - b.startIdx));
+    for(const g of groups){
+      const vStart = verts[g.startIdx].name;
+      const vEnd = verts[(g.endIdx + 1) % n].name;
+      txt += `${g.side}: limita-se com ${g.conf || '____________________________'}, do vértice ${vStart} ao ${vEnd} com ${fmtNum(g.length,2)} m;\n`;
+    }
+    txt += '\n';
+  }
+
+  // Cidade e data
+  txt += `${meta.municipio || '________'}, ${fmtDateBR(meta.data)}.\n\n\n`;
+  txt += `____________________________________________________\n`;
+  txt += `${meta.rtNome || '_______________________________'}\n`;
+  if(meta.rtReg) txt += `${meta.rtReg}\n`;
+  txt += `Responsável Técnico\n`;
+  return txt;
+}
+
+function renderMemorialEdges(){
+  const container = $('mem-edges');
+  container.innerHTML = '';
+  const v = state.vertices;
+  if(v.length < 3){ container.innerHTML = '<div style="color:var(--soft);font-size:11.5px;padding:8px">Importe um polígono com pelo menos 3 vértices antes de gerar o memorial.</div>'; return; }
+  const edges = buildMemorialEdges(v);
+  for(const e of edges){
+    const row = document.createElement('div');
+    row.className = 'mem-edge-row';
+    row.innerHTML = `
+      <span class="e-id">${e.from.name}→${e.to.name}</span>
+      <span class="e-meta">Az ${decToDMS(e.az)}<br>${fmtNum(e.dist,2)} m</span>
+      <select data-edge-side="${e.idx}">
+        <option value="">— sem lado —</option>
+        <option>Frente</option>
+        <option>Fundo</option>
+        <option>Lado direito</option>
+        <option>Lado esquerdo</option>
+        <option>Outro</option>
+      </select>
+      <input type="text" data-edge-conf="${e.idx}" placeholder="Confrontante (ex: Rua Álvaro Macedo / Imóvel n° 178)">
+    `;
+    container.appendChild(row);
+  }
+}
+
+function collectMemorialMeta(){
+  const sides = [], confs = [];
+  document.querySelectorAll('[data-edge-side]').forEach(s => { sides[+s.dataset.edgeSide] = s.value; });
+  document.querySelectorAll('[data-edge-conf]').forEach(s => { confs[+s.dataset.edgeConf] = s.value; });
+  return {
+    imovel: $('mem-imovel').value.trim(),
+    prop: $('mem-prop').value.trim(),
+    municipio: $('mem-municipio').value.trim(),
+    uf: $('mem-uf').value.trim().toUpperCase(),
+    matricula: $('mem-matricula').value.trim(),
+    data: $('mem-data').value,
+    rtNome: $('mem-rt-nome').value.trim(),
+    rtReg: $('mem-rt-reg').value.trim(),
+    empresa: $('mem-empresa').value.trim(),
+    empresaEndereco: $('mem-empresa-endereco').value.trim(),
+    sides, confs,
+  };
+}
+
+function refreshMemorialPreview(){
+  const meta = collectMemorialMeta();
+  $('mem-preview').textContent = buildMemorialText(meta, state.vertices);
+}
+
+function generateMemorialPDF(){
+  if(!window.jspdf){ setStatus('export-status','err','Biblioteca jsPDF não carregou. Recarregue a página.'); return; }
+  const meta = collectMemorialMeta();
+  const text = buildMemorialText(meta, state.vertices);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageW = 210, pageH = 297, margin = 22;
+  const contentW = pageW - 2 * margin;
+  let y = 18;
+
+  // Cabeçalho com nome da empresa (opcional)
+  if(meta.empresa){
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(11);
+    doc.setTextColor(10,31,61);
+    doc.text(meta.empresa, pageW - margin, y, { align: 'right' });
+    y += 4;
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(120,120,120);
+    doc.text('TOPOGRAFIA · GEORREFERENCIAMENTO', pageW - margin, y, { align: 'right' });
+  }
+  doc.setTextColor(0,0,0);
+
+  // Título
+  y = 38;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(16);
+  doc.text('MEMORIAL DESCRITIVO', pageW/2, y, { align: 'center' });
+  doc.setDrawColor(144,183,40);
+  doc.setLineWidth(0.7);
+  doc.line(pageW/2 - 32, y + 1.8, pageW/2 + 32, y + 1.8);
+  doc.setDrawColor(0,0,0);
+  doc.setLineWidth(0.2);
+
+  // Corpo
+  y += 11;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  // Pular as duas primeiras linhas que são título "MEMORIAL DESCRITIVO\n\n"
+  const body = text.replace(/^MEMORIAL DESCRITIVO\s*\n+/, '');
+  // Renderiza preservando parágrafos; cada \n é quebra; doc.splitTextToSize cuida do wrap
+  const paragraphs = body.split(/\n/);
+  for(const p of paragraphs){
+    if(!p){ y += 3.2; continue; }
+    const lines = doc.splitTextToSize(p, contentW);
+    for(const line of lines){
+      if(y > pageH - 25){ doc.addPage(); y = 22; }
+      doc.text(line, margin, y);
+      y += 4.6;
+    }
+  }
+
+  // Rodapé com endereço (opcional)
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= pageCount; i++){
+    doc.setPage(i);
+    if(meta.empresaEndereco){
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(110,110,110);
+      doc.text(meta.empresaEndereco, pageW/2, pageH - 12, { align: 'center', maxWidth: contentW });
+    }
+    doc.setFontSize(7);
+    doc.setTextColor(150,150,150);
+    doc.text(`Página ${i}/${pageCount}`, pageW - margin, pageH - 8, { align: 'right' });
+    doc.setTextColor(0,0,0);
+  }
+
+  const slug = (meta.municipio || 'imovel').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+  doc.save(`memorial_descritivo_${slug}.pdf`);
+  setStatus('export-status','ok','Memorial Descritivo (PDF) gerado.');
+}
+
+// Wire up modal
+(function initMemorial(){
+  const $modal = $('memorial-modal');
+  // Set today's date as default
+  const today = new Date(); const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  $('mem-data').value = iso;
+  $('exp-mem').addEventListener('click', () => {
+    if(state.vertices.length < 3) return;
+    renderMemorialEdges();
+    refreshMemorialPreview();
+    $modal.classList.add('open');
+  });
+  $('close-memorial').addEventListener('click', () => $modal.classList.remove('open'));
+  $modal.addEventListener('click', e => { if(e.target === $modal) $modal.classList.remove('open'); });
+  // Live preview on any field change
+  $modal.addEventListener('input', refreshMemorialPreview);
+  $modal.addEventListener('change', refreshMemorialPreview);
+  $('mem-copy').addEventListener('click', async () => {
+    const txt = $('mem-preview').textContent;
+    try { await navigator.clipboard.writeText(txt); setStatus('export-status','ok','Memorial copiado para a área de transferência.'); }
+    catch { setStatus('export-status','err','Não foi possível copiar.'); }
+  });
+  $('mem-pdf').addEventListener('click', generateMemorialPDF);
+})();
 </script>
 
 <!-- ============ FEEDBACK MODAL ============ -->
