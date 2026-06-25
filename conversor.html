@@ -737,13 +737,16 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
         </div>
         <div class="layer-group">
           <span class="glabel">Camada base</span>
-          <label class="layer-opt"><input type="radio" name="base-layer" value="osm" checked><span><span class="name">OpenStreetMap</span><span class="src">Base cartográfica colaborativa · padrão ONR</span></span></label>
-          <label class="layer-opt"><input type="radio" name="base-layer" value="sat"><span><span class="name">Imagem de satélite</span><span class="src">Esri World Imagery</span></span></label>
+          <label class="layer-opt"><input type="radio" name="base-layer" value="osm" checked><span><span class="name">OpenStreetMap</span><span class="src">Base cartográfica colaborativa · pode apresentar deslocamento em algumas regiões</span></span></label>
+          <label class="layer-opt"><input type="radio" name="base-layer" value="esri-street"><span><span class="name">Mapa de ruas (Esri)</span><span class="src">Esri World Street Map · alinhamento mais fiel no Brasil</span></span></label>
+          <label class="layer-opt"><input type="radio" name="base-layer" value="sat"><span><span class="name">Imagem de satélite</span><span class="src">Esri World Imagery · referência para limites</span></span></label>
         </div>
         <div class="layer-group">
           <span class="glabel">Sobreposições oficiais</span>
           <label class="layer-opt"><input type="checkbox" data-overlay="sigef"><span><span class="name">Imóveis Rurais Certificados (SIGEF)</span><span class="src">INCRA · geoservicos.incra.gov.br</span></span><span class="layer-status" data-status="sigef"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="snci"><span><span class="name">Imóveis Rurais SNCI</span><span class="src">INCRA · cadastros antigos</span></span><span class="layer-status" data-status="snci"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="car"><span><span class="name">Cadastro Ambiental Rural (CAR)</span><span class="src">SFB · cobertura mais ampla que SIGEF (declaratório)</span></span><span class="layer-status" data-status="car"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="spu"><span><span class="name">Faixa de Marinha (SPU)</span><span class="src">Sec. do Patrimônio da União · relevante para imóveis costeiros</span></span><span class="layer-status" data-status="spu"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="ti"><span><span class="name">Terras Indígenas</span><span class="src">FUNAI</span></span><span class="layer-status" data-status="ti"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="quilombo"><span><span class="name">Áreas Quilombolas</span><span class="src">INCRA</span></span><span class="layer-status" data-status="quilombo"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="mun"><span><span class="name">Limites Municipais</span><span class="src">IBGE</span></span><span class="layer-status" data-status="mun"></span></label>
@@ -1217,6 +1220,10 @@ function initMap(){
     maxZoom: 19,
     attribution: '© OpenStreetMap · base ONR'
   });
+  baseLayers['esri-street'] = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19,
+    attribution: 'Tiles © Esri — World Street Map'
+  });
   baseLayers.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 19,
     attribution: 'Tiles © Esri — World Imagery'
@@ -1332,6 +1339,26 @@ const overlayDefs = {
       transparent: true,
       opacity: 0.55,
       attribution: '© INCRA · SNCI'
+    })
+  },
+  car: {
+    name: 'CAR · SFB',
+    layer: () => L.tileLayer.wms('https://geoserver.car.gov.br/SICAR/wms', {
+      layers: 'sicar:area_imovel',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.55,
+      attribution: '© SFB · SiCAR'
+    })
+  },
+  spu: {
+    name: 'Faixa de Marinha · SPU',
+    layer: () => L.tileLayer.wms('https://sigespa.economia.gov.br/sigespa/wms', {
+      layers: 'sigespa:faixa_marinha',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.55,
+      attribution: '© SPU · Sigespa'
     })
   },
   ti: {
