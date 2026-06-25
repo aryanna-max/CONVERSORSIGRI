@@ -791,8 +791,9 @@ function utmProjString(zona, hemi, datum){
 
 /* --- App state --- */
 const state = {
-  vertices: [],   // [{name, e, n, lat, lng}]
-  fromKML: false, // KML bypass UTM
+  vertices: [],     // [{name, e, n, lat, lng}]
+  fromKML: false,   // KML bypass UTM
+  inputClosed: false, // entrada já trazia vértice de fechamento (último ≡ primeiro)
 };
 
 const $ = id => document.getElementById(id);
@@ -850,10 +851,12 @@ $('btn-paste-import').addEventListener('click', () => {
   if(!text.trim()){ setStatus('input-status','err','Cole pelo menos 3 vértices antes de importar.'); return; }
   let verts = parsePasteText(text);
   // If the polygon is already closed (last vertex == first), drop the duplicate
+  state.inputClosed = false;
   if(verts.length >= 4){
     const a = verts[0], b = verts[verts.length-1];
     if(Math.hypot(a.e - b.e, a.n - b.n) < 0.01){
       verts = verts.slice(0, -1);
+      state.inputClosed = true;
     }
   }
   if(verts.length < 3){ setStatus('input-status','err','Foram reconhecidos menos de 3 vértices válidos. Verifique o separador.'); return; }
@@ -1022,10 +1025,12 @@ function handleDXF(file){
       }
       let verts = chosen.pts.map((p,i) => ({ name: 'V'+(i+1), e: p.x, n: p.y }));
       // Remove vértice de fechamento duplicado (último == primeiro), como nos demais importadores
+      state.inputClosed = false;
       if(verts.length >= 4){
         const a = verts[0], b = verts[verts.length-1];
         if(Math.hypot(a.e - b.e, a.n - b.n) < 0.01){
           verts = verts.slice(0, -1);
+          state.inputClosed = true;
         }
       }
       state.fromKML = false;
@@ -1105,11 +1110,14 @@ async function handleKML(file){
     const raw = coordsText.trim();
     const pts = raw.split(/\s+/).map(t => t.split(',')).filter(a => a.length >= 2).map(a => ({ lng: parseFloat(a[0]), lat: parseFloat(a[1]) })).filter(p => isFinite(p.lat) && isFinite(p.lng));
     // remove duplicate closing point if equal to first
+    let inputClosed = false;
     if(pts.length > 3 && pts[0].lat === pts[pts.length-1].lat && pts[0].lng === pts[pts.length-1].lng){
       pts.pop();
+      inputClosed = true;
     }
     if(pts.length < 3){ setStatus('input-status','err','Geometria com menos de 3 vértices distintos.'); return; }
     state.fromKML = true;
+    state.inputClosed = inputClosed;
     loadFromKMLPoints(pts);
   } catch(err){
     console.error(err);
@@ -1482,13 +1490,16 @@ function refreshMetrics(){
   $('m-perim').innerHTML = fmtNum(perim,2) + ' <span class="u">m</span>';
   $('m-area').innerHTML = fmtNum(area,2) + ' <span class="u">m²</span>';
   $('m-ha').innerHTML = fmtNum(ha,4) + ' <span class="u">ha</span>';
-  // Closure
+  // Fechamento: o polígono é sempre tratado como fechado (Vn→V1) no cálculo de
+  // área/perímetro. Mostramos a origem do fechamento e a aresta Vn→V1 só como info.
   const a = v[0], b = v[v.length-1];
-  const gap = Math.hypot(b.e - a.e, b.n - a.n);
-  if(gap < 0.01){
-    $('m-clos').innerHTML = '<span class="dot green"></span> Fechado (gap < 1 cm)';
+  const closingEdge = Math.hypot(b.e - a.e, b.n - a.n);
+  if(state.inputClosed){
+    $('m-clos').innerHTML = '<span class="dot green"></span> Fechado pela entrada (vértice de fechamento removido)';
+  } else if(closingEdge < 0.01){
+    $('m-clos').innerHTML = '<span class="dot green"></span> Fechado (V<sub>n</sub> ≡ V<sub>1</sub>)';
   } else {
-    $('m-clos').innerHTML = `<span class="dot amber"></span> Aberto · gap ${fmtNum(gap,3)} m`;
+    $('m-clos').innerHTML = `<span class="dot green"></span> Fechado · aresta V<sub>${v.length}</sub>→V<sub>1</sub> = ${fmtNum(closingEdge,3)} m`;
   }
 }
 function fmtNum(n, dec){
