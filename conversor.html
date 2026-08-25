@@ -52,6 +52,8 @@
 <script src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"></script>
 <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
 
 <style>
 :root{
@@ -239,7 +241,19 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .leaflet-control-zoom a:hover{background:#152028!important;color:var(--verde)!important}
 .leaflet-control-attribution{background:rgba(6,18,25,0.85)!important;color:var(--muted)!important;font-size:10px!important}
 .leaflet-control-attribution a{color:var(--verde)!important}
-.vtx-marker{background:var(--verde);color:var(--black);font-size:10px;font-weight:700;letter-spacing:0.02em;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--black);box-shadow:0 0 0 2px rgba(144,183,40,0.4)}
+.vtx-marker{background:var(--verde);color:var(--black);font-size:10px;font-weight:700;letter-spacing:0.02em;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--black);box-shadow:0 0 0 2px rgba(144,183,40,0.4);cursor:pointer;transition:transform .15s}
+.vtx-marker:hover{transform:scale(1.18)}
+.vtx-marker.vtx-start{background:#f4f7f8;color:#0a1f3d;border-color:var(--verde);box-shadow:0 0 0 3px rgba(144,183,40,0.7)}
+
+/* Legend panel (overlays ativas) */
+.legend-panel{position:absolute;bottom:34px;left:14px;z-index:500;background:rgba(10,31,61,0.94);border:1px solid var(--line);border-radius:5px;padding:9px 11px;max-width:220px;max-height:300px;overflow-y:auto;display:none;backdrop-filter:blur(6px)}
+.legend-panel.show{display:block}
+.legend-panel .lg-head{font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--verde);font-weight:600;margin-bottom:8px;line-height:1.3}
+.legend-panel .lg-item{margin-bottom:10px}
+.legend-panel .lg-item:last-child{margin-bottom:0}
+.legend-panel .lg-name{font-size:10.5px;color:var(--white);font-weight:600;margin-bottom:3px;display:block}
+.legend-panel img{max-width:100%;background:#fff;padding:3px;border-radius:2px;display:block}
+.legend-panel img.lg-err{display:none}
 
 /* base switch */
 .map-base-switch{display:flex;background:rgba(6,18,25,0.92);border:1px solid var(--line);backdrop-filter:blur(6px)}
@@ -281,6 +295,23 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .modal::before{content:'';position:absolute;top:-1px;left:32px;width:64px;height:2px;background:var(--verde)}
 .modal .modal-close{position:absolute;top:18px;right:18px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:18px;background:transparent;border:1px solid var(--line);border-radius:1px;transition:all .15s;cursor:pointer}
 .modal .modal-close:hover{color:var(--white);border-color:var(--white)}
+
+/* Memorial modal */
+.modal.modal-memorial{max-width:920px;max-height:90vh;overflow-y:auto}
+.mem-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.mem-field{display:flex;flex-direction:column;gap:4px}
+.mem-field.mem-full{grid-column:1 / -1}
+.mem-field label{font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--soft);font-weight:600}
+.mem-field input,.mem-field textarea,.mem-field select{background:#f4f7f8;border:1px solid rgba(120,170,230,0.4);color:#0a1f3d;padding:8px 10px;font-size:13px;border-radius:4px;outline:none;font-family:inherit;font-weight:500}
+.mem-field textarea{min-height:54px;resize:vertical;font-family:inherit}
+.mem-section-title{font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--verde);font-weight:700;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.mem-edges{display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto;padding-right:4px}
+.mem-edge-row{display:grid;grid-template-columns:80px 1fr 130px 1.4fr;gap:8px;align-items:center;padding:6px 8px;background:rgba(255,255,255,0.03);border:1px solid var(--line);border-radius:4px;font-size:12px}
+.mem-edge-row .e-id{font-weight:700;color:var(--verde);font-size:11.5px}
+.mem-edge-row .e-meta{color:var(--soft);font-size:10.5px;line-height:1.3}
+.mem-edge-row select,.mem-edge-row input{background:#f4f7f8;color:#0a1f3d;border:1px solid rgba(120,170,230,0.35);border-radius:3px;padding:4px 6px;font-size:11.5px;font-family:inherit;outline:none}
+.mem-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}
+.mem-preview{margin-top:12px;padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:4px;max-height:220px;overflow-y:auto;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10.5px;line-height:1.55;color:var(--white);white-space:pre-wrap}
 .modal-head{margin-bottom:22px}
 .modal-eyebrow{font-size:10px;letter-spacing:0.22em;text-transform:uppercase;font-weight:600;color:var(--verde);margin-bottom:10px}
 .modal-title{font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--white);line-height:1.2;margin-bottom:8px}
@@ -548,6 +579,7 @@ input, textarea, select, [contenteditable]{cursor:text}
           <button class="tab" data-tab="manual" role="tab">Ponto a ponto</button>
           <button class="tab" data-tab="dxf" role="tab">DXF</button>
           <button class="tab" data-tab="kml" role="tab">KML / KMZ</button>
+          <button class="tab" data-tab="mempdf" role="tab">Memorial (PDF)</button>
         </div>
 
         <!-- TAB PASTE -->
@@ -619,6 +651,21 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
           <div class="field-help">KML opera em WGS 84 graus decimais. Para fins cartoriais, WGS 84 ≈ SIRGAS 2000 (diferença subcentimétrica). A origem é registrada nos metadados do KML de saída.</div>
         </div>
 
+        <!-- TAB MEMORIAL PDF -->
+        <div class="tab-panel" data-tab-panel="mempdf">
+          <label class="dropzone" id="mempdf-drop">
+            <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+              <rect x="5" y="3" width="14" height="18" rx="1"/>
+              <path d="M8 8h8M8 12h8M8 16h5"/>
+            </svg>
+            <div class="dz-title">Memorial Descritivo (PDF)</div>
+            <div class="dz-sub">Arraste o memorial ou clique para selecionar.<br>Extrai vértices (E/N), meridiano central e fuso automaticamente.</div>
+            <div class="dz-file" id="mempdf-file-name"></div>
+            <input type="file" id="mempdf-input" accept=".pdf,application/pdf" hidden>
+          </label>
+          <div class="field-help">Reconhece formato "V1, definido pelas coordenadas E: X m e N: Y m…" (padrão AG/NBR) e variações. PDF precisa ter texto (não digitalizado). Se o memorial informar o Meridiano Central, o fuso UTM é ajustado automaticamente.</div>
+        </div>
+
         <div class="status" id="input-status"></div>
       </div>
 
@@ -679,6 +726,11 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
             <span class="eb-t">Planilha</span>
             <span class="eb-s">Lat, Lng, UTM E, UTM N</span>
           </button>
+          <button class="export-btn" id="exp-mem" disabled style="grid-column:span 2">
+            <span class="eb-k">E · MEMORIAL DESCRITIVO</span>
+            <span class="eb-t">Memorial em PDF · NBR 13133 / NBR 17047</span>
+            <span class="eb-s">Identificação, perímetro com azimutes, confrontantes por lado e RT</span>
+          </button>
         </div>
         <div class="status" id="export-status"></div>
       </div>
@@ -715,6 +767,10 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
         </span>
       </div>
       <div class="map-label">Pré-visualização · <span class="vcount" id="map-vcount">0 vértices</span></div>
+      <div class="legend-panel" id="legend-panel">
+        <div class="lg-head">Legenda · clique no mapa para detalhes</div>
+        <div id="lg-items"></div>
+      </div>
       <div class="coord-hud" id="coord-hud">
         <div class="row"><span class="lbl">Lat</span><span id="hud-lat">—</span></div>
         <div class="row"><span class="lbl">Lng</span><span id="hud-lng">—</span></div>
@@ -725,6 +781,7 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
           Camadas
         </button>
         <button class="map-btn" id="btn-map-center">Centralizar</button>
+        <button class="map-btn" id="btn-reverse" title="Inverter sentido (mantém V1)">↻ Inverter</button>
         <button class="map-btn" id="btn-map-fs">Tela cheia</button>
       </div>
       <div class="layer-panel" id="layer-panel">
@@ -734,13 +791,16 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
         </div>
         <div class="layer-group">
           <span class="glabel">Camada base</span>
-          <label class="layer-opt"><input type="radio" name="base-layer" value="osm" checked><span><span class="name">OpenStreetMap</span><span class="src">Base cartográfica colaborativa · padrão ONR</span></span></label>
-          <label class="layer-opt"><input type="radio" name="base-layer" value="sat"><span><span class="name">Imagem de satélite</span><span class="src">Esri World Imagery</span></span></label>
+          <label class="layer-opt"><input type="radio" name="base-layer" value="osm" checked><span><span class="name">OpenStreetMap</span><span class="src">Base cartográfica colaborativa · pode apresentar deslocamento em algumas regiões</span></span></label>
+          <label class="layer-opt"><input type="radio" name="base-layer" value="esri-street"><span><span class="name">Mapa de ruas (Esri)</span><span class="src">Esri World Street Map · alinhamento mais fiel no Brasil</span></span></label>
+          <label class="layer-opt"><input type="radio" name="base-layer" value="sat"><span><span class="name">Imagem de satélite</span><span class="src">Esri World Imagery · referência para limites</span></span></label>
         </div>
         <div class="layer-group">
           <span class="glabel">Sobreposições oficiais</span>
           <label class="layer-opt"><input type="checkbox" data-overlay="sigef"><span><span class="name">Imóveis Rurais Certificados (SIGEF)</span><span class="src">INCRA · geoservicos.incra.gov.br</span></span><span class="layer-status" data-status="sigef"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="snci"><span><span class="name">Imóveis Rurais SNCI</span><span class="src">INCRA · cadastros antigos</span></span><span class="layer-status" data-status="snci"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="car"><span><span class="name">Cadastro Ambiental Rural (CAR)</span><span class="src">SFB · cobertura mais ampla que SIGEF (declaratório)</span></span><span class="layer-status" data-status="car"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="spu"><span><span class="name">Faixa de Marinha (SPU)</span><span class="src">Sec. do Patrimônio da União · relevante para imóveis costeiros</span></span><span class="layer-status" data-status="spu"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="ti"><span><span class="name">Terras Indígenas</span><span class="src">FUNAI</span></span><span class="layer-status" data-status="ti"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="quilombo"><span><span class="name">Áreas Quilombolas</span><span class="src">INCRA</span></span><span class="layer-status" data-status="quilombo"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="mun"><span><span class="name">Limites Municipais</span><span class="src">IBGE</span></span><span class="layer-status" data-status="mun"></span></label>
@@ -788,8 +848,9 @@ function utmProjString(zona, hemi, datum){
 
 /* --- App state --- */
 const state = {
-  vertices: [],   // [{name, e, n, lat, lng}]
-  fromKML: false, // KML bypass UTM
+  vertices: [],     // [{name, e, n, lat, lng}]
+  fromKML: false,   // KML bypass UTM
+  inputClosed: false, // entrada já trazia vértice de fechamento (último ≡ primeiro)
 };
 
 const $ = id => document.getElementById(id);
@@ -847,10 +908,12 @@ $('btn-paste-import').addEventListener('click', () => {
   if(!text.trim()){ setStatus('input-status','err','Cole pelo menos 3 vértices antes de importar.'); return; }
   let verts = parsePasteText(text);
   // If the polygon is already closed (last vertex == first), drop the duplicate
+  state.inputClosed = false;
   if(verts.length >= 4){
     const a = verts[0], b = verts[verts.length-1];
     if(Math.hypot(a.e - b.e, a.n - b.n) < 0.01){
       verts = verts.slice(0, -1);
+      state.inputClosed = true;
     }
   }
   if(verts.length < 3){ setStatus('input-status','err','Foram reconhecidos menos de 3 vértices válidos. Verifique o separador.'); return; }
@@ -1019,10 +1082,12 @@ function handleDXF(file){
       }
       let verts = chosen.pts.map((p,i) => ({ name: 'V'+(i+1), e: p.x, n: p.y }));
       // Remove vértice de fechamento duplicado (último == primeiro), como nos demais importadores
+      state.inputClosed = false;
       if(verts.length >= 4){
         const a = verts[0], b = verts[verts.length-1];
         if(Math.hypot(a.e - b.e, a.n - b.n) < 0.01){
           verts = verts.slice(0, -1);
+          state.inputClosed = true;
         }
       }
       state.fromKML = false;
@@ -1066,27 +1131,151 @@ async function handleKML(file){
     }
     const parser = new DOMParser();
     const doc = parser.parseFromString(kmlText, 'text/xml');
-    // Find first Polygon outerBoundaryIs LinearRing coordinates
-    const poly = doc.getElementsByTagName('Polygon')[0];
-    if(!poly){ setStatus('input-status','err','Nenhum Polygon encontrado no KML.'); return; }
-    const outer = poly.getElementsByTagName('outerBoundaryIs')[0];
-    if(!outer){ setStatus('input-status','err','Polygon sem outerBoundaryIs.'); return; }
-    const ring = outer.getElementsByTagName('LinearRing')[0];
-    if(!ring){ setStatus('input-status','err','outerBoundaryIs sem LinearRing.'); return; }
-    const coordsNode = ring.getElementsByTagName('coordinates')[0];
-    if(!coordsNode){ setStatus('input-status','err','LinearRing sem <coordinates>.'); return; }
-    const raw = coordsNode.textContent.trim();
+    // Aceita Polygon, LineString ou gx:Track — em qualquer namespace (kml, kml22, etc).
+    const polys  = doc.getElementsByTagNameNS('*', 'Polygon');
+    const lines  = doc.getElementsByTagNameNS('*', 'LineString');
+    const tracks = doc.getElementsByTagNameNS('*', 'Track');
+    let coordsText = null, found = null;
+    for(const p of polys){
+      const outer = p.getElementsByTagNameNS('*','outerBoundaryIs')[0];
+      const ring  = outer && outer.getElementsByTagNameNS('*','LinearRing')[0];
+      const c     = ring  && ring.getElementsByTagNameNS('*','coordinates')[0];
+      if(c){ coordsText = c.textContent; found = 'Polygon'; break; }
+    }
+    if(!coordsText){
+      for(const l of lines){
+        const c = l.getElementsByTagNameNS('*','coordinates')[0];
+        if(c){ coordsText = c.textContent; found = 'LineString'; break; }
+      }
+    }
+    if(!coordsText && tracks.length){
+      const coords = tracks[0].getElementsByTagNameNS('*','coord');
+      if(coords.length >= 3){
+        coordsText = Array.from(coords).map(c => c.textContent.trim().split(/\s+/).slice(0,2).join(',')).join(' ');
+        found = 'gx:Track';
+      }
+    }
+    if(!coordsText){
+      const placemarks = doc.getElementsByTagNameNS('*','Placemark').length;
+      const points     = doc.getElementsByTagNameNS('*','Point').length;
+      const parseErr   = doc.getElementsByTagName('parsererror').length;
+      if(parseErr){ setStatus('input-status','err','KML inválido: erro de parsing do XML.'); return; }
+      setStatus('input-status','err',
+        `Nenhuma geometria utilizável. Encontrado: ${placemarks} Placemark, ${polys.length} Polygon, ${lines.length} LineString, ${points} Point, ${tracks.length} Track. Use Polygon ou LineString com pelo menos 3 vértices.`);
+      return;
+    }
+    const raw = coordsText.trim();
     const pts = raw.split(/\s+/).map(t => t.split(',')).filter(a => a.length >= 2).map(a => ({ lng: parseFloat(a[0]), lat: parseFloat(a[1]) })).filter(p => isFinite(p.lat) && isFinite(p.lng));
     // remove duplicate closing point if equal to first
+    let inputClosed = false;
     if(pts.length > 3 && pts[0].lat === pts[pts.length-1].lat && pts[0].lng === pts[pts.length-1].lng){
       pts.pop();
+      inputClosed = true;
     }
-    if(pts.length < 3){ setStatus('input-status','err','Polígono com menos de 3 vértices.'); return; }
+    if(pts.length < 3){ setStatus('input-status','err','Geometria com menos de 3 vértices distintos.'); return; }
     state.fromKML = true;
+    state.inputClosed = inputClosed;
     loadFromKMLPoints(pts);
   } catch(err){
     console.error(err);
     setStatus('input-status','err','Falha ao ler KML/KMZ: ' + (err.message || err));
+  }
+}
+
+/* ===========================================================
+   MEMORIAL DESCRITIVO PDF IMPORT
+=========================================================== */
+const mempdfDrop = $('mempdf-drop');
+['dragenter','dragover'].forEach(ev => mempdfDrop.addEventListener(ev, e => { e.preventDefault(); mempdfDrop.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => mempdfDrop.addEventListener(ev, e => { e.preventDefault(); mempdfDrop.classList.remove('drag'); }));
+mempdfDrop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if(f) handleMemorialPDF(f); });
+$('mempdf-input').addEventListener('change', e => { const f = e.target.files[0]; if(f) handleMemorialPDF(f); });
+
+// Parser numérico tolerante a formatos pt-BR/en-US: "287.831,350" ou "287831.350"
+function parseNumBR(s){
+  s = String(s).replace(/[^\d\.,\-]/g, '');
+  const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+  if(lastComma > lastDot) return parseFloat(s.replace(/\./g,'').replace(',','.'));
+  if(lastDot > lastComma) return parseFloat(s.replace(/,/g,''));
+  return parseFloat(s);
+}
+
+function parseMemorialText(text){
+  const t = text.replace(/\s+/g, ' ');
+  const verts = [];
+  // Padrão AG/NBR: "V1, definido pelas coordenadas E: 287.831,350 m e N: 9.111.104,430 m"
+  let re = /V(\d+)[,.\s]{1,4}definido\s+pelas\s+coordenadas\s+E[:\s]*([\d\.,]+)\s*m?\s*[e,]\s*N[:\s]*([\d\.,]+)/gi;
+  let m;
+  const seen = new Set();
+  while((m = re.exec(t)) !== null){
+    const name = 'V' + m[1];
+    if(seen.has(name)) continue;
+    const e = parseNumBR(m[2]), n = parseNumBR(m[3]);
+    if(isFinite(e) && isFinite(n)){ verts.push({ name, e, n }); seen.add(name); }
+  }
+  // Fallback compacto: "V1 E: 287.831,350 N: 9.111.104,430" ou "V1 E=... N=..."
+  if(verts.length < 3){
+    re = /V(?:[ÉE]RTICE\s*)?(\d+)[^\dEN]{1,20}?E[:\s=]*([\d\.,]{5,})[^\dN]{1,20}?N[:\s=]*([\d\.,]{6,})/gi;
+    while((m = re.exec(t)) !== null){
+      const name = 'V' + m[1];
+      if(seen.has(name)) continue;
+      const e = parseNumBR(m[2]), n = parseNumBR(m[3]);
+      if(isFinite(e) && isFinite(n)){ verts.push({ name, e, n }); seen.add(name); }
+    }
+  }
+  // Detecta Meridiano Central para inferir fuso: "Meridiano Central 33°00'00" WGr" ou "MC = -33"
+  let mc = null;
+  m = t.match(/Meridiano\s+Central\s+(\d+)\s*°?[^\d]{0,20}?(W|WGr|E|EGr)?/i);
+  if(m){
+    const deg = parseInt(m[1], 10);
+    const isW = !m[2] || /^W/i.test(m[2]);
+    mc = isW ? -deg : deg;
+  }
+  const fuso = mc != null ? Math.round((mc + 183) / 6) : null;
+  // Ordena por índice numérico do nome (V1, V2, ..., V10)
+  verts.sort((a,b) => parseInt(a.name.slice(1),10) - parseInt(b.name.slice(1),10));
+  return { verts, fuso };
+}
+
+async function handleMemorialPDF(file){
+  $('mempdf-file-name').textContent = file.name;
+  try {
+    if(!window.pdfjsLib) throw new Error('pdf.js não carregou');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
+    setStatus('input-status','ok','Lendo memorial…');
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let text = '';
+    for(let i = 1; i <= pdf.numPages; i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(it => it.str).join(' ') + '\n';
+    }
+    if(!text || text.length < 40) throw new Error('PDF sem texto extraível (memorial digitalizado?)');
+    const { verts, fuso } = parseMemorialText(text);
+    if(verts.length < 3){
+      setStatus('input-status','err','Não foi possível reconhecer vértices no memorial. Confira o formato ("V1, definido pelas coordenadas E: … m e N: … m").');
+      return;
+    }
+    // Ajusta fuso automaticamente (se detectado) e hemisfério S por padrão para Brasil
+    let msgFuso = '';
+    if(fuso && fuso >= 18 && fuso <= 25){
+      $('cfg-zone').value = fuso;
+      msgFuso = ` · fuso ${fuso} S detectado no memorial`;
+    }
+    // Remove vértice de fechamento duplicado se houver
+    state.inputClosed = false;
+    let vv = verts.slice();
+    if(vv.length >= 4){
+      const a = vv[0], b = vv[vv.length-1];
+      if(Math.hypot(a.e-b.e, a.n-b.n) < 0.01){ vv = vv.slice(0,-1); state.inputClosed = true; }
+    }
+    state.fromKML = false;
+    loadFromUTM(vv);
+    setStatus('input-status','ok',`Memorial importado: ${vv.length} vértices${msgFuso}. Confirme datum/hemisfério antes de exportar.`);
+  } catch(err){
+    console.error(err);
+    setStatus('input-status','err','Falha ao ler o memorial: ' + (err.message || err));
   }
 }
 
@@ -1181,6 +1370,10 @@ function initMap(){
   baseLayers.osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '© OpenStreetMap · base ONR'
+  });
+  baseLayers['esri-street'] = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19,
+    attribution: 'Tiles © Esri — World Street Map'
   });
   baseLayers.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 19,
@@ -1279,57 +1472,23 @@ document.querySelectorAll('input[name="base-layer"]').forEach(radio => {
 
 // ===== OFFICIAL OVERLAYS (WMS) =====
 const overlayDefs = {
-  sigef: {
-    name: 'SIGEF · INCRA',
-    layer: () => L.tileLayer.wms('https://geoservicos.incra.gov.br/geoserver/Sigef/wms', {
-      layers: 'Sigef:Imoveis_Certificados',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.65,
-      attribution: '© INCRA · SIGEF'
-    })
-  },
-  snci: {
-    name: 'SNCI · INCRA',
-    layer: () => L.tileLayer.wms('https://geoservicos.incra.gov.br/geoserver/SNCI/wms', {
-      layers: 'SNCI:Imoveis_SNCI',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.55,
-      attribution: '© INCRA · SNCI'
-    })
-  },
-  ti: {
-    name: 'Terras Indígenas · FUNAI',
-    layer: () => L.tileLayer.wms('https://geoserver.funai.gov.br/geoserver/Funai/wms', {
-      layers: 'Funai:tis_poligonais',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.55,
-      attribution: '© FUNAI'
-    })
-  },
-  quilombo: {
-    name: 'Áreas Quilombolas · INCRA',
-    layer: () => L.tileLayer.wms('https://geoservicos.incra.gov.br/geoserver/Quilombola/wms', {
-      layers: 'Quilombola:Areas_Quilombolas',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.55,
-      attribution: '© INCRA'
-    })
-  },
-  mun: {
-    name: 'Limites Municipais · IBGE',
-    layer: () => L.tileLayer.wms('https://geoservicos.ibge.gov.br/geoserver/wms', {
-      layers: 'CCAR:BCIM_Municipio_A',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.6,
-      attribution: '© IBGE'
-    })
-  }
+  sigef:    { name: 'SIGEF · INCRA',              wmsUrl: 'https://geoservicos.incra.gov.br/geoserver/Sigef/wms',       wmsLayer: 'Sigef:Imoveis_Certificados', opacity: 0.65, attribution: '© INCRA · SIGEF' },
+  snci:     { name: 'SNCI · INCRA',               wmsUrl: 'https://geoservicos.incra.gov.br/geoserver/SNCI/wms',        wmsLayer: 'SNCI:Imoveis_SNCI',          opacity: 0.55, attribution: '© INCRA · SNCI' },
+  car:      { name: 'CAR · SFB',                  wmsUrl: 'https://geoserver.car.gov.br/SICAR/wms',                     wmsLayer: 'sicar:area_imovel',          opacity: 0.55, attribution: '© SFB · SiCAR' },
+  spu:      { name: 'Faixa de Marinha · SPU',     wmsUrl: 'https://sigespa.economia.gov.br/sigespa/wms',                wmsLayer: 'sigespa:faixa_marinha',      opacity: 0.55, attribution: '© SPU · Sigespa' },
+  ti:       { name: 'Terras Indígenas · FUNAI',   wmsUrl: 'https://geoserver.funai.gov.br/geoserver/Funai/wms',         wmsLayer: 'Funai:tis_poligonais',       opacity: 0.55, attribution: '© FUNAI' },
+  quilombo: { name: 'Áreas Quilombolas · INCRA',  wmsUrl: 'https://geoservicos.incra.gov.br/geoserver/Quilombola/wms',  wmsLayer: 'Quilombola:Areas_Quilombolas', opacity: 0.55, attribution: '© INCRA' },
+  mun:      { name: 'Limites Municipais · IBGE',  wmsUrl: 'https://geoservicos.ibge.gov.br/geoserver/wms',              wmsLayer: 'CCAR:BCIM_Municipio_A',      opacity: 0.6,  attribution: '© IBGE' },
 };
+function makeWmsLayer(def){
+  return L.tileLayer.wms(def.wmsUrl, {
+    layers: def.wmsLayer,
+    format: 'image/png',
+    transparent: true,
+    opacity: def.opacity || 0.6,
+    attribution: def.attribution || ''
+  });
+}
 
 const activeOverlays = {};
 document.querySelectorAll('input[data-overlay]').forEach(chk => {
@@ -1340,7 +1499,7 @@ document.querySelectorAll('input[data-overlay]').forEach(chk => {
       try {
         status.textContent = 'carregando…';
         status.className = 'layer-status loading';
-        const layer = overlayDefs[id].layer();
+        const layer = makeWmsLayer(overlayDefs[id]);
         layer.on('tileerror', () => {
           status.textContent = 'indisponível';
           status.className = 'layer-status error';
@@ -1364,6 +1523,7 @@ document.querySelectorAll('input[data-overlay]').forEach(chk => {
       status.textContent = '';
       status.className = 'layer-status';
     }
+    refreshLegendPanel();
   });
 });
 
@@ -1383,14 +1543,16 @@ function drawMap(){
     opacity: 1
   }).addTo(polyLayer);
   v.forEach((p,i) => {
+    const isStart = i === 0;
     const icon = L.divIcon({
       className: '',
       iconSize: [24,24],
       iconAnchor: [12,12],
-      html: `<div class="vtx-marker" style="width:24px;height:24px">${p.name}</div>`
+      html: `<div class="vtx-marker${isStart ? ' vtx-start' : ''}" style="width:24px;height:24px">${p.name}</div>`
     });
+    const setStartBtn = isStart ? '' : `<br><a href="#" onclick="window.cf_setStart(${i});return false" style="color:#90b728;font-weight:600">Tornar este o V1 ↻</a>`;
     L.marker([p.lat, p.lng], { icon })
-      .bindPopup(`<strong>${p.name}</strong><br>Lat ${p.lat.toFixed(6)}<br>Lng ${p.lng.toFixed(6)}<br><span style="color:#90b728">E</span> ${p.e.toFixed(3)}<br><span style="color:#90b728">N</span> ${p.n.toFixed(3)}`)
+      .bindPopup(`<strong>${p.name}</strong>${isStart ? ' <span style="color:#90b728">· início</span>' : ''}<br>Lat ${p.lat.toFixed(6)}<br>Lng ${p.lng.toFixed(6)}<br><span style="color:#90b728">E</span> ${p.e.toFixed(3)}<br><span style="color:#90b728">N</span> ${p.n.toFixed(3)}${setStartBtn}`)
       .addTo(markersLayer);
   });
   map.fitBounds(L.polygon(closed).getBounds(), { padding: [40,40] });
@@ -1401,6 +1563,113 @@ $('btn-map-center').addEventListener('click', () => {
   if(state.vertices.length < 2) return;
   const ll = state.vertices.map(p => [p.lat,p.lng]);
   map.fitBounds(L.polygon(ll).getBounds(), { padding: [40,40] });
+});
+
+// Rotaciona os vértices para que o de índice idx vire V1 (renumera V1..Vn)
+function setStartVertex(idx){
+  const v = state.vertices;
+  if(idx <= 0 || idx >= v.length) return;
+  const rot = v.slice(idx).concat(v.slice(0, idx));
+  rot.forEach((p,i) => { p.name = 'V' + (i+1); });
+  state.vertices = rot;
+  refreshAll();
+  setStatus('input-status','ok', `V1 redefinido. Polígono renumerado V1…V${rot.length} a partir do vértice escolhido.`);
+}
+window.cf_setStart = setStartVertex;
+
+// Inverte o sentido dos vértices mantendo o V1 atual
+function reverseVertices(){
+  const v = state.vertices;
+  if(v.length < 3) return;
+  const rot = [v[0], ...v.slice(1).reverse()];
+  rot.forEach((p,i) => { p.name = 'V' + (i+1); });
+  state.vertices = rot;
+  refreshAll();
+  setStatus('input-status','ok', 'Sentido invertido (V1 mantido).');
+}
+$('btn-reverse').addEventListener('click', reverseVertices);
+
+// ===== LEGENDA DAS CAMADAS ATIVAS =====
+function refreshLegendPanel(){
+  const panel = $('legend-panel');
+  const items = $('lg-items');
+  items.innerHTML = '';
+  const ids = Object.keys(activeOverlays);
+  if(!ids.length){ panel.classList.remove('show'); return; }
+  panel.classList.add('show');
+  for(const id of ids){
+    const def = overlayDefs[id];
+    const sep = def.wmsUrl.includes('?') ? '&' : '?';
+    const url = `${def.wmsUrl}${sep}service=WMS&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(def.wmsLayer)}&legend_options=fontColor:0xffffff;bgColor:0x0e2b52;dpi:96;fontAntiAliasing:true`;
+    const item = document.createElement('div');
+    item.className = 'lg-item';
+    item.innerHTML = `<span class="lg-name">${def.name}</span><img alt="Legenda ${def.name}" src="${url}" onerror="this.classList.add('lg-err');this.replaceWith(Object.assign(document.createElement('span'),{textContent:'(legenda indisponível)',style:'color:rgba(244,247,248,0.5);font-size:10px;font-style:italic'}))">`;
+    items.appendChild(item);
+  }
+}
+
+// ===== INFO DAS FEIÇÕES NO CLIQUE (WMS GetFeatureInfo) =====
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+map.on('click', async (e) => {
+  const ids = Object.keys(activeOverlays);
+  if(!ids.length) return;
+  const popup = L.popup({ maxWidth: 360, autoPan: true })
+    .setLatLng(e.latlng)
+    .setContent('<div style="font-size:12px;color:#0a1f3d;padding:2px">Consultando camadas…</div>')
+    .openOn(map);
+  const size = map.getSize();
+  const point = map.latLngToContainerPoint(e.latlng);
+  const bbox = map.getBounds().toBBoxString();
+  const results = [];
+  for(const id of ids){
+    const def = overlayDefs[id];
+    const params = new URLSearchParams({
+      service: 'WMS', version: '1.1.1', request: 'GetFeatureInfo',
+      layers: def.wmsLayer, query_layers: def.wmsLayer, info_format: 'application/json',
+      srs: 'EPSG:4326', bbox, width: size.x, height: size.y,
+      x: Math.round(point.x), y: Math.round(point.y), feature_count: 5
+    });
+    const sep = def.wmsUrl.includes('?') ? '&' : '?';
+    const url = `${def.wmsUrl}${sep}${params.toString()}`;
+    const htmlUrl = url.replace('info_format=application%2Fjson', 'info_format=text%2Fhtml');
+    try {
+      const r = await fetch(url, { mode: 'cors' });
+      if(!r.ok) throw new Error('http ' + r.status);
+      const j = await r.json();
+      results.push({ id, name: def.name, features: (j.features || []), htmlUrl });
+    } catch(err){
+      results.push({ id, name: def.name, error: true, htmlUrl });
+    }
+  }
+  let html = '<div style="font-size:11.5px;color:#0a1f3d;max-height:300px;overflow-y:auto;padding:2px">';
+  const anyFeature = results.some(r => r.features && r.features.length);
+  const anyError = results.some(r => r.error);
+  if(!anyFeature && !anyError){ html += '<em>Nenhuma feição encontrada neste ponto.</em>'; }
+  for(const r of results){
+    html += `<div style="margin-bottom:10px"><div style="font-weight:700;color:#195d83;font-size:10.5px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">${escapeHtml(r.name)}</div>`;
+    if(r.error){
+      html += `<div style="font-size:10.5px;color:#7b7c7b">Servidor não permite consulta direta. <a href="${escapeHtml(r.htmlUrl)}" target="_blank" rel="noopener" style="color:#195d83;text-decoration:underline">Abrir informações em nova aba</a>.</div>`;
+    } else if(!r.features.length){
+      html += '<div style="font-size:10.5px;color:#7b7c7b;font-style:italic">Sem feição neste ponto.</div>';
+    } else {
+      for(const f of r.features.slice(0,3)){
+        const props = f.properties || {};
+        const entries = Object.entries(props).filter(([k,v]) => v != null && v !== '');
+        if(entries.length){
+          html += '<table style="font-size:10.5px;border-collapse:collapse;width:100%;margin-bottom:4px"><tbody>';
+          for(const [k,v] of entries.slice(0,10)){
+            html += `<tr><td style="padding:1px 8px 1px 0;color:#7b7c7b;vertical-align:top;white-space:nowrap">${escapeHtml(k)}</td><td style="padding:1px 0;word-break:break-word">${escapeHtml(String(v).slice(0,120))}</td></tr>`;
+          }
+          html += '</tbody></table>';
+        } else {
+          html += '<div style="color:#7b7c7b;font-style:italic">Feição sem atributos.</div>';
+        }
+      }
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  popup.setContent(html);
 });
 $('btn-map-fs').addEventListener('click', () => {
   const w = $('map-wrap');
@@ -1429,13 +1698,16 @@ function refreshMetrics(){
   $('m-perim').innerHTML = fmtNum(perim,2) + ' <span class="u">m</span>';
   $('m-area').innerHTML = fmtNum(area,2) + ' <span class="u">m²</span>';
   $('m-ha').innerHTML = fmtNum(ha,4) + ' <span class="u">ha</span>';
-  // Closure
+  // Fechamento: o polígono é sempre tratado como fechado (Vn→V1) no cálculo de
+  // área/perímetro. Mostramos a origem do fechamento e a aresta Vn→V1 só como info.
   const a = v[0], b = v[v.length-1];
-  const gap = Math.hypot(b.e - a.e, b.n - a.n);
-  if(gap < 0.01){
-    $('m-clos').innerHTML = '<span class="dot green"></span> Fechado (gap < 1 cm)';
+  const closingEdge = Math.hypot(b.e - a.e, b.n - a.n);
+  if(state.inputClosed){
+    $('m-clos').innerHTML = '<span class="dot green"></span> Fechado pela entrada (vértice de fechamento removido)';
+  } else if(closingEdge < 0.01){
+    $('m-clos').innerHTML = '<span class="dot green"></span> Fechado (V<sub>n</sub> ≡ V<sub>1</sub>)';
   } else {
-    $('m-clos').innerHTML = `<span class="dot amber"></span> Aberto · gap ${fmtNum(gap,3)} m`;
+    $('m-clos').innerHTML = `<span class="dot green"></span> Fechado · aresta V<sub>${v.length}</sub>→V<sub>1</sub> = ${fmtNum(closingEdge,3)} m`;
   }
 }
 function fmtNum(n, dec){
@@ -1501,7 +1773,7 @@ $('btn-copy-out').addEventListener('click', async () => {
 =========================================================== */
 function refreshExportButtons(){
   const ok = state.vertices.length >= 3;
-  ['exp-txt','exp-shp','exp-kml','exp-csv'].forEach(id => $(id).disabled = !ok);
+  ['exp-txt','exp-shp','exp-kml','exp-csv','exp-mem'].forEach(id => $(id).disabled = !ok);
 }
 
 $('exp-txt').addEventListener('click', async () => {
@@ -1751,6 +2023,564 @@ function downloadBlob(blob, filename){
 =========================================================== */
 refreshAll();
 setTimeout(() => map.invalidateSize(), 200);
+</script>
+
+<!-- ============ MEMORIAL DESCRITIVO MODAL ============ -->
+<div class="modal-backdrop" id="memorial-modal">
+  <div class="modal modal-memorial" role="dialog" aria-modal="true" aria-labelledby="mem-title">
+    <button class="modal-close" id="close-memorial" aria-label="Fechar">×</button>
+    <div class="modal-head">
+      <div class="modal-eyebrow">Memorial Descritivo · NBR 13133 / NBR 17047</div>
+      <div class="modal-title" id="mem-title">Gerar Memorial Descritivo</div>
+      <div class="modal-sub">Geometria, azimutes e coordenadas vêm do polígono importado. Preencha a identificação, classifique cada lado e o RT, e exporte em PDF.</div>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;padding:10px 12px;background:rgba(144,183,40,0.08);border:1px dashed rgba(144,183,40,0.4);border-radius:5px">
+      <div style="flex:1;font-size:11.5px;color:var(--white);line-height:1.45"><strong>Importar ART/RRT (PDF):</strong> extrai automaticamente nome do RT, registro CAU/CREA, empresa, município, UF e endereço da obra para pré-preencher o memorial.</div>
+      <input type="file" id="mem-art-file" accept=".pdf,application/pdf" style="display:none">
+      <button class="btn btn-secondary" id="mem-art-btn" type="button">📎 Importar ART / RRT</button>
+    </div>
+    <div id="mem-art-status" style="font-size:11px;color:var(--soft);margin-bottom:14px;min-height:14px"></div>
+
+    <div class="mem-section-title">Identificação do imóvel</div>
+    <div class="mem-grid">
+      <div class="mem-field mem-full">
+        <label for="mem-imovel">Descrição do imóvel</label>
+        <textarea id="mem-imovel" placeholder="Ex: Área de terreno da antiga casa de n° 174, Gleba A, situada na Rua Marechal Bittencourt, bairro do Poço da Panela, Recife."></textarea>
+      </div>
+      <div class="mem-field mem-full">
+        <label for="mem-prop">Proprietário(s) e CPF/CNPJ</label>
+        <textarea id="mem-prop" placeholder="Ex: Fulano de Tal / CPF: 000.000.000-00&#10;Sicrano de Tal / CPF: 000.000.000-00"></textarea>
+      </div>
+      <div class="mem-field"><label for="mem-municipio">Município</label><input id="mem-municipio" placeholder="Recife"></div>
+      <div class="mem-field"><label for="mem-uf">UF</label><input id="mem-uf" placeholder="PE" maxlength="2"></div>
+      <div class="mem-field"><label for="mem-matricula">Matrícula / Registro (opcional)</label><input id="mem-matricula" placeholder="Matrícula n° XXX do CRI 1° ofício"></div>
+      <div class="mem-field"><label for="mem-data">Data</label><input id="mem-data" type="date"></div>
+    </div>
+
+    <div class="mem-section-title">Confrontantes por lado</div>
+    <div style="font-size:11.5px;color:var(--soft);margin-bottom:10px;line-height:1.5">
+      Para cada aresta V<sub>i</sub>→V<sub>i+1</sub>, escolha o lado e o confrontante.
+      Arestas <strong>consecutivas com o mesmo lado</strong> são automaticamente agrupadas no texto final (e os comprimentos somados).
+    </div>
+    <div class="mem-edges" id="mem-edges"></div>
+
+    <div class="mem-section-title">Responsável Técnico</div>
+    <div class="mem-grid">
+      <div class="mem-field"><label for="mem-rt-nome">Nome do RT</label><input id="mem-rt-nome" placeholder="Ex: Aryanna Barbosa de Araújo Gonzaga"></div>
+      <div class="mem-field"><label for="mem-rt-reg">Registro profissional</label><input id="mem-rt-reg" placeholder="Ex: CAU-PE N° A88.162-7 ou CREA-PE N° 1234"></div>
+      <div class="mem-field"><label for="mem-empresa">Empresa (opcional · cabeçalho)</label><input id="mem-empresa" placeholder="Ex: AG Topografia e Construções"></div>
+      <div class="mem-field"><label for="mem-empresa-endereco">Endereço da empresa (opcional · rodapé)</label><input id="mem-empresa-endereco" placeholder="Rua, número, bairro, cidade/UF · CEP · telefone"></div>
+    </div>
+
+    <div class="mem-section-title">Pré-visualização do texto</div>
+    <div class="mem-preview" id="mem-preview">Preencha os campos acima para gerar a pré-visualização.</div>
+
+    <div class="mem-actions">
+      <button class="btn btn-secondary" id="mem-copy">Copiar texto</button>
+      <button class="btn btn-primary" id="mem-pdf">Baixar PDF</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================
+   MEMORIAL DESCRITIVO
+=========================================================== */
+function azimuthUTM(p1, p2){
+  // Azimute geodésico no plano UTM: ângulo a partir do Norte, sentido horário, em graus [0, 360)
+  const dE = p2.e - p1.e;
+  const dN = p2.n - p1.n;
+  let a = Math.atan2(dE, dN) * 180 / Math.PI;
+  if(a < 0) a += 360;
+  return a;
+}
+function decToDMS(deg){
+  const d = Math.floor(deg);
+  const mFull = (deg - d) * 60;
+  const m = Math.floor(mFull);
+  const s = (mFull - m) * 60;
+  return `${d}° ${String(m).padStart(2,'0')}' ${s.toFixed(2).replace('.', ',').padStart(5,'0')}''`;
+}
+function fmtDateBR(iso){
+  if(!iso) return '__ de _________ de ____';
+  const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const [y,m,d] = iso.split('-').map(Number);
+  return `${d} de ${meses[m-1]} de ${y}`;
+}
+
+function buildMemorialEdges(verts){
+  const n = verts.length;
+  const edges = [];
+  for(let i = 0; i < n; i++){
+    const a = verts[i], b = verts[(i+1) % n];
+    edges.push({
+      idx: i,
+      from: a, to: b,
+      az: azimuthUTM(a, b),
+      dist: Math.hypot(b.e - a.e, b.n - a.n),
+    });
+  }
+  return edges;
+}
+
+// Auto-atribuição de lados a partir do V1 voltado para a rua principal.
+// Convenção: observador parado em V1 olhando para a rua. V1→V2 = Frente.
+// Lado direito/esquerdo = direção relativa ao observador. Fundo = aresta oposta à Frente.
+function autoAssignSides(verts){
+  const n = verts.length;
+  const sides = new Array(n).fill('');
+  if(n < 3) return sides;
+
+  // 1. Frente = primeira aresta
+  sides[0] = 'Frente';
+
+  // 2. Sentido do polígono (positivo = CCW em E,N)
+  let signed = 0;
+  for(let i = 0; i < n; i++){
+    const a = verts[i], b = verts[(i+1)%n];
+    signed += (a.e * b.n - b.e * a.n);
+  }
+  const isCCW = signed > 0;
+
+  // 3. Fundo = aresta cujo ponto médio está mais distante da Frente, na direção do interior
+  const v1 = verts[0], v2 = verts[1 % n];
+  const fE = v2.e - v1.e, fN = v2.n - v1.n;
+  const fLen = Math.hypot(fE, fN) || 1;
+  // Normal interior à Frente (depende do sentido do polígono)
+  const nx = isCCW ? -fN/fLen : fN/fLen;
+  const ny = isCCW ?  fE/fLen : -fE/fLen;
+  let fundoIdx = -1, maxDist = -Infinity;
+  for(let i = 1; i < n; i++){
+    const a = verts[i], b = verts[(i+1)%n];
+    const mx = (a.e + b.e)/2, my = (a.n + b.n)/2;
+    const dist = (mx - v1.e) * nx + (my - v1.n) * ny;
+    if(dist > maxDist){ maxDist = dist; fundoIdx = i; }
+  }
+  if(fundoIdx > 0) sides[fundoIdx] = 'Fundo';
+
+  // 4. Demais arestas: antes do fundo = um lado, depois do fundo = o outro lado
+  // No sentido CCW, com V1 voltado para a rua (frente externa), V2→...→fundo é o lado ESQUERDO
+  // do observador (olhando p/ rua, esquerdo é onde a poligonal "sai" de V2 para dentro do imóvel).
+  // No sentido CW, fica invertido.
+  for(let i = 1; i < n; i++){
+    if(i === fundoIdx) continue;
+    const isFirstGroup = i < fundoIdx;
+    if(isCCW){
+      sides[i] = isFirstGroup ? 'Lado esquerdo' : 'Lado direito';
+    } else {
+      sides[i] = isFirstGroup ? 'Lado direito' : 'Lado esquerdo';
+    }
+  }
+  return sides;
+}
+
+function buildMemorialText(meta, verts){
+  if(!verts || verts.length < 3) return 'Importe um polígono com pelo menos 3 vértices.';
+  const n = verts.length;
+  const edges = buildMemorialEdges(verts);
+  const sides = meta.sides || [], confs = meta.confs || [];
+
+  let txt = 'MEMORIAL DESCRITIVO\n\n';
+  if(meta.imovel) txt += `Imóvel: ${meta.imovel}\n`;
+  if(meta.prop){
+    const lines = meta.prop.split('\n').map(s => s.trim()).filter(Boolean);
+    lines.forEach((l, i) => txt += (i === 0 ? `Proprietário/CPF: ${l}\n` : `${' '.repeat(18)}${l}\n`));
+  }
+  if(meta.municipio || meta.uf) txt += `Município: ${meta.municipio||'________'}    UF: ${meta.uf||'__'}\n`;
+  if(meta.matricula) txt += `${meta.matricula}\n`;
+  const area = polyArea(verts);
+  const perim = polyPerimeter(verts);
+  txt += `Área: ${fmtNum(area,2)} m²    Perímetro: ${fmtNum(perim,2)} m\n\n`;
+
+  // Descrição perimetral (parágrafo único, estilo NBR/AG)
+  let para = `Inicia-se a descrição deste perímetro no vértice ${verts[0].name}, definido pelas coordenadas E: ${fmtNum(verts[0].e,3)} m e N: ${fmtNum(verts[0].n,3)} m`;
+  for(let i = 0; i < n; i++){
+    const e = edges[i], next = e.to, last = (i === n-1);
+    if(last){
+      para += ` com azimute ${decToDMS(e.az)} e distância de ${fmtNum(e.dist,2)} m até o vértice ${next.name}, encerrando este perímetro.`;
+    } else {
+      para += ` com azimute ${decToDMS(e.az)} e distância de ${fmtNum(e.dist,2)} m até o vértice ${next.name}, definido pelas coordenadas E: ${fmtNum(next.e,3)} m e N: ${fmtNum(next.n,3)} m`;
+    }
+  }
+  txt += para + '\n\n';
+
+  // Sistema de referência
+  const cfg_ = cfg();
+  const mc = -183 + 6 * cfg_.zone;
+  const mcAbs = Math.abs(mc);
+  const hemiMC = mc < 0 ? 'WGr' : 'EGr';
+  txt += `Todas as coordenadas aqui descritas estão georreferenciadas no Sistema Geodésico Brasileiro, e encontram-se representadas no Sistema UTM, referenciadas ao Meridiano Central ${mcAbs}°00'00" ${hemiMC}, tendo como Datum o SIRGAS 2000 (EPSG:4674). Todos os azimutes e distâncias, áreas e perímetros foram calculados no plano de projeção UTM, em conformidade com a NBR 13133 e a NBR 17047.\n\n`;
+
+  // Confrontantes — agrupa arestas consecutivas com o mesmo lado
+  const groups = [];
+  let cur = null;
+  for(const e of edges){
+    const side = (sides[e.idx] || '').trim();
+    if(!side){ cur = null; continue; }
+    if(cur && cur.side === side && cur.endIdx === e.idx - 1){
+      cur.endIdx = e.idx;
+      cur.length += e.dist;
+      if(!cur.conf) cur.conf = (confs[e.idx] || '').trim();
+    } else {
+      cur = { side, startIdx: e.idx, endIdx: e.idx, length: e.dist, conf: (confs[e.idx] || '').trim() };
+      groups.push(cur);
+    }
+  }
+  if(groups.length){
+    txt += 'Descrição dos seguintes confrontantes:\n\n';
+    const order = ['Frente','Fundo','Lado direito','Lado esquerdo','Outro'];
+    groups.sort((a,b) => (order.indexOf(a.side) - order.indexOf(b.side)) || (a.startIdx - b.startIdx));
+    for(const g of groups){
+      const vStart = verts[g.startIdx].name;
+      const vEnd = verts[(g.endIdx + 1) % n].name;
+      txt += `${g.side}: limita-se com ${g.conf || '____________________________'}, do vértice ${vStart} ao ${vEnd} com ${fmtNum(g.length,2)} m;\n`;
+    }
+    txt += '\n';
+  }
+
+  // Cidade e data
+  txt += `${meta.municipio || '________'}, ${fmtDateBR(meta.data)}.\n\n\n`;
+  txt += `____________________________________________________\n`;
+  txt += `${meta.rtNome || '_______________________________'}\n`;
+  if(meta.rtReg) txt += `${meta.rtReg}\n`;
+  txt += `Responsável Técnico\n`;
+  return txt;
+}
+
+function renderMemorialEdges(){
+  const container = $('mem-edges');
+  container.innerHTML = '';
+  const v = state.vertices;
+  if(v.length < 3){ container.innerHTML = '<div style="color:var(--soft);font-size:11.5px;padding:8px">Importe um polígono com pelo menos 3 vértices antes de gerar o memorial.</div>'; return; }
+  const edges = buildMemorialEdges(v);
+  const autoSides = autoAssignSides(v);
+  const optFor = (name, sel) => `<option${sel===name?' selected':''}>${name}</option>`;
+  for(const e of edges){
+    const sel = autoSides[e.idx];
+    const row = document.createElement('div');
+    row.className = 'mem-edge-row';
+    row.innerHTML = `
+      <span class="e-id">${e.from.name}→${e.to.name}</span>
+      <span class="e-meta">Az ${decToDMS(e.az)}<br>${fmtNum(e.dist,2)} m</span>
+      <select data-edge-side="${e.idx}">
+        <option value="">— sem lado —</option>
+        ${optFor('Frente', sel)}
+        ${optFor('Fundo', sel)}
+        ${optFor('Lado direito', sel)}
+        ${optFor('Lado esquerdo', sel)}
+        ${optFor('Outro', sel)}
+      </select>
+      <input type="text" data-edge-conf="${e.idx}" placeholder="Confrontante (ex: Rua Álvaro Macedo / Imóvel n° 178)">
+    `;
+    container.appendChild(row);
+  }
+}
+
+function collectMemorialMeta(){
+  const sides = [], confs = [];
+  document.querySelectorAll('[data-edge-side]').forEach(s => { sides[+s.dataset.edgeSide] = s.value; });
+  document.querySelectorAll('[data-edge-conf]').forEach(s => { confs[+s.dataset.edgeConf] = s.value; });
+  return {
+    imovel: $('mem-imovel').value.trim(),
+    prop: $('mem-prop').value.trim(),
+    municipio: $('mem-municipio').value.trim(),
+    uf: $('mem-uf').value.trim().toUpperCase(),
+    matricula: $('mem-matricula').value.trim(),
+    data: $('mem-data').value,
+    rtNome: $('mem-rt-nome').value.trim(),
+    rtReg: $('mem-rt-reg').value.trim(),
+    empresa: $('mem-empresa').value.trim(),
+    empresaEndereco: $('mem-empresa-endereco').value.trim(),
+    sides, confs,
+  };
+}
+
+function refreshMemorialPreview(){
+  const meta = collectMemorialMeta();
+  $('mem-preview').textContent = buildMemorialText(meta, state.vertices);
+}
+
+function generateMemorialPDF(){
+  if(!window.jspdf){ setStatus('export-status','err','Biblioteca jsPDF não carregou. Recarregue a página.'); return; }
+  const meta = collectMemorialMeta();
+  const text = buildMemorialText(meta, state.vertices);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageW = 210, pageH = 297, margin = 22;
+  const contentW = pageW - 2 * margin;
+  let y = 18;
+
+  // Cabeçalho com nome da empresa (opcional)
+  if(meta.empresa){
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(11);
+    doc.setTextColor(10,31,61);
+    doc.text(meta.empresa, pageW - margin, y, { align: 'right' });
+    y += 4;
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(120,120,120);
+    doc.text('TOPOGRAFIA · GEORREFERENCIAMENTO', pageW - margin, y, { align: 'right' });
+  }
+  doc.setTextColor(0,0,0);
+
+  // Título
+  y = 38;
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(16);
+  doc.text('MEMORIAL DESCRITIVO', pageW/2, y, { align: 'center' });
+  doc.setDrawColor(144,183,40);
+  doc.setLineWidth(0.7);
+  doc.line(pageW/2 - 32, y + 1.8, pageW/2 + 32, y + 1.8);
+  doc.setDrawColor(0,0,0);
+  doc.setLineWidth(0.2);
+
+  // Corpo
+  y += 11;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  // Pular as duas primeiras linhas que são título "MEMORIAL DESCRITIVO\n\n"
+  const body = text.replace(/^MEMORIAL DESCRITIVO\s*\n+/, '');
+  // Renderiza preservando parágrafos; cada \n é quebra; doc.splitTextToSize cuida do wrap
+  const paragraphs = body.split(/\n/);
+  for(const p of paragraphs){
+    if(!p){ y += 3.2; continue; }
+    const lines = doc.splitTextToSize(p, contentW);
+    for(const line of lines){
+      if(y > pageH - 25){ doc.addPage(); y = 22; }
+      doc.text(line, margin, y);
+      y += 4.6;
+    }
+  }
+
+  // Rodapé com endereço (opcional)
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let i = 1; i <= pageCount; i++){
+    doc.setPage(i);
+    if(meta.empresaEndereco){
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(110,110,110);
+      doc.text(meta.empresaEndereco, pageW/2, pageH - 12, { align: 'center', maxWidth: contentW });
+    }
+    doc.setFontSize(7);
+    doc.setTextColor(150,150,150);
+    doc.text(`Página ${i}/${pageCount}`, pageW - margin, pageH - 8, { align: 'right' });
+    doc.setTextColor(0,0,0);
+  }
+
+  const slug = (meta.municipio || 'imovel').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+  doc.save(`memorial_descritivo_${slug}.pdf`);
+  setStatus('export-status','ok','Memorial Descritivo (PDF) gerado.');
+}
+
+// Centroide do polígono em lat/lng (média simples — suficiente para reverse geocode)
+function polyCentroidLatLng(verts){
+  let lat = 0, lng = 0;
+  for(const v of verts){ lat += v.lat; lng += v.lng; }
+  return { lat: lat / verts.length, lng: lng / verts.length };
+}
+
+// Persistência de RT/empresa (independente de polígono)
+const MEM_RT_KEYS = ['mem-rt-nome','mem-rt-reg','mem-empresa','mem-empresa-endereco'];
+function loadMemorialRT(){
+  try { const saved = JSON.parse(localStorage.getItem('confrontei_rt') || '{}');
+    MEM_RT_KEYS.forEach(k => { if(saved[k] && !$(k).value) $(k).value = saved[k]; });
+  } catch {}
+}
+function saveMemorialRT(){
+  const data = {}; MEM_RT_KEYS.forEach(k => data[k] = $(k).value);
+  try { localStorage.setItem('confrontei_rt', JSON.stringify(data)); } catch {}
+}
+
+// Pré-preenchimento por localização via Nominatim (OSM reverse geocoding)
+async function prefillFromLocation(){
+  if(state.vertices.length < 3) return;
+  const c = polyCentroidLatLng(state.vertices);
+  const $mun = $('mem-municipio'), $uf = $('mem-uf'), $imo = $('mem-imovel');
+  // Não sobrescreve o que o usuário já digitou
+  if($mun.value.trim() && $uf.value.trim()) return;
+  const hint = $mun.value.trim() ? '' : 'Buscando município pela localização…';
+  if(hint){ $mun.placeholder = hint; }
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${c.lat}&lon=${c.lng}&zoom=18&accept-language=pt-BR&addressdetails=1`;
+    const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if(!r.ok) throw new Error('nominatim ' + r.status);
+    const j = await r.json();
+    const a = j.address || {};
+    const municipio = a.city || a.town || a.village || a.municipality || a.county || '';
+    const ufFull = a['ISO3166-2-lvl4'] || '';
+    const uf = ufFull.startsWith('BR-') ? ufFull.slice(3) : '';
+    const bairro = a.suburb || a.neighbourhood || a.city_district || '';
+    const rua = a.road || '';
+    if(municipio && !$mun.value.trim()) $mun.value = municipio;
+    if(uf && !$uf.value.trim()) $uf.value = uf;
+    if(!$imo.value.trim() && (rua || bairro)){
+      const partes = [];
+      if(rua) partes.push(`Rua ${rua}`);
+      if(bairro) partes.push(`bairro ${bairro}`);
+      if(municipio) partes.push(municipio);
+      $imo.value = `Imóvel situado na ${partes.join(', ')}.`;
+    }
+    $mun.placeholder = 'Recife';
+    refreshMemorialPreview();
+  } catch(err){
+    $mun.placeholder = 'Recife';
+  }
+}
+
+// ===== Import ART (CREA) / RRT (CAU) — extrai texto do PDF e preenche campos =====
+async function extractPdfText(file){
+  if(!window.pdfjsLib){ throw new Error('pdf.js não carregou'); }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  for(let i = 1; i <= pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it => it.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+function parseArtRrt(text){
+  const t = text.replace(/\s+/g, ' ').trim();
+  const out = {};
+  let m;
+
+  // CAU (RRT)
+  m = t.match(/CAU[\s\/\-]*([A-Z]{2})[^A-Z0-9]{0,12}([A-Z]?\d[\d\.\-]{2,})/i);
+  if(m) out.rtReg = `CAU-${m[1].toUpperCase()} N° ${m[2]}`;
+  // CREA (ART)
+  if(!out.rtReg && (m = t.match(/CREA[\s\/\-]*([A-Z]{2})[^A-Z0-9]{0,12}(\d[\d\.\-]{3,})/i))){
+    out.rtReg = `CREA-${m[1].toUpperCase()} N° ${m[2]}`;
+  }
+  // Nome do profissional
+  m = t.match(/(?:Profissional|Respons[áa]vel\s+T[ée]cnico|Nome\s+do\s+Profissional)\s*:?\s*([A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑ][A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑa-záéíóúàâêôãõçñ\s]{6,80}?)\s+(?:CPF|CAU|CREA|RNP|Endere|Munic|Atividad|T[íi]tulo|RG)\b/);
+  if(m) out.rtNome = m[1].trim().replace(/\s+/g, ' ');
+  // Empresa / Razão Social / Contratada
+  m = t.match(/(?:Empresa(?:\s+Contratada)?|Raz[ãa]o\s+Social|Contratada)\s*:?\s*([A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑ][A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑa-záéíóúàâêôãõçñ0-9&\s\.\-]{4,120}?)\s+(?:CNPJ|Endere|Munic|CPF|N°|UF)\b/);
+  if(m) out.empresa = m[1].trim().replace(/\s+/g, ' ');
+  // Município (procura primeiro o do imóvel/obra; senão qualquer)
+  m = t.match(/Munic[ií]pio\s*(?:da\s+(?:obra|atividade|servi[çc]o))?\s*:?\s*([A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑa-záéíóúàâêôãõçñ\s\-']{3,60}?)\s+(?:UF|Estado|CEP|Endere|N°|Bairro)\b/);
+  if(m) out.municipio = m[1].trim().replace(/\s+/g, ' ');
+  // UF
+  m = t.match(/\bUF\s*:?\s*([A-Z]{2})\b/);
+  if(m) out.uf = m[1];
+  // Endereço da obra
+  m = t.match(/Endere[çc]o\s*(?:da\s+(?:obra|atividade|servi[çc]o))?\s*:?\s*([^.]{8,200}?)\s+(?:Munic[ií]pio|N°|Bairro|CEP|UF|Complemento)\b/);
+  if(m) out.endereco = m[1].trim().replace(/\s+/g, ' ');
+  // Contratante / Proprietário
+  m = t.match(/(?:Contratante|Propriet[áa]rio)\s*:?\s*([A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑ][A-ZÁÉÍÓÚÀÂÊÔÃÕÇÑa-záéíóúàâêôãõçñ\s\.\-']{4,120}?)\s+(?:CPF|CNPJ|Endere|Munic|N°)\b/);
+  if(m) out.contratante = m[1].trim().replace(/\s+/g, ' ');
+  return out;
+}
+
+function applyArtRrtData(data){
+  const filled = [];
+  const tryFill = (id, val, label) => {
+    if(!val) return;
+    const el = $(id);
+    if(!el.value.trim()){ el.value = val; filled.push(label); }
+  };
+  tryFill('mem-rt-nome', data.rtNome, 'RT');
+  tryFill('mem-rt-reg', data.rtReg, 'registro');
+  tryFill('mem-empresa', data.empresa, 'empresa');
+  tryFill('mem-municipio', data.municipio, 'município');
+  tryFill('mem-uf', data.uf, 'UF');
+  // Endereço/Contratante alimentam a descrição do imóvel
+  if((data.endereco || data.contratante) && !$('mem-imovel').value.trim()){
+    const partes = [];
+    if(data.endereco) partes.push(data.endereco);
+    if(data.municipio && data.uf) partes.push(`${data.municipio}/${data.uf}`);
+    if(partes.length){ $('mem-imovel').value = `Imóvel situado em ${partes.join(', ')}.`; filled.push('descrição'); }
+  }
+  if(data.contratante && !$('mem-prop').value.trim()){
+    $('mem-prop').value = data.contratante;
+    filled.push('proprietário');
+  }
+  return filled;
+}
+
+async function handleArtRrtFile(file){
+  const $status = $('mem-art-status');
+  $status.style.color = 'var(--soft)';
+  $status.textContent = `Lendo ${file.name}…`;
+  try {
+    const text = await extractPdfText(file);
+    if(!text || text.length < 50){ throw new Error('PDF sem texto extraível (digitalizado?)'); }
+    const data = parseArtRrt(text);
+    const filled = applyArtRrtData(data);
+    saveMemorialRT();
+    refreshMemorialPreview();
+    if(filled.length){
+      $status.style.color = 'var(--verde)';
+      $status.textContent = `✓ ART/RRT lida. Preenchidos: ${filled.join(', ')}. Revise antes de gerar o PDF.`;
+    } else {
+      $status.style.color = '#e8b04a';
+      $status.textContent = '⚠ ART/RRT lida, mas nenhum campo correspondeu aos padrões. Preencha manualmente.';
+    }
+  } catch(err){
+    $status.style.color = '#ff7b7b';
+    $status.textContent = `✗ Falha: ${err.message || err}. PDFs digitalizados (imagem) não têm texto — use a versão original do CAU/CREA.`;
+  }
+}
+
+// Wire up modal
+(function initMemorial(){
+  const $modal = $('memorial-modal');
+  // Data de hoje como padrão
+  const today = new Date(); const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  $('mem-data').value = iso;
+  loadMemorialRT();
+
+  function openMemorial(){
+    if(state.vertices.length < 3){ setStatus('export-status','warn','Importe um polígono antes de gerar o memorial.'); return; }
+    renderMemorialEdges();
+    prefillFromLocation();
+    refreshMemorialPreview();
+    $modal.classList.add('open');
+  }
+  $('exp-mem').addEventListener('click', openMemorial);
+  $('close-memorial').addEventListener('click', () => $modal.classList.remove('open'));
+  $modal.addEventListener('click', e => { if(e.target === $modal) $modal.classList.remove('open'); });
+  // Live preview + persistência do RT enquanto edita
+  $modal.addEventListener('input', e => {
+    refreshMemorialPreview();
+    if(MEM_RT_KEYS.includes(e.target.id)) saveMemorialRT();
+  });
+  $modal.addEventListener('change', refreshMemorialPreview);
+  $('mem-copy').addEventListener('click', async () => {
+    const txt = $('mem-preview').textContent;
+    try { await navigator.clipboard.writeText(txt); setStatus('export-status','ok','Memorial copiado para a área de transferência.'); }
+    catch { setStatus('export-status','err','Não foi possível copiar.'); }
+  });
+  $('mem-pdf').addEventListener('click', generateMemorialPDF);
+
+  // Import ART/RRT
+  $('mem-art-btn').addEventListener('click', () => $('mem-art-file').click());
+  $('mem-art-file').addEventListener('change', e => {
+    const f = e.target.files[0]; if(f) handleArtRrtFile(f);
+    e.target.value = ''; // permite re-importar o mesmo arquivo
+  });
+
+  // Deep-link #memorial vindo da landing — abre o modal automaticamente quando houver polígono
+  if(location.hash === '#memorial'){
+    const tryOpen = () => { if(state.vertices.length >= 3){ openMemorial(); return true; } return false; };
+    if(!tryOpen()){
+      // Espera o usuário importar o polígono e tenta de novo na próxima refreshAll
+      const origRefresh = refreshAll;
+      window.refreshAll = function(){
+        origRefresh.apply(this, arguments);
+        if(location.hash === '#memorial' && tryOpen()){ location.hash = ''; window.refreshAll = origRefresh; }
+      };
+    } else {
+      location.hash = '';
+    }
+  }
+})();
 </script>
 
 <!-- ============ FEEDBACK MODAL ============ -->
