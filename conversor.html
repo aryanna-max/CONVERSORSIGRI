@@ -579,6 +579,7 @@ input, textarea, select, [contenteditable]{cursor:text}
           <button class="tab" data-tab="manual" role="tab">Ponto a ponto</button>
           <button class="tab" data-tab="dxf" role="tab">DXF</button>
           <button class="tab" data-tab="kml" role="tab">KML / KMZ</button>
+          <button class="tab" data-tab="mempdf" role="tab">Memorial (PDF)</button>
         </div>
 
         <!-- TAB PASTE -->
@@ -648,6 +649,21 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
             <input type="file" id="kml-input" accept=".kml,.kmz" hidden>
           </label>
           <div class="field-help">KML opera em WGS 84 graus decimais. Para fins cartoriais, WGS 84 ≈ SIRGAS 2000 (diferença subcentimétrica). A origem é registrada nos metadados do KML de saída.</div>
+        </div>
+
+        <!-- TAB MEMORIAL PDF -->
+        <div class="tab-panel" data-tab-panel="mempdf">
+          <label class="dropzone" id="mempdf-drop">
+            <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+              <rect x="5" y="3" width="14" height="18" rx="1"/>
+              <path d="M8 8h8M8 12h8M8 16h5"/>
+            </svg>
+            <div class="dz-title">Memorial Descritivo (PDF)</div>
+            <div class="dz-sub">Arraste o memorial ou clique para selecionar.<br>Extrai vértices (E/N), meridiano central e fuso automaticamente.</div>
+            <div class="dz-file" id="mempdf-file-name"></div>
+            <input type="file" id="mempdf-input" accept=".pdf,application/pdf" hidden>
+          </label>
+          <div class="field-help">Reconhece formato "V1, definido pelas coordenadas E: X m e N: Y m…" (padrão AG/NBR) e variações. PDF precisa ter texto (não digitalizado). Se o memorial informar o Meridiano Central, o fuso UTM é ajustado automaticamente.</div>
         </div>
 
         <div class="status" id="input-status"></div>
@@ -1163,6 +1179,103 @@ async function handleKML(file){
   } catch(err){
     console.error(err);
     setStatus('input-status','err','Falha ao ler KML/KMZ: ' + (err.message || err));
+  }
+}
+
+/* ===========================================================
+   MEMORIAL DESCRITIVO PDF IMPORT
+=========================================================== */
+const mempdfDrop = $('mempdf-drop');
+['dragenter','dragover'].forEach(ev => mempdfDrop.addEventListener(ev, e => { e.preventDefault(); mempdfDrop.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => mempdfDrop.addEventListener(ev, e => { e.preventDefault(); mempdfDrop.classList.remove('drag'); }));
+mempdfDrop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if(f) handleMemorialPDF(f); });
+$('mempdf-input').addEventListener('change', e => { const f = e.target.files[0]; if(f) handleMemorialPDF(f); });
+
+// Parser numérico tolerante a formatos pt-BR/en-US: "287.831,350" ou "287831.350"
+function parseNumBR(s){
+  s = String(s).replace(/[^\d\.,\-]/g, '');
+  const lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+  if(lastComma > lastDot) return parseFloat(s.replace(/\./g,'').replace(',','.'));
+  if(lastDot > lastComma) return parseFloat(s.replace(/,/g,''));
+  return parseFloat(s);
+}
+
+function parseMemorialText(text){
+  const t = text.replace(/\s+/g, ' ');
+  const verts = [];
+  // Padrão AG/NBR: "V1, definido pelas coordenadas E: 287.831,350 m e N: 9.111.104,430 m"
+  let re = /V(\d+)[,.\s]{1,4}definido\s+pelas\s+coordenadas\s+E[:\s]*([\d\.,]+)\s*m?\s*[e,]\s*N[:\s]*([\d\.,]+)/gi;
+  let m;
+  const seen = new Set();
+  while((m = re.exec(t)) !== null){
+    const name = 'V' + m[1];
+    if(seen.has(name)) continue;
+    const e = parseNumBR(m[2]), n = parseNumBR(m[3]);
+    if(isFinite(e) && isFinite(n)){ verts.push({ name, e, n }); seen.add(name); }
+  }
+  // Fallback compacto: "V1 E: 287.831,350 N: 9.111.104,430" ou "V1 E=... N=..."
+  if(verts.length < 3){
+    re = /V(?:[ÉE]RTICE\s*)?(\d+)[^\dEN]{1,20}?E[:\s=]*([\d\.,]{5,})[^\dN]{1,20}?N[:\s=]*([\d\.,]{6,})/gi;
+    while((m = re.exec(t)) !== null){
+      const name = 'V' + m[1];
+      if(seen.has(name)) continue;
+      const e = parseNumBR(m[2]), n = parseNumBR(m[3]);
+      if(isFinite(e) && isFinite(n)){ verts.push({ name, e, n }); seen.add(name); }
+    }
+  }
+  // Detecta Meridiano Central para inferir fuso: "Meridiano Central 33°00'00" WGr" ou "MC = -33"
+  let mc = null;
+  m = t.match(/Meridiano\s+Central\s+(\d+)\s*°?[^\d]{0,20}?(W|WGr|E|EGr)?/i);
+  if(m){
+    const deg = parseInt(m[1], 10);
+    const isW = !m[2] || /^W/i.test(m[2]);
+    mc = isW ? -deg : deg;
+  }
+  const fuso = mc != null ? Math.round((mc + 183) / 6) : null;
+  // Ordena por índice numérico do nome (V1, V2, ..., V10)
+  verts.sort((a,b) => parseInt(a.name.slice(1),10) - parseInt(b.name.slice(1),10));
+  return { verts, fuso };
+}
+
+async function handleMemorialPDF(file){
+  $('mempdf-file-name').textContent = file.name;
+  try {
+    if(!window.pdfjsLib) throw new Error('pdf.js não carregou');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
+    setStatus('input-status','ok','Lendo memorial…');
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let text = '';
+    for(let i = 1; i <= pdf.numPages; i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(it => it.str).join(' ') + '\n';
+    }
+    if(!text || text.length < 40) throw new Error('PDF sem texto extraível (memorial digitalizado?)');
+    const { verts, fuso } = parseMemorialText(text);
+    if(verts.length < 3){
+      setStatus('input-status','err','Não foi possível reconhecer vértices no memorial. Confira o formato ("V1, definido pelas coordenadas E: … m e N: … m").');
+      return;
+    }
+    // Ajusta fuso automaticamente (se detectado) e hemisfério S por padrão para Brasil
+    let msgFuso = '';
+    if(fuso && fuso >= 18 && fuso <= 25){
+      $('cfg-zone').value = fuso;
+      msgFuso = ` · fuso ${fuso} S detectado no memorial`;
+    }
+    // Remove vértice de fechamento duplicado se houver
+    state.inputClosed = false;
+    let vv = verts.slice();
+    if(vv.length >= 4){
+      const a = vv[0], b = vv[vv.length-1];
+      if(Math.hypot(a.e-b.e, a.n-b.n) < 0.01){ vv = vv.slice(0,-1); state.inputClosed = true; }
+    }
+    state.fromKML = false;
+    loadFromUTM(vv);
+    setStatus('input-status','ok',`Memorial importado: ${vv.length} vértices${msgFuso}. Confirme datum/hemisfério antes de exportar.`);
+  } catch(err){
+    console.error(err);
+    setStatus('input-status','err','Falha ao ler o memorial: ' + (err.message || err));
   }
 }
 
