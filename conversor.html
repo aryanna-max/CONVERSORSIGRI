@@ -274,6 +274,24 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .out-textarea::placeholder{color:rgba(10,31,61,0.45);font-weight:400}
 .out-textarea:focus{border-color:var(--verde)}
 
+/* Coord table — dobra ou desdobra abaixo da textarea SIGRI, live com state.vertices */
+.coord-table-wrap{margin-top:14px;background:rgba(255,255,255,0.03);border:1px solid var(--line);border-radius:6px;overflow:hidden;display:none}
+.coord-table-wrap.show{display:block;animation:slideDown .18s ease-out}
+@keyframes slideDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.coord-table-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:rgba(0,0,0,0.18);flex-wrap:wrap}
+.coord-table-head .lbl{font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--verde);font-weight:600}
+.coord-table-head .ct-spacer{flex:1}
+.coord-table-scroll{max-height:320px;overflow:auto}
+table.coord-table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono','SF Mono',Menlo,Consolas,monospace;font-size:12px}
+table.coord-table th{position:sticky;top:0;background:#0e2b52;color:var(--verde-bright);font-weight:600;text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;z-index:1}
+table.coord-table td{padding:6px 12px;color:var(--white);border-bottom:1px solid rgba(120,170,230,0.10);white-space:nowrap}
+table.coord-table tr:last-child td{border-bottom:none}
+table.coord-table tr:hover td{background:rgba(144,183,40,0.06)}
+table.coord-table .v-cell{color:var(--verde);font-weight:700}
+table.coord-table tr.v-start td{background:rgba(144,183,40,0.10)}
+table.coord-table tr.v-start td:first-child::before{content:'★ ';color:var(--verde-bright)}
+.coord-table-foot{padding:8px 14px;font-size:10.5px;color:var(--soft);border-top:1px solid var(--line);font-style:italic}
+
 /* out toggles */
 .out-toggle{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;font-weight:500;color:var(--muted);cursor:pointer;padding:6px 10px;border:1px solid var(--line);background:rgba(0,0,0,0.25);transition:all .15s;border-radius:1px;user-select:none}
 .out-toggle:hover{color:var(--white);border-color:rgba(255,255,255,0.28)}
@@ -751,10 +769,41 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
         <div class="btn-row">
           <label class="out-toggle"><input type="checkbox" id="opt-names"><span>Incluir nome dos vértices</span></label>
           <label class="out-toggle"><input type="checkbox" id="opt-close" checked><span>Fechar polígono</span></label>
+          <button class="btn btn-secondary" id="btn-toggle-table">Tabela ▾</button>
           <button class="btn btn-secondary" id="btn-copy-out">Copiar texto</button>
         </div>
       </div>
       <textarea class="out-textarea" id="out-text" readonly placeholder="As coordenadas em formato SIGRI aparecem aqui após a importação dos vértices. Visualização em pares; ao copiar, vira sequência única."></textarea>
+
+      <div class="coord-table-wrap" id="coord-table-wrap">
+        <div class="coord-table-head">
+          <span class="lbl">Tabela de coordenadas</span>
+          <select id="coord-fmt" class="input" style="width:auto;padding:5px 8px;font-size:12px">
+            <option value="dms">Graus, minutos, segundos (DMS)</option>
+            <option value="dec">Decimais</option>
+          </select>
+          <span class="ct-spacer"></span>
+          <button class="btn btn-secondary" id="btn-copy-table">Copiar tabela</button>
+          <button class="btn btn-secondary" id="btn-csv-table">Baixar CSV</button>
+        </div>
+        <div class="coord-table-scroll">
+          <table class="coord-table" id="coord-table">
+            <thead>
+              <tr>
+                <th>V</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>UTM E (m)</th>
+                <th>UTM N (m)</th>
+              </tr>
+            </thead>
+            <tbody id="coord-table-body"></tbody>
+          </table>
+        </div>
+        <div class="coord-table-foot">
+          <span>Atualiza automaticamente quando você redefine o V1 ou inverte o sentido do polígono no mapa.</span>
+        </div>
+      </div>
     </div>
 
     <!-- MAP (verification, after output) -->
@@ -1737,7 +1786,87 @@ function refreshOutput(){
   // Visual: each pair on its own line, ; after each except the last
   const visual = segs.map((s, i) => i < segs.length - 1 ? s + ';' : s).join('\n');
   $('out-text').value = visual;
+  renderCoordTable();
 }
+
+// ===== TABELA DE COORDENADAS (DMS / decimal) — auto-sync com state.vertices =====
+function latDMS(lat){
+  const abs = Math.abs(lat);
+  const d = Math.floor(abs);
+  const mFull = (abs - d) * 60;
+  const m = Math.floor(mFull);
+  const s = (mFull - m) * 60;
+  return `${d}° ${String(m).padStart(2,'0')}' ${s.toFixed(3).replace('.', ',')}'' ${lat >= 0 ? 'N' : 'S'}`;
+}
+function lngDMS(lng){
+  const abs = Math.abs(lng);
+  const d = Math.floor(abs);
+  const mFull = (abs - d) * 60;
+  const m = Math.floor(mFull);
+  const s = (mFull - m) * 60;
+  return `${d}° ${String(m).padStart(2,'0')}' ${s.toFixed(3).replace('.', ',')}'' ${lng >= 0 ? 'E' : 'W'}`;
+}
+function renderCoordTable(){
+  const wrap = $('coord-table-wrap');
+  if(!wrap.classList.contains('show')) return;
+  const body = $('coord-table-body');
+  body.innerHTML = '';
+  const v = state.vertices;
+  if(v.length === 0){
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--soft);padding:14px;font-style:italic">Importe um polígono para ver a tabela.</td></tr>';
+    return;
+  }
+  const fmt = $('coord-fmt').value;
+  for(let i = 0; i < v.length; i++){
+    const p = v[i];
+    const lat = fmt === 'dms' ? latDMS(p.lat) : p.lat.toFixed(6).replace('.', ',');
+    const lng = fmt === 'dms' ? lngDMS(p.lng) : p.lng.toFixed(6).replace('.', ',');
+    const e = p.e.toFixed(3).replace('.', ',');
+    const n = p.n.toFixed(3).replace('.', ',');
+    const tr = document.createElement('tr');
+    if(i === 0) tr.classList.add('v-start');
+    tr.innerHTML = `<td class="v-cell">${p.name}</td><td>${lat}</td><td>${lng}</td><td>${e}</td><td>${n}</td>`;
+    body.appendChild(tr);
+  }
+}
+$('btn-toggle-table').addEventListener('click', () => {
+  const wrap = $('coord-table-wrap');
+  const shown = wrap.classList.toggle('show');
+  $('btn-toggle-table').textContent = shown ? 'Tabela ▴' : 'Tabela ▾';
+  renderCoordTable();
+});
+$('coord-fmt').addEventListener('change', renderCoordTable);
+$('btn-copy-table').addEventListener('click', async () => {
+  const v = state.vertices;
+  if(!v.length) return;
+  const fmt = $('coord-fmt').value;
+  const header = ['V','Latitude','Longitude','UTM E (m)','UTM N (m)'].join('\t');
+  const rows = v.map(p => {
+    const lat = fmt === 'dms' ? latDMS(p.lat) : p.lat.toFixed(6);
+    const lng = fmt === 'dms' ? lngDMS(p.lng) : p.lng.toFixed(6);
+    return [p.name, lat, lng, p.e.toFixed(3), p.n.toFixed(3)].join('\t');
+  });
+  try { await navigator.clipboard.writeText([header, ...rows].join('\n')); setStatus('export-status','ok','Tabela copiada para a área de transferência.'); }
+  catch { setStatus('export-status','err','Falha ao copiar a tabela.'); }
+});
+$('btn-csv-table').addEventListener('click', () => {
+  const v = state.vertices;
+  if(!v.length) return;
+  const fmt = $('coord-fmt').value;
+  const header = 'V;Latitude;Longitude;UTM_E;UTM_N';
+  const rows = v.map(p => {
+    const lat = fmt === 'dms' ? latDMS(p.lat) : p.lat.toFixed(6);
+    const lng = fmt === 'dms' ? lngDMS(p.lng) : p.lng.toFixed(6);
+    return `"${p.name}";"${lat}";"${lng}";${p.e.toFixed(3)};${p.n.toFixed(3)}`;
+  });
+  const blob = new Blob(['﻿' + [header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `coordenadas_${v.length}vertices.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(a.href);
+  setStatus('export-status','ok','Tabela exportada em CSV.');
+});
 $('opt-names').addEventListener('change', () => {
   if($('opt-names').checked){
     setStatus('export-status', 'warn', 'Atenção: o padrão oficial do SIGRI não inclui nomes nos vértices. Esta opção é útil apenas para visualização ou compartilhamento informal. Desligue antes de colar no formulário SIGRI.');
