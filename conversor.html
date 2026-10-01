@@ -973,11 +973,13 @@ Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E:
           <label class="layer-opt"><input type="checkbox" data-overlay="snci"><span><span class="name">Imóveis certificados SNCI · particulares (Lei 10.267/01, antes do SIGEF)</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF)</span></span><span class="layer-status" data-status="snci"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="sncipub"><span><span class="name">Imóveis certificados SNCI · públicos</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF)</span></span><span class="layer-status" data-status="sncipub"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="car"><span><span class="name">Cadastro Ambiental Rural (CAR)</span><span class="src">SFB · geoserver.car.gov.br · camada estadual (declaratório, cobertura ampla)</span></span><span class="layer-status" data-status="car"></span></label>
-          <label class="layer-opt"><input type="checkbox" data-overlay="spu"><span><span class="name">Faixa de Marinha (SPU)</span><span class="src">Sec. do Patrimônio da União · relevante para imóveis costeiros</span></span><span class="layer-status" data-status="spu"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="spu"><span><span class="name">Terrenos de Marinha e Acrescidos (SPU)</span><span class="src">SPU · IDE-SPU via INDE · faixa de 33 m a partir da LPM de 1831 e acrescidos — nome da camada muda a cada publicação; a ferramenta busca o atual</span></span><span class="layer-status" data-status="spu"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="spulpm"><span><span class="name">LPM 1831 e LTM (SPU)</span><span class="src">Linha de Preamar Média de 1831 e Linha Limite dos Terrenos de Marinha (33 m)</span></span><span class="layer-status" data-status="spulpm"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="spuareas"><span><span class="name">Praia, manguezal e ilha federais (SPU)</span><span class="src">Poligonais caracterizadas como patrimônio da União</span></span><span class="layer-status" data-status="spuareas"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="ti"><span><span class="name">Terras Indígenas</span><span class="src">FUNAI</span></span><span class="layer-status" data-status="ti"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="quilombo"><span><span class="name">Áreas Quilombolas</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF)</span></span><span class="layer-status" data-status="quilombo"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="mun"><span><span class="name">Limites Municipais</span><span class="src">IBGE</span></span><span class="layer-status" data-status="mun"></span></label>
-          <label class="layer-opt"><input type="checkbox" data-overlay="dnit"><span><span class="name">Rodovias Federais (eixo SNV)</span><span class="src">DNIT via INDE · camada versionada (snv_202507a) — a faixa de domínio é definida pelo DNIT; use "APP e faixas" no SIGEF para a faixa não edificável de 15 m</span></span><span class="layer-status" data-status="dnit"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="dnit"><span><span class="name">Rodovias Federais (eixo SNV)</span><span class="src">DNIT via INDE · camada versionada por release do SNV (a ferramenta busca a mais recente) — a faixa de domínio é definida pelo DNIT; use "APP e faixas" no SIGEF para a faixa não edificável de 15 m</span></span><span class="layer-status" data-status="dnit"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="hidro"><span><span class="name">Hidrografia (trechos de drenagem)</span><span class="src">IBGE BC250 · escala 1:250.000 — referência; a largura real do curso d'água deve ser medida</span></span><span class="layer-status" data-status="hidro"></span></label>
         </div>
         <div class="layer-warn">
@@ -1886,10 +1888,15 @@ const overlayDefs = {
   quilombo: { name: 'Áreas Quilombolas · INCRA',  incra: true, temas: ['quilombolas_{uf}'], opacity: 0.55, attribution: '© INCRA · Acervo Fundiário' },
   // CAR/SICAR: GeoServer ativo em geoserver.car.gov.br/geoserver, camadas por UF (sicar:sicar_imoveis_<uf>)
   car:      { name: 'CAR · SFB',                  wmsUrl: 'https://geoserver.car.gov.br/geoserver/sicar/wms',           wmsLayer: 'sicar:sicar_imoveis_{uf}',   opacity: 0.55, attribution: '© SFB · SiCAR' },
-  spu:      { name: 'Faixa de Marinha · SPU',     wmsUrl: 'https://sigespa.economia.gov.br/sigespa/wms',                wmsLayer: 'sigespa:faixa_marinha',      opacity: 0.55, attribution: '© SPU · Sigespa' },
+  // SPU: sigespa.economia.gov.br NÃO EXISTE mais (ENOTFOUND, 01/10/2026). As camadas da SPU estão no GeoServer da INDE
+  // (workspace SPU) com nome VERSIONADO por data (ex.: vw_app_trecho_terreno_marinha_a_03092026) — resolvido em tempo
+  // real pelo GetCapabilities (`layerPrefixes`: pega o nome mais recente que começa com cada prefixo).
+  spu:      { name: 'Terrenos de Marinha e Acrescidos · SPU', wmsUrl: 'https://geoservicos.inde.gov.br/geoserver/SPU/wms', layerPrefixes: ['vw_app_trecho_terreno_marinha_a_', 'vw_app_trecho_terreno_acrescido_marinha_a_'], opacity: 0.6, attribution: '© SPU · IDE-SPU via INDE' },
+  spulpm:   { name: 'LPM 1831 e LTM (33 m) · SPU',            wmsUrl: 'https://geoservicos.inde.gov.br/geoserver/SPU/wms', layerPrefixes: ['vw_lpp_trecho_lpm_l_', 'vw_lpp_trecho_ltm_l_'], opacity: 0.95, attribution: '© SPU · IDE-SPU via INDE' },
+  spuareas: { name: 'Praia, manguezal e ilha federais · SPU',  wmsUrl: 'https://geoservicos.inde.gov.br/geoserver/SPU/wms', layerPrefixes: ['vw_app_praia_federal_a_', 'vw_app_manguezal_federal_a_', 'vw_app_ilha_federal_a_'], opacity: 0.55, attribution: '© SPU · IDE-SPU via INDE' },
   ti:       { name: 'Terras Indígenas · FUNAI',   wmsUrl: 'https://geoserver.funai.gov.br/geoserver/Funai/wms',         wmsLayer: 'Funai:tis_poligonais',       opacity: 0.55, attribution: '© FUNAI' },
   mun:      { name: 'Limites Municipais · IBGE',  wmsUrl: 'https://geoservicos.ibge.gov.br/geoserver/wms',              wmsLayer: 'CCAR:BCIM_Municipio_A',      opacity: 0.6,  attribution: '© IBGE' },
-  dnit:     { name: 'Rodovias Federais (SNV) · DNIT', wmsUrl: 'https://geoservicos.inde.gov.br/geoserver/DNIT/ows',     wmsLayer: 'DNIT:snv_202507a',           opacity: 0.8,  attribution: '© DNIT · SNV via INDE' },
+  dnit:     { name: 'Rodovias Federais (SNV) · DNIT', wmsUrl: 'https://geoservicos.inde.gov.br/geoserver/DNIT/wms',     layerPrefixes: ['snv_'],                opacity: 0.8,  attribution: '© DNIT · SNV via INDE' },   // snv_202507a em 01/10/2026; versionada por release
   hidro:    { name: 'Hidrografia BC250 · IBGE',   wmsUrl: 'https://geoservicos.ibge.gov.br/geoserver/wms',              wmsLayer: 'CCAR:BC250_Trecho_Drenagem_L', opacity: 0.8, attribution: '© IBGE · BC250' },
 };
 function layerUF(){ const s = $('layer-uf'); return ((s && s.value) || 'PE').toLowerCase(); }
@@ -1900,7 +1907,7 @@ function overlayEndpoint(def){
     const tema = def.temas[Math.min(def.temaIdx || 0, def.temas.length - 1)].replace('{uf}', uf);
     return { wmsUrl: `${INCRA_OGC}?tema=${tema}`, wmsLayer: tema };
   }
-  return { wmsUrl: def.wmsUrl, wmsLayer: def.wmsLayer.replace('{uf}', uf) };
+  return { wmsUrl: def.wmsUrl, wmsLayer: (def.wmsLayer || '').replace('{uf}', uf) };   // '' = versionada ainda não resolvida
 }
 function overlayIsPerUF(def){ return !!def.incra || /\{uf\}/.test(def.wmsLayer || ''); }
 function makeWmsLayer(def){
@@ -1928,11 +1935,41 @@ document.addEventListener('change', e => {
 
 const activeOverlays = {};
 // Cria e adiciona a camada; se o servidor rejeitar o tema (tileerror) e houver outro nome candidato, troca e tenta de novo.
+// Camadas com nome versionado por data (SPU e DNIT na INDE): o GetCapabilities do workspace é lido uma vez (cache) e,
+// para cada prefixo, escolhe-se o nome mais recente (sufixo ddmmaaaa ou aaaamm). Evita a camada "sumir" a cada republicação.
+const capsCache = {};
+function layerVersionKey(name){
+  const m = name.match(/(\d{2})(\d{2})(\d{4})$/); if(m) return +(m[3] + m[2] + m[1]);      // 03092026 → 20260903
+  const m2 = name.match(/(\d{6,8})[a-z]?$/); return m2 ? +m2[1] : 0;                          // snv_202507a → 202507
+}
+async function resolveVersionedLayers(def){
+  if(def.resolved) return def.wmsLayer;
+  if(!capsCache[def.wmsUrl]){
+    capsCache[def.wmsUrl] = ogcFetchText(`${def.wmsUrl}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetCapabilities`).then(({ text }) => {
+      const doc = new DOMParser().parseFromString(text, 'text/xml');
+      return [...doc.getElementsByTagName('Name')].map(n => n.textContent.trim()).filter(Boolean);
+    }).catch(err => { delete capsCache[def.wmsUrl]; throw err; });
+  }
+  const names = await capsCache[def.wmsUrl];
+  const picked = def.layerPrefixes.map(pre => names.filter(n => n.startsWith(pre)).sort((a, b) => layerVersionKey(b) - layerVersionKey(a))[0]).filter(Boolean);
+  if(!picked.length) throw new Error('nenhuma camada com o prefixo esperado no GetCapabilities');
+  def.wmsLayer = picked.join(','); def.resolved = true;
+  return def.wmsLayer;
+}
 function attachOverlay(id){
   const def = overlayDefs[id];
   const status = document.querySelector(`[data-status="${id}"]`);
   status.textContent = 'carregando…';
   status.className = 'layer-status loading';
+  if(def.layerPrefixes && !def.resolved){
+    // placeholder até o nome real chegar; depois recria a camada de verdade
+    const ph = L.layerGroup().addTo(map);
+    resolveVersionedLayers(def).then(() => {
+      if(activeOverlays[id] !== ph) return;   // usuária desmarcou enquanto resolvia
+      map.removeLayer(ph); activeOverlays[id] = attachOverlay(id); refreshLegendPanel();
+    }).catch(err => { console.warn('camada versionada', id, err); status.textContent = 'indisponível (nome da camada não encontrado)'; status.className = 'layer-status error'; });
+    return ph;
+  }
   const layer = makeWmsLayer(def);
   let loaded = false, swapped = false;
   layer.on('tileerror', () => {
@@ -2066,15 +2103,20 @@ function refreshLegendPanel(){
     const item = document.createElement('div');
     item.className = 'lg-item';
     const name = document.createElement('span'); name.className = 'lg-name'; name.textContent = def.name;
-    const img = document.createElement('img'); img.alt = `Legenda ${def.name}`; img.src = urlA;
-    let triedB = false;
-    img.onerror = () => {
-      if(!triedB){ triedB = true; img.src = urlB; return; }
-      const a = document.createElement('a'); a.href = urlB; a.target = '_blank'; a.rel = 'noopener';
-      a.textContent = 'legenda não carregou — abrir no servidor'; a.style.cssText = 'color:rgba(244,247,248,0.7);font-size:10px;font-style:italic;text-decoration:underline';
-      img.replaceWith(a);
-    };
-    item.appendChild(img); item.appendChild(name);
+    if(!ep.wmsLayer){ const w = document.createElement('span'); w.className = 'lg-name'; w.style.opacity = '0.6'; w.textContent = 'resolvendo nome da camada…'; item.appendChild(w); items.appendChild(item); continue; }
+    // uma amostra por camada (camadas versionadas podem agrupar 2–3 nomes separados por vírgula)
+    for(const lyr of ep.wmsLayer.split(',')){
+      const img = document.createElement('img'); img.alt = `Legenda ${def.name}`; img.src = urlA.replace(encodeURIComponent(ep.wmsLayer), encodeURIComponent(lyr));
+      let triedB = false;
+      img.onerror = () => {
+        if(!triedB){ triedB = true; img.src = urlB.replace(encodeURIComponent(ep.wmsLayer), encodeURIComponent(lyr)); return; }
+        const a = document.createElement('a'); a.href = img.src; a.target = '_blank'; a.rel = 'noopener';
+        a.textContent = 'legenda não carregou — abrir no servidor'; a.style.cssText = 'color:rgba(244,247,248,0.7);font-size:10px;font-style:italic;text-decoration:underline';
+        img.replaceWith(a);
+      };
+      item.appendChild(img);
+    }
+    item.appendChild(name);
     items.appendChild(item);
   }
 }
@@ -2173,6 +2215,7 @@ map.on('click', async (e) => {
   for(const id of ids){
     const def = overlayDefs[id];
     const ep = overlayEndpoint(def);
+    if(!ep.wmsLayer) continue;   // versionada ainda resolvendo o nome
     // GeoServer responde JSON; i3Geo/MapServer (INCRA) responde GML — o parser aceita os dois.
     const fmt = def.incra ? 'application/vnd.ogc.gml' : 'application/json';
     const params = new URLSearchParams({
