@@ -19,7 +19,18 @@ const OUT = path.join(HERE, 'e2e_out');
 fs.mkdirSync(OUT, { recursive: true });
 
 const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript', '.css':'text/css', '.png':'image/png', '.svg':'image/svg+xml', '.ods':'application/vnd.oasis.opendocument.spreadsheet', '.xml':'text/xml', '.txt':'text/plain' };
+// Simula a função /api/ogc (proxy do Vercel): devolve um GML2 fixo como o i3Geo/MapServer responderia
+const GML_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
+<wfs:FeatureCollection xmlns:ms="http://mapserver.gis.umn.edu/mapserver" xmlns:wfs="http://www.opengis.net/wfs" xmlns:gml="http://www.opengis.net/gml">
+  <gml:featureMember><ms:certificada_sigef_particular_pe gml:id="certificada_sigef_particular_pe.1">
+    <gml:boundedBy><gml:Box srsName="EPSG:4674"><gml:coordinates>-34.8770,-8.0476 -34.8735,-8.0420</gml:coordinates></gml:Box></gml:boundedBy>
+    <ms:msGeometry><gml:Polygon srsName="EPSG:4674"><gml:outerBoundaryIs><gml:LinearRing><gml:coordinates>-34.8735,-8.0476 -34.8700,-8.0476 -34.8700,-8.0420 -34.8735,-8.0420 -34.8735,-8.0476</gml:coordinates></gml:LinearRing></gml:outerBoundaryIs></gml:Polygon></ms:msGeometry>
+    <ms:parcela_co>PE-TESTE-GML</ms:parcela_co><ms:nome_area>Parcela GML (metade leste)</ms:nome_area><ms:situacao_i>Certificada</ms:situacao_i>
+  </ms:certificada_sigef_particular_pe></gml:featureMember>
+</wfs:FeatureCollection>`;
+let proxyHits = [];
 const server = http.createServer((req, res) => {
+  if(req.url.startsWith('/api/ogc')){ proxyHits.push(decodeURIComponent(req.url.split('url=')[1] || '')); res.writeHead(200, { 'Content-Type': 'text/xml' }); return res.end(GML_FIXTURE); }
   let p = decodeURIComponent(req.url.split('?')[0]); if(p === '/') p = '/conversor.html';
   const f = path.join(ROOT, p);
   if(!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()){ res.writeHead(404); return res.end('nf'); }
@@ -197,6 +208,35 @@ console.log('LAYERS:', JSON.stringify(lyr));
 console.log('CHECK SIGEF por UF (PE) no Acervo Fundiário:', lyr.sigef.wmsUrl === 'https://acervofundiario.incra.gov.br/i3geo/ogc.php?tema=certificada_sigef_particular_pe' && lyr.sigef.wmsLayer === 'certificada_sigef_particular_pe' ? 'OK' : 'FAIL');
 console.log('CHECK UF → BA e tema alternativo:', lyr.sigefBA.wmsLayer === 'certificada_sigef_particular_ba' && lyr.sigefAlt.wmsLayer === 'imoveiscertificados_privado_ba' ? 'OK' : 'FAIL');
 console.log('CHECK CAR por UF e nenhum host morto:', lyr.car.wmsLayer === 'sicar:sicar_imoveis_pe' && !lyr.dead ? 'OK' : 'FAIL');
+
+// ---- GML (i3Geo/MapServer) → GeoJSON; proxy /api/ogc; "ⓘ Info" no clique; popup legível; painel rolável ----
+const gmlRes = await page.evaluate((gml) => { const fc = parseFeatureCollection(gml); const f = fc.features[0]; return { n: fc.features.length, props: f.properties, geom: f.geometry.type, ring: f.geometry.coordinates[0].length, first: f.geometry.coordinates[0][0], ha: sgOverlapCheck(fc).out.map(o => +(o.area / 1e4).toFixed(4)) }; }, GML_FIXTURE);
+console.log('GML:', JSON.stringify(gmlRes));
+console.log('CHECK GML2 → Polygon lon,lat + atributos sem geometria:', gmlRes.n === 1 && gmlRes.geom === 'Polygon' && gmlRes.ring === 5 && gmlRes.first[0] === -34.8735 && gmlRes.first[1] === -8.0476 && gmlRes.props.parcela_co === 'PE-TESTE-GML' && !('msGeometry' in gmlRes.props) && !('boundedBy' in gmlRes.props) ? 'OK' : 'FAIL');
+console.log('CHECK sobreposição calculada a partir do GML ≈ 23,8946 ha:', Math.abs(gmlRes.ha[0] - 23.8946) < 0.001 ? 'OK' : 'FAIL ' + gmlRes.ha);
+const swapped = await page.evaluate(() => gmlRingCoords(new DOMParser().parseFromString('<r xmlns:gml="http://www.opengis.net/gml"><gml:posList>-8.04 -34.87 -8.05 -34.88</gml:posList></r>', 'text/xml').documentElement));
+console.log('CHECK posList em lat,lon é invertido para lon,lat:', swapped[0][0] === -34.87 && swapped[0][1] === -8.04 ? 'OK' : 'FAIL ' + JSON.stringify(swapped));
+await page.click('#close-sigef');
+// clique SEM "Info" ligado não abre popup
+await page.evaluate(() => map.fire('click', { latlng: L.latLng(-8.044, -34.872) }));
+await page.waitForTimeout(300);
+const noPopup = await page.evaluate(() => !document.querySelector('.leaflet-popup'));
+console.log('CHECK clique sem "ⓘ Info" não abre consulta:', noPopup ? 'OK' : 'FAIL');
+// liga Info + camada SIGEF (tiles abortados → cai no proxy no clique) e consulta
+await page.click('#btn-map-info');
+await page.evaluate(() => document.querySelector('input[data-overlay="sigef"]').click());
+await page.evaluate(() => map.fire('click', { latlng: L.latLng(-8.044, -34.872) }));
+await page.waitForFunction(() => { const p = document.querySelector('.leaflet-popup-content'); return p && /PE-TESTE-GML/.test(p.textContent); }, null, { timeout: 15000 });
+const pop = await page.evaluate(() => { const p = document.querySelector('.leaflet-popup-content'); const td = p.querySelector('.gfi td:not(.k)'); const cs = getComputedStyle(td); const wrap = getComputedStyle(p.closest('.leaflet-popup-content-wrapper')); return { text: p.textContent.replace(/\s+/g, ' ').slice(0, 200), color: cs.color, bg: wrap.backgroundColor, via: /via proxy/.test(p.textContent) }; });
+console.log('POPUP:', JSON.stringify(pop), '| proxy hits:', proxyHits.length, proxyHits[0] && proxyHits[0].slice(0, 110));
+const lum = c => { const m = c.match(/\d+/g).map(Number); return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255; };
+console.log('CHECK popup legível (texto claro sobre fundo escuro):', lum(pop.color) > 0.8 && lum(pop.bg) < 0.2 ? 'OK' : 'FAIL ' + pop.color + ' / ' + pop.bg);
+console.log('CHECK GetFeatureInfo do INCRA passou pelo proxy com GML:', pop.via && proxyHits.some(u => /acervofundiario\.incra\.gov\.br.*GetFeatureInfo.*vnd\.ogc\.gml/i.test(u)) ? 'OK' : 'FAIL');
+await page.click('#btn-map-info'); await page.evaluate(() => document.querySelector('input[data-overlay="sigef"]').click());
+const panelScroll = await page.evaluate(() => { const p = document.getElementById('layer-panel'); p.classList.add('open'); const cs = getComputedStyle(p); const r = { overflowY: cs.overflowY, maxH: cs.maxHeight, scrollable: p.scrollHeight > p.clientHeight, h: p.clientHeight, sh: p.scrollHeight }; p.classList.remove('open'); return r; });
+console.log('PAINEL camadas:', JSON.stringify(panelScroll));
+console.log('CHECK painel de camadas rola:', panelScroll.overflowY === 'auto' && panelScroll.maxH !== 'none' ? 'OK' : 'FAIL');
+await page.click('#exp-ods'); await page.waitForSelector('#sigef-modal.open');
 
 // ---- Sobreposição SIGEF (WFS simulado) ----
 await page.click('#sg-ov-btn');

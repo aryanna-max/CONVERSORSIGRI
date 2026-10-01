@@ -249,12 +249,23 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .map-overlay{position:absolute;top:14px;right:14px;z-index:500;display:flex;gap:6px}
 .map-btn{padding:8px 10px;background:rgba(6,18,25,0.92);border:1px solid var(--line);color:var(--white);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;backdrop-filter:blur(6px)}
 .map-btn:hover{border-color:var(--verde);color:var(--verde)}
-.map-label{position:absolute;top:14px;left:14px;z-index:500;padding:7px 12px;background:rgba(6,18,25,0.92);border:1px solid var(--line);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);font-weight:500;backdrop-filter:blur(6px)}
+.map-btn.active{background:var(--verde);border-color:var(--verde);color:#0a1f3d}
+.map-wrap.info-mode .leaflet-container{cursor:help}
+.map-label{position:absolute;top:14px;left:56px;z-index:500;padding:7px 12px;background:rgba(6,18,25,0.92);border:1px solid var(--line);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);font-weight:500;backdrop-filter:blur(6px)}
 .map-label .vcount{color:var(--verde);font-weight:600}
 .leaflet-container{background:#0a0e10}
 .leaflet-popup-content-wrapper{background:#0b1419;color:var(--white);border-radius:1px;border:1px solid var(--line)}
 .leaflet-popup-content{font-family:Asap,sans-serif;font-size:12px;margin:8px 12px;line-height:1.5}
 .leaflet-popup-tip{background:#0b1419}
+/* Popup "clique no mapa": fundo escuro → texto claro */
+.gfi{font-size:11.5px;color:#f4f7f8;max-height:300px;overflow-y:auto;padding:2px}
+.gfi h5{font-weight:700;color:var(--verde-bright);font-size:10.5px;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 4px}
+.gfi .gfi-block{margin-bottom:10px}
+.gfi .gfi-note{font-size:10.5px;color:rgba(244,247,248,0.7)}
+.gfi a{color:var(--verde-bright);text-decoration:underline}
+.gfi table{font-size:10.5px;border-collapse:collapse;width:100%;margin-bottom:4px}
+.gfi td{padding:1px 0;word-break:break-word;color:#f4f7f8;vertical-align:top}
+.gfi td.k{padding-right:8px;color:rgba(244,247,248,0.6);white-space:nowrap}
 .leaflet-control-zoom a{background:#0b1419!important;color:var(--white)!important;border-color:var(--line)!important}
 .leaflet-control-zoom a:hover{background:#152028!important;color:var(--verde)!important}
 .leaflet-control-attribution{background:rgba(6,18,25,0.85)!important;color:var(--muted)!important;font-size:10px!important}
@@ -469,7 +480,7 @@ input, textarea, select, [contenteditable]{cursor:text}
 @media (max-width:680px){.exp-banner-inner{padding:10px 18px;gap:10px}.exp-text{font-size:11px}}
 
 /* ---------- LAYERS PANEL ---------- */
-.layer-panel{position:absolute;top:54px;right:14px;z-index:600;background:rgba(6,18,36,0.96);border:1px solid var(--line);border-radius:8px;padding:0;min-width:280px;backdrop-filter:blur(8px);box-shadow:0 12px 40px rgba(0,0,0,0.5);display:none;font-size:12px}
+.layer-panel{position:absolute;top:54px;right:14px;z-index:600;background:rgba(6,18,36,0.96);border:1px solid var(--line);border-radius:8px;padding:0;min-width:280px;max-width:min(340px,calc(100% - 28px));max-height:calc(100% - 68px);overflow-y:auto;overscroll-behavior:contain;backdrop-filter:blur(8px);box-shadow:0 12px 40px rgba(0,0,0,0.5);display:none;font-size:12px}
 .layer-panel.open{display:block}
 .layer-panel-head{padding:14px 16px 8px;border-bottom:1px solid var(--line)}
 .layer-panel-head h4{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--verde-bright);font-weight:700;margin:0;line-height:1.2}
@@ -893,7 +904,7 @@ Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E:
       </div>
       <div class="map-label">Pré-visualização · <span class="vcount" id="map-vcount">0 vértices</span></div>
       <div class="legend-panel" id="legend-panel">
-        <div class="lg-head">Legenda · clique no mapa para detalhes</div>
+        <div class="lg-head">Legenda · ligue "ⓘ Info" para consultar no clique</div>
         <div id="lg-items"></div>
       </div>
       <div class="coord-hud" id="coord-hud">
@@ -905,6 +916,7 @@ Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E:
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" style="width:13px;height:13px;display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M8 2 L14 5 L8 8 L2 5 Z"/><path d="M2 8 L8 11 L14 8"/><path d="M2 11 L8 14 L14 11"/></svg>
           Camadas
         </button>
+        <button class="map-btn" id="btn-map-info" title="Quando ligado, um clique no mapa consulta as camadas ativas naquele ponto" aria-pressed="false">ⓘ Info</button>
         <button class="map-btn" id="btn-map-center">Centralizar</button>
         <button class="map-btn" id="btn-reverse" title="Inverter sentido (mantém V1)">↻ Inverter</button>
         <button class="map-btn" id="btn-map-fs">Tela cheia</button>
@@ -1882,14 +1894,87 @@ function refreshLegendPanel(){
   }
 }
 
+// ===== ACESSO AOS SERVIÇOS OGC (direto → proxy do site) =====
+// Os órgãos não enviam CORS: o navegador não lê a resposta. Tenta direto e, falhando, passa por /api/ogc
+// (função no Vercel que só repassa GET para hosts/requisições OGC listados — ver api/ogc.js).
+function ogcProxyUrl(url){ return `/api/ogc?url=${encodeURIComponent(url)}`; }
+async function ogcFetchText(url){
+  let direct;
+  try { const r = await fetch(url, { mode: 'cors' }); if(r.ok) return { text: await r.text(), via: 'direto' }; direct = new Error('http ' + r.status); }
+  catch(err){ direct = err; }
+  if(!/^https?:$/.test(location.protocol)) throw direct;
+  const r2 = await fetch(ogcProxyUrl(url));
+  if(!r2.ok){ let d = ''; try { d = (await r2.json()).error || ''; } catch(_){} throw new Error(`proxy http ${r2.status}${d ? ' · ' + d : ''}`); }
+  return { text: await r2.text(), via: 'proxy' };
+}
+// Resposta OGC → GeoJSON FeatureCollection. Aceita GeoJSON ou GML (MapServer/i3Geo responde GML2 por padrão).
+const GML_GEOM_TAGS = /^(boundedBy|geometry|geom|the_geom|msGeometry|shape|wkb_geometry|geometria)$/i;
+function gmlRingCoords(ring){
+  const c = ring.getElementsByTagNameNS('*', 'coordinates')[0];
+  let pts = [];
+  if(c) pts = c.textContent.trim().split(/\s+/).map(p => p.split(',').map(Number));
+  else {
+    const pl = ring.getElementsByTagNameNS('*', 'posList')[0];
+    if(pl){ const n = pl.textContent.trim().split(/\s+/).map(Number); for(let i = 0; i + 1 < n.length; i += 2) pts.push([n[i], n[i+1]]); }
+  }
+  // Eixos: esperado lon,lat (WFS 1.0.0). No Brasil lon ≤ −34,7° e lat ≥ −33,8°: se vier lat,lon, inverte.
+  return pts.filter(p => p.length >= 2 && isFinite(p[0]) && isFinite(p[1])).map(([x, y]) => (x > -34.7 && y < -34.7) ? [y, x] : [x, y]);
+}
+function gmlGeometry(feat){
+  const polys = [...feat.getElementsByTagNameNS('*', 'Polygon')];
+  if(!polys.length) return null;
+  const coords = polys.map(p => {
+    const outer = p.getElementsByTagNameNS('*', 'outerBoundaryIs')[0] || p.getElementsByTagNameNS('*', 'exterior')[0] || p;
+    const inners = [...p.getElementsByTagNameNS('*', 'innerBoundaryIs'), ...p.getElementsByTagNameNS('*', 'interior')];
+    return [gmlRingCoords(outer), ...inners.map(gmlRingCoords)].filter(r => r.length >= 4);
+  }).filter(p => p.length);
+  if(!coords.length) return null;
+  return coords.length === 1 ? { type: 'Polygon', coordinates: coords[0] } : { type: 'MultiPolygon', coordinates: coords };
+}
+function gmlToFeatures(xmlText){
+  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+  if(doc.getElementsByTagName('parsererror').length) throw new Error('XML inválido');
+  const members = [...doc.getElementsByTagNameNS('*', 'featureMember'), ...doc.getElementsByTagNameNS('*', 'member')];
+  const out = [];
+  for(const m of members){
+    const feat = m.children[0]; if(!feat) continue;
+    const properties = {};
+    for(const c of feat.children){
+      if(GML_GEOM_TAGS.test(c.localName) || c.getElementsByTagNameNS('*', 'coordinates').length || c.getElementsByTagNameNS('*', 'posList').length) continue;
+      if(c.children.length === 0) properties[c.localName] = c.textContent.trim();
+    }
+    out.push({ type: 'Feature', properties, geometry: gmlGeometry(feat) });
+  }
+  return out;
+}
+function parseFeatureCollection(text){
+  const t = String(text || '').trim();
+  if(t.startsWith('{')){ const j = JSON.parse(t); if(j && j.type === 'FeatureCollection') return j; if(j && j.type === 'Feature') return { type: 'FeatureCollection', features: [j] }; throw new Error('JSON sem FeatureCollection'); }
+  if(t.startsWith('<')){
+    if(/ServiceException|ExceptionReport|ExceptionText/i.test(t.slice(0, 600))) throw new Error('exceção do servidor: ' + t.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160));
+    return { type: 'FeatureCollection', features: gmlToFeatures(t) };
+  }
+  throw new Error('resposta não reconhecida');
+}
+
 // ===== INFO DAS FEIÇÕES NO CLIQUE (WMS GetFeatureInfo) =====
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// A consulta no clique só acontece com "ⓘ Info" ligado (desligado por padrão: clique livre no mapa).
+let mapInfoMode = false;
+$('btn-map-info').addEventListener('click', () => {
+  mapInfoMode = !mapInfoMode;
+  $('btn-map-info').classList.toggle('active', mapInfoMode);
+  $('btn-map-info').setAttribute('aria-pressed', String(mapInfoMode));
+  $('map-wrap') && $('map-wrap').classList.toggle('info-mode', mapInfoMode);
+  if(!mapInfoMode) map.closePopup();
+});
 map.on('click', async (e) => {
+  if(!mapInfoMode) return;
   const ids = Object.keys(activeOverlays);
-  if(!ids.length) return;
+  if(!ids.length){ L.popup({ maxWidth: 300 }).setLatLng(e.latlng).setContent('<div class="gfi"><em>Nenhuma camada ativa. Ligue uma camada em "Camadas" para consultar neste ponto.</em></div>').openOn(map); return; }
   const popup = L.popup({ maxWidth: 360, autoPan: true })
     .setLatLng(e.latlng)
-    .setContent('<div style="font-size:12px;color:#0a1f3d;padding:2px">Consultando camadas…</div>')
+    .setContent('<div class="gfi">Consultando camadas…</div>')
     .openOn(map);
   const size = map.getSize();
   const point = map.latLngToContainerPoint(e.latlng);
@@ -1898,48 +1983,50 @@ map.on('click', async (e) => {
   for(const id of ids){
     const def = overlayDefs[id];
     const ep = overlayEndpoint(def);
+    // GeoServer responde JSON; i3Geo/MapServer (INCRA) responde GML — o parser aceita os dois.
+    const fmt = def.incra ? 'application/vnd.ogc.gml' : 'application/json';
     const params = new URLSearchParams({
       service: 'WMS', version: '1.1.1', request: 'GetFeatureInfo',
-      layers: ep.wmsLayer, query_layers: ep.wmsLayer, info_format: 'application/json',
+      layers: ep.wmsLayer, query_layers: ep.wmsLayer, info_format: fmt,
       srs: 'EPSG:4326', bbox, width: size.x, height: size.y,
       x: Math.round(point.x), y: Math.round(point.y), feature_count: 5
     });
     const sep = ep.wmsUrl.includes('?') ? '&' : '?';
     const url = `${ep.wmsUrl}${sep}${params.toString()}`;
-    const htmlUrl = url.replace('info_format=application%2Fjson', 'info_format=text%2Fhtml');
+    const htmlUrl = url.replace(/info_format=[^&]+/, 'info_format=text%2Fhtml');
     try {
-      const r = await fetch(url, { mode: 'cors' });
-      if(!r.ok) throw new Error('http ' + r.status);
-      const j = await r.json();
-      results.push({ id, name: def.name, features: (j.features || []), htmlUrl });
+      const { text, via } = await ogcFetchText(url);
+      const fc = parseFeatureCollection(text);
+      results.push({ id, name: def.name, features: (fc.features || []), htmlUrl, via });
     } catch(err){
-      results.push({ id, name: def.name, error: true, htmlUrl });
+      results.push({ id, name: def.name, error: true, detail: String(err && err.message || err), htmlUrl });
     }
   }
-  let html = '<div style="font-size:11.5px;color:#0a1f3d;max-height:300px;overflow-y:auto;padding:2px">';
+  let html = '<div class="gfi">';
   const anyFeature = results.some(r => r.features && r.features.length);
   const anyError = results.some(r => r.error);
   if(!anyFeature && !anyError){ html += '<em>Nenhuma feição encontrada neste ponto.</em>'; }
   for(const r of results){
-    html += `<div style="margin-bottom:10px"><div style="font-weight:700;color:#195d83;font-size:10.5px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">${escapeHtml(r.name)}</div>`;
+    html += `<div class="gfi-block"><h5>${escapeHtml(r.name)}</h5>`;
     if(r.error){
-      html += `<div style="font-size:10.5px;color:#7b7c7b">Servidor não permite consulta direta. <a href="${escapeHtml(r.htmlUrl)}" target="_blank" rel="noopener" style="color:#195d83;text-decoration:underline">Abrir informações em nova aba</a>.</div>`;
+      html += `<div class="gfi-note">Não foi possível ler a resposta do servidor (${escapeHtml(r.detail || '')}). <a href="${escapeHtml(r.htmlUrl)}" target="_blank" rel="noopener">Abrir informações em nova aba</a>.</div>`;
     } else if(!r.features.length){
-      html += '<div style="font-size:10.5px;color:#7b7c7b;font-style:italic">Sem feição neste ponto.</div>';
+      html += '<div class="gfi-note"><em>Sem feição neste ponto.</em></div>';
     } else {
       for(const f of r.features.slice(0,3)){
         const props = f.properties || {};
         const entries = Object.entries(props).filter(([k,v]) => v != null && v !== '');
         if(entries.length){
-          html += '<table style="font-size:10.5px;border-collapse:collapse;width:100%;margin-bottom:4px"><tbody>';
-          for(const [k,v] of entries.slice(0,10)){
-            html += `<tr><td style="padding:1px 8px 1px 0;color:#7b7c7b;vertical-align:top;white-space:nowrap">${escapeHtml(k)}</td><td style="padding:1px 0;word-break:break-word">${escapeHtml(String(v).slice(0,120))}</td></tr>`;
+          html += '<table><tbody>';
+          for(const [k,v] of entries.slice(0,14)){
+            html += `<tr><td class="k">${escapeHtml(k)}</td><td>${escapeHtml(String(v).slice(0,120))}</td></tr>`;
           }
           html += '</tbody></table>';
         } else {
-          html += '<div style="color:#7b7c7b;font-style:italic">Feição sem atributos.</div>';
+          html += '<div class="gfi-note"><em>Feição sem atributos.</em></div>';
         }
       }
+      if(r.via === 'proxy') html += '<div class="gfi-note">via proxy do Confrontei (o órgão não libera leitura direta pelo navegador)</div>';
     }
     html += '</div>';
   }
@@ -3878,16 +3965,20 @@ async function sgFetchSigefWFS(){
   // Tenta cada nome candidato do tema (ver overlayDefs.sigef.temas) até obter uma FeatureCollection.
   const uf = layerUF();
   let lastErr = null;
+  const bboxStr = `${minLng - pad},${minLat - pad},${maxLng + pad},${maxLat + pad}`;
   for(const tpl of overlayDefs.sigef.temas){
     const tema = tpl.replace('{uf}', uf);
-    const params = new URLSearchParams({ tema, SERVICE: 'WFS', VERSION: '1.0.0', REQUEST: 'GetFeature', TYPENAME: tema, OUTPUTFORMAT: 'geojson', SRSNAME: 'EPSG:4674', MAXFEATURES: '300', BBOX: `${minLng - pad},${minLat - pad},${maxLng + pad},${maxLat + pad}` });
-    try {
-      const r = await fetch(`${INCRA_OGC}?${params}`, { mode: 'cors' });
-      if(!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = await r.json();
-      if(!j || !Array.isArray(j.features)) throw new Error('resposta sem features');
-      return j;
-    } catch(err){ lastErr = err; }
+    // 1ª: GeoJSON (se o servidor suportar); 2ª: formato padrão do WFS 1.0.0 (GML2), convertido aqui.
+    for(const fmt of ['geojson', null]){
+      const params = new URLSearchParams({ tema, SERVICE: 'WFS', VERSION: '1.0.0', REQUEST: 'GetFeature', TYPENAME: tema, SRSNAME: 'EPSG:4674', MAXFEATURES: '300', BBOX: bboxStr });
+      if(fmt) params.set('OUTPUTFORMAT', fmt);
+      try {
+        const { text, via } = await ogcFetchText(`${INCRA_OGC}?${params}`);
+        const fc = parseFeatureCollection(text);
+        fc._via = via; fc._tema = tema;
+        return fc;
+      } catch(err){ lastErr = err; }
+    }
   }
   throw lastErr || new Error('WFS indisponível');
 }
@@ -4000,7 +4091,7 @@ async function sgFetchSRTM(){
   // Sobreposição SIGEF
   $('sg-ov-btn').addEventListener('click', async () => {
     const st = $('sg-ov-status'); st.style.color = 'var(--soft)'; st.textContent = 'Consultando WFS do INCRA…';
-    try { const fc = await sgFetchSigefWFS(); sgRenderOverlaps(sgOverlapCheck(fc)); }
+    try { const fc = await sgFetchSigefWFS(); sgRenderOverlaps(sgOverlapCheck(fc)); st.textContent += ` Fonte: WFS do Acervo Fundiário/INCRA (${fc._tema || 'tema'}${fc._via === 'proxy' ? ', via proxy do Confrontei' : ''}), ${(fc.features || []).length} feição(ões) na caixa.`; }
     catch(err){ console.error(err); st.style.color = '#e8b04a'; st.textContent = `Não foi possível consultar o INCRA pelo navegador (${err.message || err}). Exporte as parcelas do entorno em GeoJSON e use "Carregar GeoJSON de parcelas".`; }
   });
   $('sg-ov-file-btn').addEventListener('click', () => $('sg-ov-file').click());
