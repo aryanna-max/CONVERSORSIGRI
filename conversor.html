@@ -965,7 +965,8 @@ Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E:
           <div class="layer-opt" style="gap:8px;align-items:center"><span class="src">UF das camadas INCRA e CAR (publicadas por estado):</span><select id="layer-uf" class="input" style="width:auto;padding:3px 8px;font-size:11.5px"><option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE" selected>PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option></select></div>
           <label class="layer-opt"><input type="checkbox" data-overlay="sigef"><span><span class="name">Imóveis Rurais Certificados (SIGEF) · privados</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF) — o antigo geoservicos.incra.gov.br foi desativado</span></span><span class="layer-status" data-status="sigef"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="sigefpub"><span><span class="name">Imóveis Rurais Certificados (SIGEF) · públicos</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF)</span></span><span class="layer-status" data-status="sigefpub"></span></label>
-          <label class="layer-opt"><input type="checkbox" data-overlay="snci"><span><span class="name">Imóveis Rurais SNCI (certificação anterior a 2013)</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF)</span></span><span class="layer-status" data-status="snci"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="snci"><span><span class="name">Imóveis certificados SNCI · particulares (Lei 10.267/01, antes do SIGEF)</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF)</span></span><span class="layer-status" data-status="snci"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="sncipub"><span><span class="name">Imóveis certificados SNCI · públicos</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF)</span></span><span class="layer-status" data-status="sncipub"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="car"><span><span class="name">Cadastro Ambiental Rural (CAR)</span><span class="src">SFB · geoserver.car.gov.br · camada estadual (declaratório, cobertura ampla)</span></span><span class="layer-status" data-status="car"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="spu"><span><span class="name">Faixa de Marinha (SPU)</span><span class="src">Sec. do Patrimônio da União · relevante para imóveis costeiros</span></span><span class="layer-status" data-status="spu"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="ti"><span><span class="name">Terras Indígenas</span><span class="src">FUNAI</span></span><span class="layer-status" data-status="ti"></span></label>
@@ -1866,10 +1867,18 @@ document.querySelectorAll('input[name="base-layer"]').forEach(radio => {
 // `temas` lista os candidatos em ordem — se o 1º falhar (tileerror), a ferramenta tenta o próximo automaticamente.
 const INCRA_OGC = 'https://acervofundiario.incra.gov.br/i3geo/ogc.php';
 const overlayDefs = {
-  sigef:    { name: 'SIGEF · imóveis certificados (privados) · INCRA', incra: true, temas: ['certificada_sigef_particular_{uf}', 'imoveiscertificados_privado_{uf}'], opacity: 0.65, attribution: '© INCRA · Acervo Fundiário' },
-  sigefpub: { name: 'SIGEF · imóveis certificados (públicos) · INCRA', incra: true, temas: ['certificada_sigef_publico_{uf}', 'imoveiscertificados_publico_{uf}'],   opacity: 0.65, attribution: '© INCRA · Acervo Fundiário' },
-  snci:     { name: 'SNCI · imóveis certificados até 2013 · INCRA',   incra: true, temas: ['certificada_snci_particular_{uf}', 'imoveis_snci_privado_{uf}', 'sncimoveis_{uf}'], opacity: 0.55, attribution: '© INCRA · Acervo Fundiário' },
-  quilombo: { name: 'Áreas Quilombolas · INCRA',  incra: true, temas: ['quilombolas_{uf}', 'areas_quilombolas_{uf}'], opacity: 0.55, attribution: '© INCRA · Acervo Fundiário' },
+  // Nomes CONFIRMADOS no GetCapabilities do Acervo Fundiário (01/10/2026, via proxy gru1):
+  //   certificada_sigef_particular_pe  → "Imoveis Certificados Sigef Particular PE"
+  //   certificada_sigef_publico_pe     → "Imoveis Certificados Sigef Publico PE"
+  //   imoveiscertificados_privado_pe   → "ImoveisCertificadosSNCILei10267_2001PrivadoPE"  (SNCI, não SIGEF!)
+  //   imoveiscertificados_publico_pe   → "ImoveisCertificadosSNCILei10267_2001PublicoPE"
+  //   quilombolas_pe                   → "Quilombolas Pernambuco"
+  // Tema inexistente responde 200 com corpo VAZIO (não dá tileerror) — por isso nada de "candidatos" aqui.
+  sigef:    { name: 'SIGEF · imóveis certificados (particulares) · INCRA', incra: true, temas: ['certificada_sigef_particular_{uf}'], opacity: 0.65, attribution: '© INCRA · Acervo Fundiário' },
+  sigefpub: { name: 'SIGEF · imóveis certificados (públicos) · INCRA',     incra: true, temas: ['certificada_sigef_publico_{uf}'],    opacity: 0.65, attribution: '© INCRA · Acervo Fundiário' },
+  snci:     { name: 'SNCI · certificados Lei 10.267/01 (particulares) · INCRA', incra: true, temas: ['imoveiscertificados_privado_{uf}'], opacity: 0.55, attribution: '© INCRA · Acervo Fundiário' },
+  sncipub:  { name: 'SNCI · certificados Lei 10.267/01 (públicos) · INCRA',     incra: true, temas: ['imoveiscertificados_publico_{uf}'], opacity: 0.55, attribution: '© INCRA · Acervo Fundiário' },
+  quilombo: { name: 'Áreas Quilombolas · INCRA',  incra: true, temas: ['quilombolas_{uf}'], opacity: 0.55, attribution: '© INCRA · Acervo Fundiário' },
   // CAR/SICAR: GeoServer ativo em geoserver.car.gov.br/geoserver, camadas por UF (sicar:sicar_imoveis_<uf>)
   car:      { name: 'CAR · SFB',                  wmsUrl: 'https://geoserver.car.gov.br/geoserver/sicar/wms',           wmsLayer: 'sicar:sicar_imoveis_{uf}',   opacity: 0.55, attribution: '© SFB · SiCAR' },
   spu:      { name: 'Faixa de Marinha · SPU',     wmsUrl: 'https://sigespa.economia.gov.br/sigespa/wms',                wmsLayer: 'sigespa:faixa_marinha',      opacity: 0.55, attribution: '© SPU · Sigespa' },
@@ -4101,7 +4110,7 @@ function sgRenderOverlaps(res){
     const nomeBase = sgPick(p, ['nome_area','nome','denominacao','detentor','proprietario']);
     const mat = sgPick(p, ['registro_matricula','matricula']), sncr = sgPick(p, ['codigo_imovel','codigo_imo']);
     const nome = [nomeBase, mat ? `mat. ${mat}` : '', sncr ? `SNCR ${sncr}` : ''].filter(Boolean).join(' · ');
-    const status = [sgPick(p, ['status','situacao_i','situacao','situacao_imovel']), sgPick(p, ['situacao_informada'])].filter(Boolean).join(' · ');
+    const status = [sgPick(p, ['_fonte']), sgPick(p, ['status','situacao_i','situacao','situacao_imovel']), sgPick(p, ['situacao_informada'])].filter(Boolean).join(' · ');
     // Três leituras: sobreposição real (área > 0,5 m² E largura média > 0,3 m); "limite comum" (lasca mais fina que a
     // precisão das coordenadas publicadas, 6 casas ≈ 0,1 m); vizinha (0 m²). ≈ 100 % = provavelmente a própria parcela.
     const sliver = r.area > 0.5 && r.width <= 0.3;
@@ -4152,8 +4161,22 @@ async function sgFetchSigefWFS(){
   const uf = layerUF();
   let lastErr = null;
   const bboxStr = `${minLng - pad},${minLat - pad},${maxLng + pad},${maxLat + pad}`;
-  for(const tpl of overlayDefs.sigef.temas){
-    const tema = tpl.replace('{uf}', uf);
+  // Consulta as duas bases de parcelas certificadas particulares: SIGEF (2013→) e SNCI (Lei 10.267/01, antes do SIGEF).
+  // SIGEF é obrigatório; SNCI é best-effort (se falhar, segue só com SIGEF e avisa).
+  const fontes = [{ rot: 'SIGEF', temas: overlayDefs.sigef.temas, req: true }, { rot: 'SNCI', temas: overlayDefs.snci.temas, req: false }];
+  const merged = { type: 'FeatureCollection', features: [], _temas: [], _via: 'direto', _falhas: [] };
+  for(const fonte of fontes){
+    let got = null, err1 = null;
+    for(const tpl of fonte.temas){ try { got = await sgFetchTema(tpl.replace('{uf}', uf), bboxStr); break; } catch(err){ err1 = err; } }
+    if(got){ for(const f of got.features){ f.properties = Object.assign({ _fonte: fonte.rot }, f.properties || {}); merged.features.push(f); } merged._temas.push(got._tema); if(got._via === 'proxy') merged._via = 'proxy'; }
+    else if(fonte.req) throw err1 || new Error('WFS indisponível');
+    else merged._falhas.push(`${fonte.rot}: ${(err1 && err1.message) || 'sem resposta'}`);
+  }
+  return merged;
+}
+async function sgFetchTema(tema, bboxStr){
+  let lastErr = null;
+  {
     // 1ª: GeoJSON (se o servidor suportar); 2ª: formato padrão do WFS 1.0.0 (GML2), convertido aqui.
     for(const fmt of ['geojson', null]){
       const params = new URLSearchParams({ tema, SERVICE: 'WFS', VERSION: '1.0.0', REQUEST: 'GetFeature', TYPENAME: tema, SRSNAME: 'EPSG:4674', MAXFEATURES: '300', BBOX: bboxStr });
@@ -4277,7 +4300,7 @@ async function sgFetchSRTM(){
   // Sobreposição SIGEF
   $('sg-ov-btn').addEventListener('click', async () => {
     const st = $('sg-ov-status'); st.style.color = 'var(--soft)'; st.textContent = 'Consultando WFS do INCRA…';
-    try { const fc = await sgFetchSigefWFS(); sgRenderOverlaps(sgOverlapCheck(fc)); st.textContent += ` Fonte: WFS do Acervo Fundiário/INCRA (${fc._tema || 'tema'}${fc._via === 'proxy' ? ', via proxy do Confrontei' : ''}), ${(fc.features || []).length} feição(ões) na caixa.`; }
+    try { const fc = await sgFetchSigefWFS(); sgRenderOverlaps(sgOverlapCheck(fc)); st.textContent += ` Fonte: WFS do Acervo Fundiário/INCRA (${(fc._temas || []).join(' + ') || 'tema'}${fc._via === 'proxy' ? ', via proxy do Confrontei' : ''}), ${(fc.features || []).length} feição(ões) na caixa.${(fc._falhas || []).length ? ' ⚠ ' + fc._falhas.join('; ') : ''}`; }
     catch(err){ console.error(err); st.style.color = '#e8b04a'; st.textContent = `Não foi possível consultar o INCRA pelo navegador (${err.message || err}). Exporte as parcelas do entorno em GeoJSON e use "Carregar GeoJSON de parcelas".`; }
   });
   $('sg-ov-file-btn').addEventListener('click', () => $('sg-ov-file').click());
