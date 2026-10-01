@@ -287,6 +287,11 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .vtx-marker{background:var(--verde);color:var(--black);font-size:10px;font-weight:700;letter-spacing:0.02em;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--black);box-shadow:0 0 0 2px rgba(144,183,40,0.4);cursor:pointer;transition:transform .15s}
 .vtx-marker:hover{transform:scale(1.18)}
 .vtx-marker.vtx-start{background:#f4f7f8;color:#0a1f3d;border-color:var(--verde);box-shadow:0 0 0 3px rgba(144,183,40,0.7)}
+.vtx-wrap{position:absolute;left:0;top:0;transform:translate(-50%,-50%)}
+.vtx-marker.vtx-pill{min-width:24px;height:24px;padding:0 6px;border-radius:12px;white-space:nowrap;box-sizing:border-box}
+.vtx-dot{width:10px;height:10px;border-radius:50%;background:var(--verde);border:2px solid var(--black);box-sizing:border-box;cursor:pointer;transition:transform .15s}
+.vtx-dot:hover{transform:scale(1.5)}
+.vtx-dot.vtx-start{background:#f4f7f8;border-color:var(--verde)}
 
 /* Legend panel (overlays ativas) */
 .legend-panel{position:absolute;bottom:34px;left:14px;z-index:500;background:rgba(10,31,61,0.94);border:1px solid var(--line);border-radius:5px;padding:6px 9px;max-width:230px;max-height:200px;overflow-y:auto;display:none;backdrop-filter:blur(6px)}
@@ -1844,23 +1849,25 @@ function refreshAll(){
    MAP
 =========================================================== */
 let map, polyLayer, markersLayer, baseLayers = {};
+let vtxMarkers = [];   // marcadores de vértice do mapa (ver declutterVertexMarkers)
 function initMap(){
   map = L.map('map', { zoomControl: true, attributionControl: true, scrollWheelZoom: false }).setView([-8.0476, -34.8770], 12);
   baseLayers.osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
+    maxZoom: 21, maxNativeZoom: 19,   // 20–21: amplia o último nível (vértices muito próximos)
     attribution: '© OpenStreetMap · base ONR'
   });
   baseLayers['esri-street'] = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 19,
+    maxZoom: 21, maxNativeZoom: 19,   // 20–21: amplia o último nível (vértices muito próximos)
     attribution: 'Tiles © Esri — World Street Map'
   });
   baseLayers.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 19,
+    maxZoom: 21, maxNativeZoom: 19,   // 20–21: amplia o último nível (vértices muito próximos)
     attribution: 'Tiles © Esri — World Imagery'
   });
   baseLayers.osm.addTo(map);
   polyLayer = L.layerGroup().addTo(map);
   markersLayer = L.layerGroup().addTo(map);
+  map.on('zoomend', () => declutterVertexMarkers());
 
   // Scroll-wheel zoom: requires click to activate, disables when mouse leaves
   const mapEl = document.getElementById('map');
@@ -2103,6 +2110,7 @@ function drawMap(){
   polyLayer.clearLayers();
   markersLayer.clearLayers();
   const v = state.vertices;
+  vtxMarkers = [];
   if(v.length < 2){ $('map-vcount').textContent = v.length + ' vértices'; return; }
   const latlngs = v.map(p => [p.lat, p.lng]);
   // close visually
@@ -2114,27 +2122,60 @@ function drawMap(){
     fillOpacity: 0.18,
     opacity: 1
   }).addTo(polyLayer);
-  v.forEach((p,i) => {
+  vtxMarkers = v.map((p,i) => {
     const isStart = i === 0;
-    const icon = L.divIcon({
-      className: '',
-      iconSize: [24,24],
-      iconAnchor: [12,12],
-      html: `<div class="vtx-marker${isStart ? ' vtx-start' : ''}" style="width:24px;height:24px">${p.name}</div>`
-    });
     const setStartBtn = isStart ? '' : `<br><a href="#" onclick="window.cf_setStart(${i});return false" style="color:#90b728;font-weight:600">Tornar este o V1 ↻</a>`;
-    L.marker([p.lat, p.lng], { icon })
-      .bindPopup(`<strong>${p.name}</strong>${isStart ? ' <span style="color:#90b728">· início</span>' : ''}<br>Lat ${p.lat.toFixed(6)}<br>Lng ${p.lng.toFixed(6)}<br><span style="color:#90b728">E</span> ${p.e.toFixed(3)}<br><span style="color:#90b728">N</span> ${p.n.toFixed(3)}${setStartBtn}`)
+    const m = L.marker([p.lat, p.lng], { icon: vtxIcon(p, isStart, true) })
+      .bindPopup(`<strong>${escapeHtml(p.name)}</strong>${isStart ? ' <span style="color:#90b728">· início</span>' : ''}<br>Lat ${p.lat.toFixed(6)}<br>Lng ${p.lng.toFixed(6)}<br><span style="color:#90b728">E</span> ${p.e.toFixed(3)}<br><span style="color:#90b728">N</span> ${p.n.toFixed(3)}${setStartBtn}`)
       .addTo(markersLayer);
+    m._vtx = { p, isStart, full: true, w: vtxLabelWidth(p.name), prio: isStart ? Infinity : vtxTurn(v, i) };
+    return m;
   });
-  map.fitBounds(L.polygon(closed).getBounds(), { padding: [40,40] });
-  $('map-vcount').textContent = v.length + ' vértices';
+  map.fitBounds(L.polygon(closed).getBounds(), { padding: [40,40], maxZoom: 19 });
+  declutterVertexMarkers();
+}
+
+/* Vértices amontoados: rótulo cheio só onde cabe na tela; os demais viram ponto pequeno (nome no hover/clique).
+   Prioridade: V1, depois os cantos mais fechados (maior deflexão) — pontos de curva densificada cedem lugar.
+   Recalcula a cada zoom; com zoom suficiente todos os rótulos aparecem. */
+function vtxLabelWidth(name){ return Math.max(24, 12 + 6.2 * String(name).length); }
+function vtxTurn(v, i){
+  const a = v[(i - 1 + v.length) % v.length], b = v[i], c = v[(i + 1) % v.length];
+  const t1 = Math.atan2(b.n - a.n, b.e - a.e), t2 = Math.atan2(c.n - b.n, c.e - b.e);
+  let d = Math.abs(t2 - t1); if(d > Math.PI) d = 2 * Math.PI - d;
+  return d;
+}
+function vtxIcon(p, isStart, full){
+  const cls = isStart ? ' vtx-start' : '';
+  return L.divIcon({
+    className: '', iconSize: [0,0], iconAnchor: [0,0],
+    html: full
+      ? `<div class="vtx-wrap"><div class="vtx-marker vtx-pill${cls}">${escapeHtml(p.name)}</div></div>`
+      : `<div class="vtx-wrap"><div class="vtx-dot${cls}" title="${escapeHtml(p.name)}"></div></div>`
+  });
+}
+function declutterVertexMarkers(){
+  if(!map || !vtxMarkers.length) return;
+  const order = vtxMarkers.map((m, i) => ({ m, i })).sort((a, b) => (b.m._vtx.prio - a.m._vtx.prio) || (a.i - b.i));
+  const boxes = [];
+  let hidden = 0;
+  order.forEach(({ m }) => {
+    const pt = map.latLngToContainerPoint(m.getLatLng()), hw = m._vtx.w / 2 + 2, hh = 14;
+    const box = [pt.x - hw, pt.y - hh, pt.x + hw, pt.y + hh];
+    const free = !boxes.some(b => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]);
+    if(free) boxes.push(box); else hidden++;
+    if(free !== m._vtx.full){ m._vtx.full = free; m.setIcon(vtxIcon(m._vtx.p, m._vtx.isStart, free)); }
+    m.setZIndexOffset(free ? 1000 : 0);
+  });
+  const n = vtxMarkers.length;
+  $('map-vcount').textContent = n + ' vértices' + (hidden ? ` · ${hidden} sem rótulo` : '');
+  $('map-vcount').title = hidden ? 'Vértices muito próximos aparecem como ponto pequeno. Aproxime o zoom, passe o mouse ou clique no ponto para ver o nome.' : '';
 }
 
 $('btn-map-center').addEventListener('click', () => {
   if(state.vertices.length < 2) return;
   const ll = state.vertices.map(p => [p.lat,p.lng]);
-  map.fitBounds(L.polygon(ll).getBounds(), { padding: [40,40] });
+  map.fitBounds(L.polygon(ll).getBounds(), { padding: [40,40], maxZoom: 19 });
 });
 
 // Rotaciona os vértices para que o de índice idx vire V1 (renumera V1..Vn)

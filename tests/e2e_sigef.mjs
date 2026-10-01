@@ -158,6 +158,22 @@ console.log('DXF arco:', JSON.stringify({ n: dx1.n, names: dx1.names.join(','), 
 console.log('CHECK DXF com arco: V1..V5 mantidos, pontos V3-1… sobre a curva (R = 15 m), área a < 0,3 m² da exata 9.951,71:',
   ['V1','V2','V3','V4','V5'].every(nm => dx1.names.includes(nm)) && dx1.names.indexOf('V3-1') === dx1.names.indexOf('V3') + 1 && dx1.names.indexOf('V4') > dx1.names.indexOf('V3-1') && dx1.dev < 1e-6 && dx1.outward && dx1.area < EXACT && EXACT - dx1.area < 0.3 ? 'OK' : 'FAIL');
 console.log('CHECK aviso do DXF: arco V3→V4, R = 15,00 m, desenvolvimento 23,56 m, área exata 9.951,71 m²:', /show warn/.test(dx1.cls) && /V3→V4: R = 15,00 m, desenvolvimento 23,56 m/.test(dx1.status) && /curva exata \(CAD\) 9\.951,71 m²/.test(dx1.status) ? 'OK' : 'FAIL ' + dx1.status);
+// Mapa: vértices amontoados (pedido da usuária, captura com V9–V15 ilegíveis) — rótulos cheios não se sobrepõem;
+// os demais viram ponto pequeno; V1 sempre rotulado; aproximando o zoom os nomes voltam.
+await page.waitForTimeout(600);
+const decl = async () => page.evaluate(() => {
+  const pills = Array.from(document.querySelectorAll('#map .vtx-pill')).map(e => { const r = e.getBoundingClientRect(); return { t: e.textContent, x0: r.left, y0: r.top, x1: r.right, y1: r.bottom }; });
+  let overlap = 0; for(let i = 0; i < pills.length; i++) for(let j = i + 1; j < pills.length; j++){ const a = pills[i], b = pills[j]; if(a.x0 < b.x1 - 1 && a.x1 > b.x0 + 1 && a.y0 < b.y1 - 1 && a.y1 > b.y0 + 1) overlap++; }
+  return { pills: pills.length, dots: document.querySelectorAll('#map .vtx-dot').length, overlap, v1: pills.some(p => p.t === 'V1'), count: document.getElementById('map-vcount').textContent };
+});
+const dc1 = await decl();
+await page.locator('#map').screenshot({ path: path.join(OUT, 'mapa_declutter.png') });
+console.log('MAPA declutter:', JSON.stringify(dc1));
+console.log('CHECK mapa: rótulos sem sobreposição, pontos pequenos no arco, V1 rotulado, aviso no contador:', dc1.overlap === 0 && dc1.dots > 0 && dc1.pills + dc1.dots === 26 && dc1.v1 && /sem rótulo/.test(dc1.count) ? 'OK' : 'FAIL');
+const zoomTo = async (z) => { await page.evaluate((z) => map.setView([state.vertices[10].lat, state.vertices[10].lng], z, { animate: false }), z); await page.waitForTimeout(300); return decl(); };
+const dz16 = await zoomTo(16), dz21 = await zoomTo(21);
+console.log('MAPA zoom 16 / ajuste / 21:', dz16.pills, dc1.pills, dz21.pills);
+console.log('CHECK mapa: afastando há menos rótulos, aproximando (até 21) há mais, nunca sobrepostos:', dz16.pills <= dc1.pills && dz21.pills > dc1.pills && dz16.overlap === 0 && dz21.overlap === 0 && dz16.v1 ? 'OK' : 'FAIL ' + JSON.stringify({ dz16, dz21 }));
 const dx0 = await dxfImport(dxfLW('0'));
 console.log('CHECK DXF sem arco continua igual (5 vértices, 9.887,50 m²):', dx0.n === 5 && Math.abs(dx0.area - 9887.5) < 1e-6 && !/arco/.test(dx0.status) ? 'OK' : 'FAIL ' + JSON.stringify(dx0));
 // ---- Reconstituição por rumos / azimutes e distâncias (certidão sem coordenadas) ----
