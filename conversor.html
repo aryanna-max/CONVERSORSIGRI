@@ -344,6 +344,11 @@ table.coord-table tr.v-start td:first-child::before{content:'★ ';color:var(--v
 .mem-edge-row .e-id{font-weight:700;color:var(--verde);font-size:11.5px}
 .mem-edge-row .e-meta{color:var(--soft);font-size:10.5px;line-height:1.3}
 .mem-edge-row select,.mem-edge-row input{background:#f4f7f8;color:#0a1f3d;border:1px solid rgba(120,170,230,0.35);border-radius:3px;padding:4px 6px;font-size:11.5px;font-family:inherit;outline:none}
+.mem-tipo{display:flex;flex-direction:column;gap:6px;padding:10px 12px;margin-bottom:14px;border:1px solid var(--line);border-radius:5px;background:rgba(0,0,0,0.18)}
+.mem-tipo-lbl{font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--verde);font-weight:700}
+.mem-tipo label{display:flex;align-items:flex-start;gap:9px;font-size:11.5px;color:var(--muted);cursor:pointer;line-height:1.4}
+.mem-tipo label strong{color:var(--white)}
+.mem-tipo input{margin-top:3px;accent-color:var(--verde)}
 .mem-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}
 .mem-preview{margin-top:12px;padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:4px;max-height:220px;overflow-y:auto;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10.5px;line-height:1.55;color:var(--white);white-space:pre-wrap}
 .modal-head{margin-bottom:22px}
@@ -1812,8 +1817,7 @@ function refreshMetrics(){
   const centroid = polyCentroidLatLng(v);
   let haSGL = null, haElips = null, perimSGL = null;
   try {
-    const sglProj = `+proj=ortho +lat_0=${centroid.lat} +lon_0=${centroid.lng} +ellps=GRS80 +units=m +no_defs`;
-    const xy = v.map(p => proj4('EPSG:4674', sglProj, [p.lng, p.lat])); // [x,y] em metros no SGL
+    const xy = sglXY(v); // [x,y] em metros no SGL (helper compartilhado com o memorial rural)
     // Shoelace no SGL
     let sglArea = 0, sglPerim = 0;
     for(let i = 0; i < xy.length; i++){
@@ -1876,6 +1880,30 @@ function polyCentroidLatLng(verts){
   let lat = 0, lng = 0;
   for(const p of verts){ lat += p.lat; lng += p.lng; }
   return { lat: lat / verts.length, lng: lng / verts.length };
+}
+
+// ===== SGL / geodésia — helpers compartilhados (métricas + memorial rural) =====
+// Projeção ortográfica tangente no centroide sobre GRS80: aproximação do Sistema Geodésico Local (SIGEF).
+function sglXY(verts){
+  const c = polyCentroidLatLng(verts);
+  const sglProj = `+proj=ortho +lat_0=${c.lat} +lon_0=${c.lng} +ellps=GRS80 +units=m +no_defs`;
+  return verts.map(p => proj4('EPSG:4674', sglProj, [p.lng, p.lat]));
+}
+function sglAreaPerim(verts){
+  const xy = sglXY(verts);
+  let a = 0, p = 0;
+  for(let i = 0; i < xy.length; i++){
+    const [x1,y1] = xy[i], [x2,y2] = xy[(i+1)%xy.length];
+    a += (x1 * y2 - x2 * y1);
+    p += Math.hypot(x2-x1, y2-y1);
+  }
+  return { ha: Math.abs(a) / 2 / 10000, perim: p, xy };
+}
+// Azimute geodésico (bearing inicial da geodésica, turf/Karney sobre WGS 84 ≡ GRS80), normalizado [0,360)
+function azimuthGeodetic(p1, p2){
+  let b = turf.bearing(turf.point([p1.lng, p1.lat]), turf.point([p2.lng, p2.lat]));
+  if(b < 0) b += 360;
+  return b;
 }
 function fmtNum(n, dec){
   return n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -2289,6 +2317,12 @@ setTimeout(() => map.invalidateSize(), 200);
     </div>
     <div id="mem-art-status" style="font-size:11px;color:var(--soft);margin-bottom:14px;min-height:14px"></div>
 
+    <div class="mem-tipo" id="mem-tipo">
+      <span class="mem-tipo-lbl">Tipo de imóvel</span>
+      <label><input type="radio" name="mem-tipo" value="urbano" checked><span><strong>Urbano</strong> · NBR 13133 / 17047 · UTM · lados Frente/Fundo/Direito/Esquerdo</span></label>
+      <label><input type="radio" name="mem-tipo" value="rural"><span><strong>Rural · SIGEF</strong> · azimutes geodésicos · distâncias, área e perímetro no SGL · confrontantes por trecho</span></label>
+    </div>
+
     <div class="mem-section-title">Identificação do imóvel</div>
     <div class="mem-grid">
       <div class="mem-field mem-full">
@@ -2305,8 +2339,8 @@ setTimeout(() => map.invalidateSize(), 200);
       <div class="mem-field"><label for="mem-data">Data</label><input id="mem-data" type="date"></div>
     </div>
 
-    <div class="mem-section-title">Confrontantes por lado</div>
-    <div style="font-size:11.5px;color:var(--soft);margin-bottom:10px;line-height:1.5">
+    <div class="mem-section-title" id="mem-conf-title">Confrontantes por lado</div>
+    <div style="font-size:11.5px;color:var(--soft);margin-bottom:10px;line-height:1.5" id="mem-conf-help">
       Para cada aresta V<sub>i</sub>→V<sub>i+1</sub>, escolha o lado e o confrontante.
       Arestas <strong>consecutivas com o mesmo lado</strong> são automaticamente agrupadas no texto final (e os comprimentos somados).
     </div>
@@ -2424,6 +2458,7 @@ function autoAssignSides(verts){
 
 function buildMemorialText(meta, verts){
   if(!verts || verts.length < 3) return 'Importe um polígono com pelo menos 3 vértices.';
+  if(meta.tipo === 'rural') return buildMemorialTextRural(meta, verts);
   const n = verts.length;
   const edges = buildMemorialEdges(verts);
   const sides = meta.sides || [], confs = meta.confs || [];
@@ -2495,11 +2530,119 @@ function buildMemorialText(meta, verts){
   return txt;
 }
 
+// ===== MEMORIAL RURAL · modelo SIGEF =====
+// Arestas com azimute geodésico e distância no SGL (não UTM).
+function buildMemorialEdgesRural(verts){
+  const n = verts.length;
+  const { xy } = sglAreaPerim(verts);
+  const edges = [];
+  for(let i = 0; i < n; i++){
+    const a = verts[i], b = verts[(i+1) % n];
+    const [x1,y1] = xy[i], [x2,y2] = xy[(i+1) % n];
+    edges.push({ idx: i, from: a, to: b, az: azimuthGeodetic(a, b), dist: Math.hypot(x2-x1, y2-y1) });
+  }
+  return edges;
+}
+// Segundos com 2 casas para azimute (padrão SIGEF: 129°29'56")
+function decToDMSsec(deg){
+  const d = Math.floor(deg);
+  const mFull = (deg - d) * 60;
+  const m = Math.floor(mFull);
+  const s = Math.round((mFull - m) * 60);
+  const mm = s === 60 ? m + 1 : m, ss = s === 60 ? 0 : s;
+  return `${d}°${String(mm).padStart(2,'0')}'${String(ss).padStart(2,'0')}"`;
+}
+function buildMemorialTextRural(meta, verts){
+  const n = verts.length;
+  const edges = buildMemorialEdgesRural(verts);
+  const confs = meta.confs || [];
+  const { ha, perim } = sglAreaPerim(verts);
+  const { zone } = cfg();
+  const mc = -183 + 6 * zone;
+
+  let txt = 'MEMORIAL DESCRITIVO\n\n';
+  if(meta.imovel) txt += `Imóvel: ${meta.imovel}\n`;
+  if(meta.prop){
+    const lines = meta.prop.split('\n').map(s => s.trim()).filter(Boolean);
+    lines.forEach((l, i) => txt += (i === 0 ? `Proprietário/CPF-CNPJ: ${l}\n` : `${' '.repeat(23)}${l}\n`));
+  }
+  if(meta.municipio || meta.uf) txt += `Município: ${meta.municipio||'________'}    UF: ${meta.uf||'__'}\n`;
+  if(meta.matricula) txt += `${meta.matricula}\n`;
+  txt += `Área: ${fmtNum(ha,4)} ha (SGL)    Perímetro: ${fmtNum(perim,2)} m (SGL)\n\n`;
+
+  // Agrupa arestas consecutivas com o mesmo confrontante (trechos), estilo SIGEF
+  const norm = s => (s || '').trim().replace(/\s+/g,' ');
+  const groups = [];
+  let cur = null;
+  for(const e of edges){
+    const c = norm(confs[e.idx]);
+    if(cur && norm(cur.conf).toLowerCase() === c.toLowerCase()){ cur.edges.push(e); }
+    else { cur = { conf: c, edges: [e] }; groups.push(cur); }
+  }
+
+  const v0 = verts[0];
+  let para = `Inicia-se a descrição deste perímetro no vértice ${v0.name}, de coordenadas geodésicas ${latDMS(v0.lat)} e ${lngDMS(v0.lng)}`;
+  for(let gi = 0; gi < groups.length; gi++){
+    const g = groups[gi];
+    const confTxt = g.conf || '____________________________';
+    para += `; deste, segue confrontando com ${confTxt}, com os seguintes azimutes e distâncias:`;
+    for(let k = 0; k < g.edges.length; k++){
+      const e = g.edges[k];
+      const isLastOfAll = (e.idx === n - 1);
+      para += ` ${decToDMSsec(e.az)} e ${fmtNum(e.dist,2)} m até o vértice ${e.to.name}`;
+      if(isLastOfAll){
+        para += `, ponto inicial da descrição deste perímetro.`;
+      } else {
+        para += `, de coordenadas geodésicas ${latDMS(e.to.lat)} e ${lngDMS(e.to.lng)}`;
+        para += (k < g.edges.length - 1) ? ';' : '';
+      }
+    }
+  }
+  txt += para + '\n\n';
+
+  txt += `Todas as coordenadas aqui descritas estão georreferenciadas ao Sistema Geodésico Brasileiro e encontram-se representadas em coordenadas geodésicas, Datum SIRGAS 2000 (EPSG:4674), com hemisfério indicado por letra. Os azimutes são geodésicos. As distâncias, a área e o perímetro foram calculados no Sistema Geodésico Local (SGL), em conformidade com a Norma Técnica para Georreferenciamento de Imóveis Rurais do INCRA (3ª ed.) e o Manual Técnico de Posicionamento. Representação gráfica em UTM, fuso ${zone} S, Meridiano Central ${Math.abs(mc)}°00'00" ${mc<0?'WGr':'EGr'}.\n\n`;
+
+  if(groups.length){
+    txt += 'Confrontações, por trecho:\n\n';
+    for(const g of groups){
+      const vStart = g.edges[0].from.name;
+      const vEnd = g.edges[g.edges.length-1].to.name;
+      const len = g.edges.reduce((s,e) => s + e.dist, 0);
+      txt += `• ${g.conf || '____________________________'}: do vértice ${vStart} ao ${vEnd}, ${g.edges.length} ${g.edges.length === 1 ? 'lado' : 'lados'}, ${fmtNum(len,2)} m (SGL);\n`;
+    }
+    txt += '\n';
+  }
+
+  txt += `${meta.municipio || '________'}, ${fmtDateBR(meta.data)}.\n\n\n`;
+  txt += `____________________________________________________\n`;
+  txt += `${meta.rtNome || '_______________________________'}\n`;
+  if(meta.rtReg) txt += `${meta.rtReg}\n`;
+  txt += `Responsável Técnico\n`;
+  return txt;
+}
+
 function renderMemorialEdges(){
   const container = $('mem-edges');
   container.innerHTML = '';
   const v = state.vertices;
   if(v.length < 3){ container.innerHTML = '<div style="color:var(--soft);font-size:11.5px;padding:8px">Importe um polígono com pelo menos 3 vértices antes de gerar o memorial.</div>'; return; }
+  const tipo = memorialTipo();
+  if(tipo === 'rural'){
+    // Rural/SIGEF: azimute geodésico + distância SGL, confrontante por trecho (texto livre), sem "lado"
+    const edges = buildMemorialEdgesRural(v);
+    for(const e of edges){
+      const row = document.createElement('div');
+      row.className = 'mem-edge-row';
+      row.style.gridTemplateColumns = '110px 1fr 2.2fr';
+      row.innerHTML = `
+        <span class="e-id" title="${e.from.name} → ${e.to.name}">${e.from.name}→${e.to.name}</span>
+        <span class="e-meta">Az geo ${decToDMSsec(e.az)}<br>${fmtNum(e.dist,2)} m SGL</span>
+        <input type="text" data-edge-conf="${e.idx}" placeholder="Confrontante (ex: Engenho Salgado – Gleba B / Rio das Canoas / Faixa de domínio PE-038)">
+      `;
+      container.appendChild(row);
+    }
+    return;
+  }
   const edges = buildMemorialEdges(v);
   const autoSides = autoAssignSides(v);
   const optFor = (name, sel) => `<option${sel===name?' selected':''}>${name}</option>`;
@@ -2524,6 +2667,18 @@ function renderMemorialEdges(){
   }
 }
 
+function memorialTipo(){
+  const r = document.querySelector('input[name="mem-tipo"]:checked');
+  return r ? r.value : 'urbano';
+}
+function applyMemorialTipoUI(){
+  const rural = memorialTipo() === 'rural';
+  $('mem-conf-title').textContent = rural ? 'Confrontantes por trecho (SIGEF)' : 'Confrontantes por lado';
+  $('mem-conf-help').innerHTML = rural
+    ? 'Para cada aresta, informe o confrontante (engenho, fazenda, sítio, rio, estrada, faixa de domínio…). Arestas <strong>consecutivas com o mesmo confrontante</strong> viram um único trecho no texto, no estilo do memorial SIGEF. Azimutes <strong>geodésicos</strong>; distâncias, área e perímetro no <strong>SGL</strong>.'
+    : 'Para cada aresta V<sub>i</sub>→V<sub>i+1</sub>, escolha o lado e o confrontante. Arestas <strong>consecutivas com o mesmo lado</strong> são automaticamente agrupadas no texto final (e os comprimentos somados).';
+}
+
 function collectMemorialMeta(){
   const sides = [], confs = [];
   document.querySelectorAll('[data-edge-side]').forEach(s => { sides[+s.dataset.edgeSide] = s.value; });
@@ -2539,6 +2694,7 @@ function collectMemorialMeta(){
     rtReg: $('mem-rt-reg').value.trim(),
     empresa: $('mem-empresa').value.trim(),
     empresaEndereco: $('mem-empresa-endereco').value.trim(),
+    tipo: memorialTipo(),
     sides, confs,
   };
 }
@@ -2780,6 +2936,7 @@ async function handleArtRrtFile(file){
 
   function openMemorial(){
     if(state.vertices.length < 3){ setStatus('export-status','warn','Importe um polígono antes de gerar o memorial.'); return; }
+    applyMemorialTipoUI();
     renderMemorialEdges();
     prefillFromLocation();
     refreshMemorialPreview();
@@ -2794,6 +2951,14 @@ async function handleArtRrtFile(file){
     if(MEM_RT_KEYS.includes(e.target.id)) saveMemorialRT();
   });
   $modal.addEventListener('change', refreshMemorialPreview);
+  // Tipo de imóvel (urbano × rural/SIGEF): persiste e re-renderiza arestas no modelo certo
+  try { const t = localStorage.getItem('confrontei_mem_tipo'); if(t){ const r = document.querySelector(`input[name="mem-tipo"][value="${t}"]`); if(r) r.checked = true; } } catch {}
+  document.querySelectorAll('input[name="mem-tipo"]').forEach(r => r.addEventListener('change', () => {
+    try { localStorage.setItem('confrontei_mem_tipo', memorialTipo()); } catch {}
+    applyMemorialTipoUI();
+    renderMemorialEdges();
+    refreshMemorialPreview();
+  }));
   $('mem-copy').addEventListener('click', async () => {
     const txt = $('mem-preview').textContent;
     try { await navigator.clipboard.writeText(txt); setStatus('export-status','ok','Memorial copiado para a área de transferência.'); }
