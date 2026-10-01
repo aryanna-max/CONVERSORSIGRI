@@ -34,6 +34,29 @@ CNJ 195/2025. Produto da **AG Topografia**.
 - `agtopografia.com.br` = **WordPress no HostGator, antigo**. Ranqueia em **1º lugar** no Google.
 - Quer refazer, MAS **não pode perder o ranking**. Regras: manter mesmo domínio; manter MESMAS URLs (ou 301 de toda URL antiga→nova); preservar conteúdo/títulos que ranqueiam; inventariar URLs no Search Console antes; construir em staging com noindex; não mudar tudo de uma vez.
 
+## Escopo — urbano E rural
+- **Urbano** (SIG-RI/ONR): fluxo original — UTM → geográfico, memorial NBR 13133/17047, exportação SIGRI.
+- **Rural** (decidido em 2026-10-01): ferramenta de apoio em DUAS pontas:
+  1. **Registro rural** (SIG-RI/cartório) — mesmo pipeline, com área/perímetro no **SGL** (oficial INCRA) e memorial no modelo SIGEF.
+  2. **Certificação SIGEF** (INCRA) — ajudar o profissional credenciado a preparar/validar a submissão.
+- Caso de referência: **Gleba A do Engenho Boaçica, mat. 24.878, Ipojuca/PE** — 157 vértices com códigos SIGEF (GLH-V-10491…), 599,6347 ha, 225 km do MC (k ≈ 1,000224). Ver `RELATORIO_CONFERENCIA_MAT-24878` (relatório técnico da Aryanna, 30/09/2026).
+
+## Princípio de produto (inegociável)
+- **Quem usa o Confrontei não pode ser induzido a erro.** Todo número exibido tem rótulo sem ambiguidade, metodologia visível (bloco "ⓘ Metodologia") e, quando é valor de conferência, diz isso no próprio card ("não substitui SIGEF / matrícula").
+- Elipsoide declarado com honestidade: turf usa WGS 84 (≡ GRS80 na prática); SGL aqui = ortográfica no centroide (aproximação da SGL oficial do INCRA, que usa média geocêntrica).
+
+## Rural — o que já existe (PR #4, 2026-10-01)
+- Área e perímetro em 3 sistemas: SGL (destaque, oficial), UTM, elipsoidal.
+- Fator de escala UTM (k) e convergência meridiana (γ) no centroide; ⚠ quando |k−1| > 1e-4.
+- Import de memorial PDF aceita códigos SIGEF (GLH-V-xxxxx, BWF-P-Axxx) e o padrão geográfico "NOME, de coordenadas lat; long".
+
+## Rural — roadmap (ordem sugerida)
+1. **Memorial no modelo SIGEF**: azimute geodésico (não UTM), distâncias/área/perímetro SGL, confrontantes por trecho com nome livre (engenho, rio, faixa de rodovia), declaração explícita do sistema. Toggle Urbano/Rural no modal do memorial.
+2. **Planilha de posicionamento SIGEF (ODS)**: gerar e validar — código do vértice, tipo (V/M/P), lat/long/alt, sigmas, método, confrontante. Checar precisão pela Norma Técnica de Georreferenciamento 3ª ed (σ ≤ 0,50 m artificial / 3 m natural / 7,5 m inacessível).
+3. **Sobreposição com SIGEF**: consulta WFS da camada de parcelas certificadas e alerta de overlap antes da submissão (motivo nº 1 de rejeição no INCRA).
+4. **Camadas rurais extras**: faixa de domínio DNIT/DER-PE, APP de curso d'água, MDE (SRTM/TOPODATA) para cotas.
+5. **Modo Conferência**: carregar 2–3 versões do mesmo polígono (certidão × memorial × DWG) e relatar divergências vértice a vértice — automatizar o que o relatório Boaçica fez à mão.
+
 ## Pendências
 - **Memorial Descritivo em PDF** — prometido no README (⏳) e na landing; ainda não implementado. Entregável citado pela NBR 13133. Próxima grande entrega.
 - **SEO on-page do Confrontei** (meta description na landing, canonical, Open Graph/Twitter, JSON-LD SoftwareApplication, robots.txt, sitemap.xml) — planejado, ainda não implementado. Aguardando definição final do domínio.
