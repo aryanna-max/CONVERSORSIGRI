@@ -43,12 +43,16 @@ CNJ 195/2025. Produto da **AG Topografia**.
 
 ## Princípio de produto (inegociável)
 - **Quem usa o Confrontei não pode ser induzido a erro.** Todo número exibido tem rótulo sem ambiguidade, metodologia visível (bloco "ⓘ Metodologia") e, quando é valor de conferência, diz isso no próprio card ("não substitui SIGEF / matrícula").
-- Elipsoide declarado com honestidade: turf usa WGS 84 (≡ GRS80 na prática); SGL aqui = ortográfica no centroide (aproximação da SGL oficial do INCRA, que usa média geocêntrica).
+- Geometria própria sobre o GRS80 (proj4js só funciona para UTM; ortho/cea/laea devolvem NaN): **SGL = ENU** (geodésica→ECEF→ENU no centroide); **área elipsoidal = esfera autálica + excesso esférico exato** (contraprova independente da SGL — devem coincidir em 4 casas de ha); **azimute geodésico = Vincenty**. `turf.area` foi ABANDONADO: é esférico (R=6 371 008,8) e deu +0,65 % num teste controlado (48,0987 vs 47,7892 ha exatos).
+- Teste E2E real (Playwright/Chromium, libs de CDN servidas localmente porque o proxy bloqueia unpkg/jsdelivr): `tests/e2e_sigef.mjs` (instruções no cabeçalho do arquivo) gera o ODS e inspeciona o content.xml. Rodar antes de mexer em geometria/SIGEF.
 
 ## Rural — o que já existe (PR #4, 2026-10-01)
 - Área e perímetro em 3 sistemas: SGL (destaque, oficial), UTM, elipsoidal.
 - Fator de escala UTM (k) e convergência meridiana (γ) no centroide; ⚠ quando |k−1| > 1e-4.
 - Import de memorial PDF aceita códigos SIGEF (GLH-V-xxxxx, BWF-P-Axxx) e o padrão geográfico "NOME, de coordenadas lat; long".
+- **Item 1 — Memorial rural modelo SIGEF**: toggle Urbano/Rural no modal; azimute geodésico (turf/Karney), SGL, confrontantes por trecho, DMS com hemisfério por letra.
+- **Item 2 — Planilha SIGEF (ODS)**: botão "F · Planilha SIGEF". O gerador **abre o modelo oficial** `assets/sigef_planilha_modelo_1.4_rc5.ods` (cópia do repo GeoINCRA/OpenGeoOne; original em sigef.incra.gov.br/static/, bloqueado neste ambiente — **conferir hash/versão quando possível**) e preenche células via DOM: `identificacao` B2,B5,B6,B7,B10–B16; `perimetro_1` B3/B4/B5, B9="Geográfica", F9="Sul", dados da linha 12 nas colunas Vértice · E/Long · σlong · N/Lat · σlat · h · σh · Método · Tipo Limite · CNS · Matrícula · Descritivo. Coordenadas em GMS "34 55 10,123 W" (segundos 3 casas), sigmas 2 casas. Validador ao vivo com a **matriz oficial** (85 combinações da aba `parametros_vertice_validacao`: LA→0,50; LN→3,00 p/ M,P; PS1–4/PB1 em LN+V→7,50; PA3/PB2→0 = não admitido; exceções PS1–4 em LA1/V) + limites geográficos do Brasil da aba `parametros_vertice`. σ/h/método são dados de campo do usuário — a ferramenta não inventa precisão.
+- Descrições dos códigos: PG1–9, PT1–5, PA1–2, PB1–2, PS1–4, LA1–7, LN1–6 confirmadas (Manual Técnico de Posicionamento / de Limites e Confrontações, 1ª ed. 2013); **PT6–PT8 e PA3 sem descrição** (código-só, "ver Manual").
 
 ## Rural — roadmap (ordem sugerida)
 1. **Memorial no modelo SIGEF**: azimute geodésico (não UTM), distâncias/área/perímetro SGL, confrontantes por trecho com nome livre (engenho, rio, faixa de rodovia), declaração explícita do sistema. Toggle Urbano/Rural no modal do memorial.

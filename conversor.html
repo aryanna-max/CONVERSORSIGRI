@@ -50,7 +50,6 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"></script>
-<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
@@ -349,6 +348,28 @@ table.coord-table tr.v-start td:first-child::before{content:'★ ';color:var(--v
 .mem-tipo label{display:flex;align-items:flex-start;gap:9px;font-size:11.5px;color:var(--muted);cursor:pointer;line-height:1.4}
 .mem-tipo label strong{color:var(--white)}
 .mem-tipo input{margin-top:3px;accent-color:var(--verde)}
+/* SIGEF modal */
+.modal.modal-sigef{max-width:1080px;max-height:92vh;overflow-y:auto}
+.sg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.sg-grid .mem-field.sg-2{grid-column:span 2}
+.sg-grid .mem-field.sg-3{grid-column:1 / -1}
+.sg-table-wrap{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:5px;background:rgba(255,255,255,0.02)}
+table.sg-table{width:100%;border-collapse:collapse;font-size:11px}
+table.sg-table th{position:sticky;top:0;background:#0e2b52;color:var(--verde-bright);font-weight:600;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;white-space:nowrap;z-index:1}
+table.sg-table td{padding:3px 6px;border-bottom:1px solid rgba(120,170,230,0.10);color:var(--white);white-space:nowrap}
+table.sg-table td input,table.sg-table td select{width:100%;min-width:64px;background:#f4f7f8;color:#0a1f3d;border:1px solid rgba(120,170,230,0.35);border-radius:3px;padding:3px 5px;font-size:11px;font-family:inherit;outline:none}
+table.sg-table td input.sg-num{width:64px;min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+table.sg-table td input.sg-code{min-width:120px;font-family:'JetBrains Mono',monospace}
+table.sg-table tr.sg-err td{background:rgba(255,123,123,0.10)}
+table.sg-table tr.sg-warn td{background:rgba(232,176,74,0.10)}
+table.sg-table td.sg-ro{color:var(--soft);font-family:'JetBrains Mono',monospace;font-size:10.5px}
+.sg-valid{margin-top:12px;border:1px solid var(--line);border-radius:5px;padding:10px 12px;background:rgba(0,0,0,0.18);font-size:11.5px;line-height:1.5;max-height:200px;overflow-y:auto}
+.sg-valid .sg-ok{color:var(--verde-bright);font-weight:600}
+.sg-valid .sg-e{color:#ff7b7b}
+.sg-valid .sg-w{color:#e8b04a}
+.sg-valid ul{margin:6px 0 0 16px;padding:0}
+.sg-valid li{margin:3px 0}
+.sg-note{font-size:10.5px;color:var(--soft);font-style:italic;margin-top:6px;line-height:1.45}
 .mem-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}
 .mem-preview{margin-top:12px;padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:4px;max-height:220px;overflow-y:auto;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:10.5px;line-height:1.55;color:var(--white);white-space:pre-wrap}
 .modal-head{margin-bottom:22px}
@@ -741,9 +762,10 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
           <div class="metod-body">
             <p><strong>Identidade do vértice:</strong> coordenadas geográficas <strong>SIRGAS 2000 (EPSG:4674)</strong>. Tudo abaixo deriva delas.</p>
             <ul>
-              <li><strong>Área e perímetro SGL</strong> (<em>oficial para imóveis rurais / INCRA-SIGEF</em>): projeção ortográfica tangente no centroide do polígono sobre o elipsoide <strong>GRS80</strong> (proj4 <code>+proj=ortho</code>); área pelo método de <strong>Gauss (shoelace)</strong>. Equivalente ao Sistema Geodésico Local — não sofre a ampliação da projeção UTM.</li>
+              <li><strong>Área e perímetro SGL</strong> (<em>oficial para imóveis rurais / INCRA-SIGEF</em>): Sistema Geodésico Local = plano topocêntrico ENU com origem no centroide, obtido por geodésica → cartesiana geocêntrica (ECEF) → ENU sobre o elipsoide <strong>GRS80</strong>; área pelo método de <strong>Gauss (shoelace)</strong>. Não sofre a ampliação da projeção UTM.</li>
               <li><strong>Área e perímetro UTM</strong>: cálculo no plano da projeção UTM do fuso selecionado (meridiano central informado em "Escala UTM"). É o valor que o AutoCAD mostra ao clicar no polígono. <strong>Nunca</strong> use em matrícula sem declarar que é UTM.</li>
-              <li><strong>Área elipsoidal</strong>: integração geodésica (turf.js, método de Karney) sobre o elipsoide <strong>WGS 84</strong>. O WGS 84 e o GRS80 (SIRGAS 2000) diferem no achatamento em menos de 10⁻⁹ — sem efeito mensurável na área. Aproxima a SGL; diferença de poucos m².</li>
+              <li><strong>Área elipsoidal</strong>: cada vértice é levado à <strong>esfera autálica do GRS80</strong> (mesma área total do elipsoide; R ≈ 6 371 007 m) pela latitude autálica, e a área é o excesso esférico exato do polígono. Para lados até ~10 km a diferença para a área geodésica rigorosa é &lt; 10⁻⁷. Serve de contraprova independente da SGL: as duas devem coincidir nas 4 casas de ha.</li>
+              <li><strong>Azimute geodésico</strong> (memorial rural): problema geodésico inverso de <strong>Vincenty (1975)</strong> sobre o GRS80 — mesmo resultado prático que Puissant para lados de até dezenas de km. Azimute UTM (memorial urbano) difere dele pela convergência meridiana γ.</li>
               <li><strong>Fator de escala UTM (k)</strong>: k = k₀·[1 + x²/(2R²)], com k₀ = 0,9996, x = distância ao meridiano central (projetada) e R = 6.378.137 m. k ≈ 1 na secante (≈180 km do MC). Longe dela, 1 km no terreno vira (k×1 km) no mapa UTM. ⚠ aparece quando |k−1| > 0,0001.</li>
               <li><strong>Convergência meridiana (γ)</strong>: γ ≈ (λ−λ₀)·sen φ. Diferença angular entre Norte geográfico (NG) e Norte da quadrícula UTM (NQ). Azimutes no plano UTM diferem dos azimutes geodésicos exatamente desse γ.</li>
               <li><strong>Fechamento</strong>: polígono sempre tratado como fechado (V<sub>n</sub>→V<sub>1</sub>). Mostra se a entrada trouxe vértice de fechamento repetido.</li>
@@ -784,6 +806,11 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
             <span class="eb-k">E · MEMORIAL DESCRITIVO</span>
             <span class="eb-t">Memorial em PDF · NBR 13133 / NBR 17047</span>
             <span class="eb-s">Identificação, perímetro com azimutes, confrontantes por lado e RT</span>
+          </button>
+          <button class="export-btn" id="exp-ods" disabled style="grid-column:span 2">
+            <span class="eb-k">F · PLANILHA SIGEF (ODS)</span>
+            <span class="eb-t">Certificação INCRA · modelo oficial 1.4 rc5 preenchido</span>
+            <span class="eb-s">Vértices, sigmas, método, tipo de limite e confrontantes · validação pela matriz oficial de precisão</span>
           </button>
         </div>
         <div class="status" id="export-status"></div>
@@ -1428,7 +1455,7 @@ function loadFromKMLPoints(pts){
   const projUTM = utmProjString(zone, hemi, 'SIRGAS2000');
   const result = pts.map((p,i) => {
     const [e, n] = proj4('EPSG:4326', projUTM, [p.lng, p.lat]);
-    return { name: 'V'+(i+1), e, n, lat: p.lat, lng: p.lng };
+    return { name: p.name || ('V'+(i+1)), e, n, lat: p.lat, lng: p.lng }; // preserva códigos SIGEF quando vierem (memorial PDF)
   });
   state.vertices = result;
   state.fromKML = true;
@@ -1828,10 +1855,9 @@ function refreshMetrics(){
     haSGL = Math.abs(sglArea) / 2 / 10000;
     perimSGL = sglPerim;
   } catch(e){ /* fallback silencioso */ }
-  // === Área sobre o elipsoide GRS80 via turf (geodésica) ===
+  // === Área sobre o elipsoide GRS80 (esfera autálica + excesso esférico exato) ===
   try {
-    const ring = v.map(p => [p.lng, p.lat]); ring.push(ring[0]);
-    haElips = turf.area(turf.polygon([ring])) / 10000;
+    haElips = ellipsoidAreaAuthalic(v) / 10000;
   } catch(e){ /* fallback silencioso */ }
   // === Fator de escala UTM (k) e convergência meridiana (γ) no centroide ===
   const { zone } = cfg();
@@ -1882,12 +1908,28 @@ function polyCentroidLatLng(verts){
   return { lat: lat / verts.length, lng: lng / verts.length };
 }
 
-// ===== SGL / geodésia — helpers compartilhados (métricas + memorial rural) =====
-// Projeção ortográfica tangente no centroide sobre GRS80: aproximação do Sistema Geodésico Local (SIGEF).
+// ===== SGL / geodésia — helpers compartilhados (métricas + memorial rural + SIGEF) =====
+// Implementações próprias sobre o GRS80 (proj4js não tem ortho/cea/laea elipsoidais funcionais).
+const GRS80 = { a: 6378137, f: 1 / 298.257222101 };
+GRS80.b = GRS80.a * (1 - GRS80.f); GRS80.e2 = GRS80.f * (2 - GRS80.f); GRS80.e = Math.sqrt(GRS80.e2);
+const D2R = Math.PI / 180;
+function ecefGRS80(lonDeg, latDeg, h){
+  const la = latDeg * D2R, lo = lonDeg * D2R, hh = h || 0;
+  const N = GRS80.a / Math.sqrt(1 - GRS80.e2 * Math.sin(la) ** 2);
+  return [(N + hh) * Math.cos(la) * Math.cos(lo), (N + hh) * Math.cos(la) * Math.sin(lo), (N * (1 - GRS80.e2) + hh) * Math.sin(la)];
+}
+// Sistema Geodésico Local: plano topocêntrico (ENU) com origem no centroide — geodésica → ECEF → ENU.
+// É a definição usada pelo INCRA/SIGEF (origem na média dos vértices; aqui média aritmética de lat/long).
 function sglXY(verts){
   const c = polyCentroidLatLng(verts);
-  const sglProj = `+proj=ortho +lat_0=${c.lat} +lon_0=${c.lng} +ellps=GRS80 +units=m +no_defs`;
-  return verts.map(p => proj4('EPSG:4674', sglProj, [p.lng, p.lat]));
+  const [x0, y0, z0] = ecefGRS80(c.lng, c.lat, 0);
+  const la = c.lat * D2R, lo = c.lng * D2R;
+  const sl = Math.sin(lo), cl = Math.cos(lo), sp = Math.sin(la), cp = Math.cos(la);
+  return verts.map(p => {
+    const [x, y, z] = ecefGRS80(p.lng, p.lat, 0);
+    const dx = x - x0, dy = y - y0, dz = z - z0;
+    return [-sl * dx + cl * dy, -sp * cl * dx - sp * sl * dy + cp * dz]; // [E, N] em metros
+  });
 }
 function sglAreaPerim(verts){
   const xy = sglXY(verts);
@@ -1899,11 +1941,47 @@ function sglAreaPerim(verts){
   }
   return { ha: Math.abs(a) / 2 / 10000, perim: p, xy };
 }
-// Azimute geodésico (bearing inicial da geodésica, turf/Karney sobre WGS 84 ≡ GRS80), normalizado [0,360)
+// Área sobre o elipsoide GRS80: latitude autálica → esfera autálica (equivalente em área) → excesso esférico exato.
+// Para lados < ~10 km a diferença entre arestas de círculo máximo e geodésicas é desprezível (< 1e-7 relativo).
+function ellipsoidAreaAuthalic(verts){
+  const { e, e2, a } = GRS80;
+  const q = ph => { const s = Math.sin(ph); return (1 - e2) * (s / (1 - e2 * s * s) - (1 / (2 * e)) * Math.log((1 - e * s) / (1 + e * s))); };
+  const qp = q(Math.PI / 2);
+  const Rauth = a * Math.sqrt(qp / 2);
+  const beta = verts.map(p => Math.asin(Math.max(-1, Math.min(1, q(p.lat * D2R) / qp))));
+  const lam = verts.map(p => p.lng * D2R);
+  let sum = 0;
+  for(let i = 0; i < verts.length; i++){
+    const j = (i + 1) % verts.length;
+    let dl = lam[j] - lam[i]; if(dl > Math.PI) dl -= 2 * Math.PI; if(dl < -Math.PI) dl += 2 * Math.PI;
+    const t1 = Math.tan(beta[i] / 2), t2 = Math.tan(beta[j] / 2);
+    sum += 2 * Math.atan2(Math.tan(dl / 2) * (t1 + t2), 1 + t1 * t2);
+  }
+  return Math.abs(sum) * Rauth * Rauth; // m²
+}
+// Azimute geodésico: problema geodésico inverso (Vincenty, 1975) sobre o GRS80. Retorna α1 em graus [0,360).
 function azimuthGeodetic(p1, p2){
-  let b = turf.bearing(turf.point([p1.lng, p1.lat]), turf.point([p2.lng, p2.lat]));
-  if(b < 0) b += 360;
-  return b;
+  const { a, b, f } = GRS80;
+  const L = (p2.lng - p1.lng) * D2R;
+  const U1 = Math.atan((1 - f) * Math.tan(p1.lat * D2R)), U2 = Math.atan((1 - f) * Math.tan(p2.lat * D2R));
+  const sU1 = Math.sin(U1), cU1 = Math.cos(U1), sU2 = Math.sin(U2), cU2 = Math.cos(U2);
+  let lam = L, lamPrev, iter = 0, sinSig, cosSig, sig, sinAlpha, cos2Alpha, cos2SigM;
+  do {
+    const sl = Math.sin(lam), cl = Math.cos(lam);
+    sinSig = Math.sqrt((cU2 * sl) ** 2 + (cU1 * sU2 - sU1 * cU2 * cl) ** 2);
+    if(sinSig === 0) return 0; // pontos coincidentes
+    cosSig = sU1 * sU2 + cU1 * cU2 * cl;
+    sig = Math.atan2(sinSig, cosSig);
+    sinAlpha = cU1 * cU2 * sl / sinSig;
+    cos2Alpha = 1 - sinAlpha * sinAlpha;
+    cos2SigM = cos2Alpha !== 0 ? cosSig - 2 * sU1 * sU2 / cos2Alpha : 0;
+    const C = f / 16 * cos2Alpha * (4 + f * (4 - 3 * cos2Alpha));
+    lamPrev = lam;
+    lam = L + (1 - C) * f * sinAlpha * (sig + C * sinSig * (cos2SigM + C * cosSig * (-1 + 2 * cos2SigM * cos2SigM)));
+  } while(Math.abs(lam - lamPrev) > 1e-12 && ++iter < 200);
+  let az = Math.atan2(cU2 * Math.sin(lam), cU1 * sU2 - sU1 * cU2 * Math.cos(lam)) / D2R;
+  if(az < 0) az += 360;
+  return az;
 }
 function fmtNum(n, dec){
   return n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -2048,7 +2126,7 @@ $('btn-copy-out').addEventListener('click', async () => {
 =========================================================== */
 function refreshExportButtons(){
   const ok = state.vertices.length >= 3;
-  ['exp-txt','exp-shp','exp-kml','exp-csv','exp-mem'].forEach(id => $(id).disabled = !ok);
+  ['exp-txt','exp-shp','exp-kml','exp-csv','exp-mem','exp-ods'].forEach(id => $(id).disabled = !ok);
 }
 
 $('exp-txt').addEventListener('click', async () => {
@@ -2600,7 +2678,7 @@ function buildMemorialTextRural(meta, verts){
   }
   txt += para + '\n\n';
 
-  txt += `Todas as coordenadas aqui descritas estão georreferenciadas ao Sistema Geodésico Brasileiro e encontram-se representadas em coordenadas geodésicas, Datum SIRGAS 2000 (EPSG:4674), com hemisfério indicado por letra. Os azimutes são geodésicos. As distâncias, a área e o perímetro foram calculados no Sistema Geodésico Local (SGL), em conformidade com a Norma Técnica para Georreferenciamento de Imóveis Rurais do INCRA (3ª ed.) e o Manual Técnico de Posicionamento. Representação gráfica em UTM, fuso ${zone} S, Meridiano Central ${Math.abs(mc)}°00'00" ${mc<0?'WGr':'EGr'}.\n\n`;
+  txt += `Todas as coordenadas aqui descritas estão georreferenciadas ao Sistema Geodésico Brasileiro e encontram-se representadas em coordenadas geodésicas, Datum SIRGAS 2000 (EPSG:4674), com hemisfério indicado por letra. Os azimutes são geodésicos, obtidos pelo problema geodésico inverso (Vincenty) sobre o elipsoide GRS80. As distâncias, a área e o perímetro foram calculados no Sistema Geodésico Local (SGL), em conformidade com a Norma Técnica para Georreferenciamento de Imóveis Rurais do INCRA (3ª ed.) e o Manual Técnico de Posicionamento. Representação gráfica em UTM, fuso ${zone} S, Meridiano Central ${Math.abs(mc)}°00'00" ${mc<0?'WGr':'EGr'}.\n\n`;
 
   if(groups.length){
     txt += 'Confrontações, por trecho:\n\n';
@@ -2987,6 +3065,439 @@ async function handleArtRrtFile(file){
       location.hash = '';
     }
   }
+})();
+</script>
+
+<!-- ============ SIGEF (CERTIFICAÇÃO INCRA) MODAL ============ -->
+<div class="modal-backdrop" id="sigef-modal">
+  <div class="modal modal-sigef" role="dialog" aria-modal="true" aria-labelledby="sg-title">
+    <button class="modal-close" id="close-sigef" aria-label="Fechar">×</button>
+    <div class="modal-head">
+      <div class="modal-eyebrow">Certificação SIGEF · INCRA · Planilha Eletrônica de Dados Georreferenciados</div>
+      <div class="modal-title" id="sg-title">Planilha SIGEF (ODS) — modelo oficial 1.4 rc5</div>
+      <div class="modal-sub">O arquivo gerado é o <strong>modelo oficial do INCRA</strong> com as células preenchidas (abas <code>identificacao</code> e <code>perimetro_1</code>). Sigmas, altitude e método são <strong>dados de campo seus</strong> — a ferramenta não inventa precisão; ela só confere contra a matriz oficial.</div>
+    </div>
+
+    <div class="mem-section-title">Identificação (aba identificacao)</div>
+    <div class="sg-grid">
+      <div class="mem-field"><label for="sg-natureza-serv">Natureza do serviço</label><select id="sg-natureza-serv"><option>Particular</option><option>Contrato com Administração Pública</option></select></div>
+      <div class="mem-field"><label for="sg-tipo-pessoa">Tipo pessoa</label><select id="sg-tipo-pessoa"><option>Física</option><option>Jurídica</option></select></div>
+      <div class="mem-field"><label for="sg-cpf">CPF / CNPJ do detentor</label><input id="sg-cpf" placeholder="000.000.000-00"></div>
+      <div class="mem-field sg-3"><label for="sg-nome">Nome do detentor</label><input id="sg-nome" placeholder="Ex: Salgado Empreendimentos Imobiliários S/A"></div>
+      <div class="mem-field sg-2"><label for="sg-denominacao">Denominação da área</label><input id="sg-denominacao" placeholder="Ex: Gleba A do Engenho Boaçica"></div>
+      <div class="mem-field"><label for="sg-situacao">Situação</label><select id="sg-situacao"><option>Imóvel Registrado</option><option>Área Titulada não Registrada</option><option>Área não Titulada</option></select></div>
+      <div class="mem-field"><label for="sg-natureza-area">Natureza da área</label><select id="sg-natureza-area"><option>Particular</option><option>Assentamento</option><option>Assentamento Parcela</option><option>Estrada</option><option>Ferrovia</option><option>Floresta Pública</option><option>Gleba Pública</option><option>Perímetro Urbano</option><option>Terra Indígena</option><option>Terreno de Marinha</option><option>Terreno Marginal</option><option>Território Quilombola</option><option>Unidade de Conservação</option></select></div>
+      <div class="mem-field"><label for="sg-sncr">Código do Imóvel (SNCR/INCRA)</label><input id="sg-sncr" placeholder="000.000.000.000-0"></div>
+      <div class="mem-field"><label for="sg-cns">Código do cartório (CNS)</label><input id="sg-cns" placeholder="Ex: 159459"></div>
+      <div class="mem-field"><label for="sg-matricula">Matrícula</label><input id="sg-matricula" placeholder="Ex: 24.878"></div>
+      <div class="mem-field sg-2"><label for="sg-municipio">Município(s) — formato "Município-UF"</label><input id="sg-municipio" placeholder="Ex: Ipojuca-PE"></div>
+    </div>
+
+    <div class="mem-section-title">Parâmetros do perímetro (aba perimetro_1)</div>
+    <div class="sg-grid">
+      <div class="mem-field"><label for="sg-parte">Denominação da parte</label><input id="sg-parte" value="Parte 1"></div>
+      <div class="mem-field"><label for="sg-parcela">Parcela número</label><input id="sg-parcela" value="001"></div>
+      <div class="mem-field"><label for="sg-lado">Lado</label><select id="sg-lado"><option>Externo</option><option>Interno</option></select></div>
+      <div class="mem-field"><label for="sg-cod-tec">Código do técnico (prefixo do vértice)</label><input id="sg-cod-tec" class="sg-code" placeholder="Ex: GLH" maxlength="6"></div>
+      <div class="mem-field"><label for="sg-seq-dig">Dígitos do sequencial</label><input id="sg-seq-dig" type="number" min="1" max="7" value="7"></div>
+      <div class="mem-field"><label for="sg-renomear">Códigos dos vértices</label><select id="sg-renomear"><option value="keep">Manter os nomes atuais (se já forem SIGEF)</option><option value="gen">Gerar: PREFIXO-TIPO-sequencial</option></select></div>
+      <div class="mem-field"><label for="sg-def-metodo">Método padrão</label><select id="sg-def-metodo"></select></div>
+      <div class="mem-field"><label for="sg-def-tipov">Tipo de vértice padrão</label><select id="sg-def-tipov"><option value="M">M · Marco</option><option value="P">P · Ponto</option><option value="V">V · Virtual</option></select></div>
+      <div class="mem-field"><label for="sg-def-limite">Tipo de limite padrão</label><select id="sg-def-limite"></select></div>
+      <div class="mem-field"><label for="sg-def-slon">σ long padrão (m)</label><input id="sg-def-slon" class="sg-num" placeholder="0,10"></div>
+      <div class="mem-field"><label for="sg-def-slat">σ lat padrão (m)</label><input id="sg-def-slat" class="sg-num" placeholder="0,10"></div>
+      <div class="mem-field"><label for="sg-def-sh">σ h padrão (m)</label><input id="sg-def-sh" class="sg-num" placeholder="0,20"></div>
+      <div class="mem-field"><label for="sg-def-h">h (altitude elipsoidal) padrão (m)</label><input id="sg-def-h" class="sg-num" placeholder="deixe vazio se desconhecida"></div>
+      <div class="mem-field sg-2"><button class="btn btn-secondary" id="sg-aplicar-def" type="button" style="margin-top:18px">Aplicar padrões a todas as linhas</button></div>
+    </div>
+    <div class="sg-note">Tipo de vértice inferido do código quando ele já é SIGEF (ex.: <code>GLH-<strong>V</strong>-10491</code> → V). Coordenadas gravadas como <strong>Geográficas</strong> em GMS com hemisfério por letra (<code>34 55 10,123 W</code>), conforme o modelo. Sigmas com 2 casas; segundos com 3.</div>
+
+    <div class="mem-section-title">Vértices</div>
+    <div class="sg-table-wrap">
+      <table class="sg-table">
+        <thead><tr><th>#</th><th>Vértice</th><th>Tipo</th><th>Método</th><th>Longitude</th><th>σ long</th><th>Latitude</th><th>σ lat</th><th>h</th><th>σ h</th></tr></thead>
+        <tbody id="sg-vert-body"></tbody>
+      </table>
+    </div>
+
+    <div class="mem-section-title">Limites e confrontantes (por aresta)</div>
+    <div class="sg-table-wrap">
+      <table class="sg-table">
+        <thead><tr><th>Aresta</th><th>Tipo de limite</th><th>Confrontante (Descritivo)</th><th>CNS</th><th>Matrícula</th></tr></thead>
+        <tbody id="sg-lim-body"></tbody>
+      </table>
+    </div>
+    <div class="sg-note">Confrontantes vêm pré-preenchidos do memorial (modo Rural), se você já os digitou lá. Na planilha oficial o tipo de limite, o CNS, a matrícula e o descritivo são gravados <strong>na linha do vértice de partida</strong> de cada lado.</div>
+
+    <div class="mem-section-title">Validação (matriz oficial do modelo 1.4 rc5 · NTGIR 3ª ed.)</div>
+    <div class="sg-valid" id="sg-valid">Preencha os campos para validar.</div>
+
+    <div class="mem-actions">
+      <button class="btn btn-secondary" id="sg-revalidar">Revalidar</button>
+      <button class="btn btn-primary" id="sg-baixar">Baixar planilha ODS</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================
+   SIGEF — Planilha de certificação (ODS) · gerador + validador
+   Fonte de verdade: sigef_planilha_modelo_1.4_rc5.ods (INCRA), abas
+   parametros_vertice / parametros_vertice_validacao / _excecao.
+=========================================================== */
+const SG = {
+  metodos: [
+    ['PG1','Relativo estático'],['PG2','Relativo estático-rápido'],['PG3','Relativo semicinemático'],['PG4','Relativo cinemático'],
+    ['PG5','Relativo a partir do código C/A'],['PG6','RTK convencional'],['PG7','RTK em rede'],['PG8','DGPS'],['PG9','Posicionamento por Ponto Preciso (PPP)'],
+    ['PT1','Poligonação'],['PT2','Triangulação'],['PT3','Trilateração'],['PT4','Triangulateração'],['PT5','Irradiação'],['PT6','(ver Manual Técnico de Posicionamento)'],['PT7','(ver Manual Técnico de Posicionamento)'],['PT8','(ver Manual Técnico de Posicionamento)'],
+    ['PA1','Paralela'],['PA2','Interseção de retas'],['PA3','(ver Manual — precisão não admitida no modelo)'],
+    ['PB1','Base cartográfica com precisão conhecida'],['PB2','Base cartográfica sem precisão conhecida (não admitida)'],
+    ['PS1','Aerofotogrametria'],['PS2','Radar aerotransportado'],['PS3','Laser scanner aerotransportado'],['PS4','Sensores orbitais'],
+  ],
+  limites: [
+    ['LA1','Cerca'],['LA2','Muro'],['LA3','Estrada'],['LA4','Vala'],['LA5','Canal'],['LA6','Linha ideal'],['LA7','Limite artificial não tipificado'],
+    ['LN1',"Corpo d'água ou curso d'água"],['LN2','Linha de cumeada'],['LN3','Grota'],['LN4','Crista de encosta'],['LN5','Pé de encosta'],['LN6','Limite natural não tipificado'],
+  ],
+  // Matriz oficial: metodo -> grupo (LA|LN) -> tipo (M|P|V) -> precisão máx (m). 0 = não admitido.
+  matriz: (() => {
+    const rows = `PG1 LA M 0.5|PG1 LN M 0.5|PG1 LN P 3|PG1 LA P 0.5|PG2 LA M 0.5|PG2 LN M 0.5|PG2 LN P 3|PG2 LA P 0.5|PG3 LA M 0.5|PG3 LN M 0.5|PG3 LN P 3|PG3 LA P 0.5|PG4 LN P 3|PG4 LA P 0.5|PG5 LN P 3|PG6 LA M 0.5|PG6 LN M 0.5|PG6 LN P 3|PG6 LA P 0.5|PG7 LA M 0.5|PG7 LN M 0.5|PG7 LN P 3|PG7 LA P 0.5|PG8 LN P 3|PG9 LA M 0.5|PG9 LN M 0.5|PG9 LN P 3|PG9 LA P 0.5|PT1 LA M 0.5|PT1 LN M 0.5|PT1 LN P 3|PT1 LA P 0.5|PT2 LA M 0.5|PT2 LN M 0.5|PT2 LN P 3|PT2 LA P 0.5|PT3 LA M 0.5|PT3 LN M 0.5|PT3 LN P 3|PT3 LA P 0.5|PT4 LA M 0.5|PT4 LN M 0.5|PT4 LN P 3|PT4 LA P 0.5|PT5 LA M 0.5|PT5 LN M 0.5|PT5 LN P 3|PT5 LA P 0.5|PT6 LA M 0.5|PT6 LN M 0.5|PT6 LN P 3|PT6 LA P 0.5|PT6 LN V 3|PT6 LA V 0.5|PT7 LA M 0.5|PT7 LN M 0.5|PT7 LN P 3|PT7 LA P 0.5|PT7 LN V 3|PT7 LA V 0.5|PT8 LA M 0.5|PT8 LN M 0.5|PT8 LN P 3|PT8 LA P 0.5|PA1 LN V 3|PA1 LA V 0.5|PA2 LN V 3|PA2 LA V 0.5|PA3 LA7 V 0|PA3 LN V 0|PB1 LA V 0.5|PB1 LN V 7.5|PB2 LA V 0|PB2 LN V 0|PS1 LN V 7.5|PS1 LA V 0.5|PS2 LN V 7.5|PS2 LA V 0.5|PS3 LN V 7.5|PS3 LA V 0.5|PS4 LN V 7.5|PS4 LA V 0.5`;
+    const m = {};
+    rows.split('|').forEach(r => { const [cod, grp, tv, p] = r.split(' '); (m[cod] ||= {}); (m[cod][grp] ||= {}); m[cod][grp][tv] = parseFloat(p); });
+    return m;
+  })(),
+  excecoes: [['PS1','LA1','V'],['PS2','LA1','V'],['PS3','LA1','V'],['PS4','LA1','V']],
+  bounds: { latMin: -33.750833, latMax: 5.272222, lonMin: -73.992222, lonMax: -34.791667 },
+  codeRe: /^([A-Z0-9]{1,6})-([MPV])-([A-Z0-9]+)$/,
+};
+
+function sgFmtNum(x, dec){ return (Math.round(x * 10**dec) / 10**dec).toFixed(dec).replace('.', ','); }
+function sgParseNum(s){ s = String(s ?? '').trim().replace(/\s/g,''); if(!s) return null; const v = parseFloat(s.replace(/\./g,'').replace(',','.')); return isFinite(v) ? v : (isFinite(parseFloat(s)) ? parseFloat(s) : null); }
+// "34 55 10,123 W" — GMS separado por espaço, hemisfério por letra (formato lido pelo SIGEF/GeoINCRA)
+function sgDMS(deg, isLat){
+  const abs = Math.abs(deg);
+  let d = Math.floor(abs), mf = (abs - d) * 60, m = Math.floor(mf), s = (mf - m) * 60;
+  s = Math.round(s * 1000) / 1000;
+  if(s >= 60){ s = 0; m += 1; } if(m >= 60){ m = 0; d += 1; }
+  const h = isLat ? (deg < 0 ? 'S' : 'N') : (deg < 0 ? 'W' : 'E');
+  return `${d} ${String(m).padStart(2,'0')} ${s.toFixed(3).replace('.', ',').padStart(6,'0')} ${h}`;
+}
+function sgLimiteGrupo(cod){ return (cod || '').slice(0,2); }
+
+function sgCurrentCodeInfo(){
+  // Detecta prefixo do técnico e se os nomes já são SIGEF
+  const v = state.vertices; let prefix = '', allSigef = v.length > 0;
+  for(const p of v){ const m = SG.codeRe.exec(p.name || ''); if(!m){ allSigef = false; break; } prefix = prefix || m[1]; }
+  return { prefix, allSigef };
+}
+function sgVertexCode(i, p){
+  const mode = $('sg-renomear').value;
+  const m = SG.codeRe.exec(p.name || '');
+  if(mode === 'keep' && m) return p.name;
+  const pre = ($('sg-cod-tec').value || 'XXX').toUpperCase();
+  const tipo = (document.querySelector(`[data-sg-tipo="${i}"]`)?.value) || $('sg-def-tipov').value;
+  const dig = Math.max(1, Math.min(7, parseInt($('sg-seq-dig').value,10) || 7));
+  return `${pre}-${tipo}-${String(i+1).padStart(dig,'0')}`;
+}
+
+function sgRenderTables(){
+  const v = state.vertices;
+  const { prefix, allSigef } = sgCurrentCodeInfo();
+  if(prefix && !$('sg-cod-tec').value) $('sg-cod-tec').value = prefix;
+  if(!allSigef) $('sg-renomear').value = 'gen';
+  const optMet = SG.metodos.map(([c,d]) => `<option value="${c}">${c} · ${d}</option>`).join('');
+  const optLim = SG.limites.map(([c,d]) => `<option value="${c}">${c} · ${d}</option>`).join('');
+  if(!$('sg-def-metodo').options.length){ $('sg-def-metodo').innerHTML = optMet; $('sg-def-metodo').value = 'PG1'; }
+  if(!$('sg-def-limite').options.length){ $('sg-def-limite').innerHTML = optLim; $('sg-def-limite').value = 'LA1'; }
+  const defM = $('sg-def-metodo').value, defL = $('sg-def-limite').value, defT = $('sg-def-tipov').value;
+  // Confrontantes do memorial rural, se existirem
+  let confs = [];
+  try { confs = collectMemorialMeta().confs || []; } catch {}
+  const vb = $('sg-vert-body'); vb.innerHTML = '';
+  v.forEach((p, i) => {
+    const m = SG.codeRe.exec(p.name || '');
+    const tipo = m ? m[2] : defT;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="sg-ro">${i+1}</td>
+      <td><input class="sg-code" data-sg-code="${i}" value="${(m ? p.name : '').replace(/"/g,'&quot;')}" placeholder="auto"></td>
+      <td><select data-sg-tipo="${i}"><option value="M"${tipo==='M'?' selected':''}>M</option><option value="P"${tipo==='P'?' selected':''}>P</option><option value="V"${tipo==='V'?' selected':''}>V</option></select></td>
+      <td><select data-sg-met="${i}">${optMet}</select></td>
+      <td class="sg-ro">${sgDMS(p.lng,false)}</td>
+      <td><input class="sg-num" data-sg-slon="${i}" placeholder="0,10"></td>
+      <td class="sg-ro">${sgDMS(p.lat,true)}</td>
+      <td><input class="sg-num" data-sg-slat="${i}" placeholder="0,10"></td>
+      <td><input class="sg-num" data-sg-h="${i}" placeholder="h"></td>
+      <td><input class="sg-num" data-sg-sh="${i}" placeholder="0,20"></td>`;
+    vb.appendChild(tr);
+    tr.querySelector(`[data-sg-met="${i}"]`).value = defM;
+  });
+  const lb = $('sg-lim-body'); lb.innerHTML = '';
+  v.forEach((p, i) => {
+    const q = v[(i+1) % v.length];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="sg-ro">${p.name}→${q.name}</td>
+      <td><select data-sg-lim="${i}">${optLim}</select></td>
+      <td><input data-sg-conf="${i}" value="${(confs[i] || '').replace(/"/g,'&quot;')}" placeholder="Ex: Engenho Salgado – Gleba B"></td>
+      <td><input data-sg-lcns="${i}" placeholder="CNS do confrontante"></td>
+      <td><input data-sg-lmat="${i}" placeholder="matrícula do confrontante"></td>`;
+    lb.appendChild(tr);
+    tr.querySelector(`[data-sg-lim="${i}"]`).value = defL;
+  });
+  sgApplyDefaults(false);
+  sgValidate();
+}
+function sgApplyDefaults(overwrite){
+  const d = { slon: $('sg-def-slon').value, slat: $('sg-def-slat').value, sh: $('sg-def-sh').value, h: $('sg-def-h').value, met: $('sg-def-metodo').value, lim: $('sg-def-limite').value };
+  document.querySelectorAll('[data-sg-slon]').forEach(el => { if(overwrite || !el.value) el.value = d.slon; });
+  document.querySelectorAll('[data-sg-slat]').forEach(el => { if(overwrite || !el.value) el.value = d.slat; });
+  document.querySelectorAll('[data-sg-sh]').forEach(el => { if(overwrite || !el.value) el.value = d.sh; });
+  document.querySelectorAll('[data-sg-h]').forEach(el => { if(overwrite || !el.value) el.value = d.h; });
+  if(overwrite){
+    document.querySelectorAll('[data-sg-met]').forEach(el => el.value = d.met);
+    document.querySelectorAll('[data-sg-lim]').forEach(el => el.value = d.lim);
+  }
+}
+
+function sgCollect(){
+  const v = state.vertices;
+  const g = (attr, i) => document.querySelector(`[${attr}="${i}"]`);
+  const verts = v.map((p, i) => ({
+    i, lat: p.lat, lng: p.lng,
+    code: (g('data-sg-code', i)?.value || '').trim() || sgVertexCode(i, p),
+    tipo: g('data-sg-tipo', i)?.value || 'V',
+    met: g('data-sg-met', i)?.value || '',
+    slon: sgParseNum(g('data-sg-slon', i)?.value), slat: sgParseNum(g('data-sg-slat', i)?.value),
+    h: sgParseNum(g('data-sg-h', i)?.value), sh: sgParseNum(g('data-sg-sh', i)?.value),
+    lim: g('data-sg-lim', i)?.value || '',
+    conf: (g('data-sg-conf', i)?.value || '').trim(),
+    lcns: (g('data-sg-lcns', i)?.value || '').trim(), lmat: (g('data-sg-lmat', i)?.value || '').trim(),
+  }));
+  const ident = {
+    natServ: $('sg-natureza-serv').value, tipoPessoa: $('sg-tipo-pessoa').value, cpf: $('sg-cpf').value.trim(), nome: $('sg-nome').value.trim(),
+    denominacao: $('sg-denominacao').value.trim(), situacao: $('sg-situacao').value, natArea: $('sg-natureza-area').value,
+    sncr: $('sg-sncr').value.trim(), cns: $('sg-cns').value.trim(), matricula: $('sg-matricula').value.trim(), municipio: $('sg-municipio').value.trim(),
+    parte: $('sg-parte').value.trim() || 'Parte 1', parcela: $('sg-parcela').value.trim() || '001', lado: $('sg-lado').value,
+  };
+  return { verts, ident };
+}
+
+function sgValidate(){
+  const { verts, ident } = sgCollect();
+  const errs = [], warns = [];
+  const seen = new Set();
+  const rows = Array.from($('sg-vert-body').querySelectorAll('tr'));
+  const limRows = Array.from($('sg-lim-body').querySelectorAll('tr'));
+  rows.forEach(r => r.classList.remove('sg-err','sg-warn'));
+  limRows.forEach(r => r.classList.remove('sg-err','sg-warn'));
+  const mark = (i, cls) => { if(rows[i] && !rows[i].classList.contains('sg-err')) rows[i].classList.add(cls); };
+  const n = verts.length;
+  if(!ident.nome) warns.push('Identificação: nome do detentor vazio.');
+  if(!ident.cpf) warns.push('Identificação: CPF/CNPJ vazio.');
+  if(!ident.denominacao) warns.push('Identificação: denominação da área vazia.');
+  if(!ident.municipio) warns.push('Identificação: município vazio (formato "Município-UF").');
+  else if(!/-[A-Z]{2}$/.test(ident.municipio)) warns.push('Município deve terminar com "-UF" (ex.: Ipojuca-PE), como na lista do modelo.');
+  if(ident.situacao === 'Imóvel Registrado' && !ident.matricula) warns.push('Situação "Imóvel Registrado" exige matrícula.');
+  verts.forEach(vt => {
+    const i = vt.i, tag = `${vt.code} (linha ${i+1})`;
+    // código
+    const m = SG.codeRe.exec(vt.code);
+    if(!m){ errs.push(`${tag}: código fora do padrão PREFIXO-TIPO-SEQ (ex.: GLH-V-10491).`); mark(i,'sg-err'); }
+    else if(m[2] !== vt.tipo){ errs.push(`${tag}: letra do código (${m[2]}) ≠ tipo de vértice (${vt.tipo}).`); mark(i,'sg-err'); }
+    if(seen.has(vt.code)){ errs.push(`${tag}: código duplicado.`); mark(i,'sg-err'); } seen.add(vt.code);
+    // limites geográficos do modelo (Brasil)
+    if(vt.lat < SG.bounds.latMin || vt.lat > SG.bounds.latMax || vt.lng < SG.bounds.lonMin || vt.lng > SG.bounds.lonMax){
+      errs.push(`${tag}: coordenada fora dos limites aceitos pelo modelo (lat ${SG.bounds.latMin}…${SG.bounds.latMax}, long ${SG.bounds.lonMin}…${SG.bounds.lonMax}).`); mark(i,'sg-err');
+    }
+    // campos obrigatórios
+    if(vt.slon == null || vt.slat == null){ errs.push(`${tag}: σ long / σ lat obrigatórios (dado de campo).`); mark(i,'sg-err'); }
+    if(vt.h == null){ warns.push(`${tag}: altitude elipsoidal h vazia — o SIGEF exige h e σ h.`); mark(i,'sg-warn'); }
+    if(vt.sh == null){ warns.push(`${tag}: σ h vazio.`); mark(i,'sg-warn'); }
+    if(!vt.met){ errs.push(`${tag}: método de posicionamento vazio.`); mark(i,'sg-err'); }
+    // precisão pela matriz oficial: o vértice é limite entre a aresta anterior e a aresta que parte dele
+    const limPrev = verts[(i - 1 + n) % n].lim, limNext = vt.lim;
+    const grupos = Array.from(new Set([sgLimiteGrupo(limPrev), sgLimiteGrupo(limNext)].filter(Boolean)));
+    const sig = Math.max(vt.slon ?? 0, vt.slat ?? 0);
+    let allowed = null, notAdmitted = false, usedGroup = '';
+    for(const grp of grupos){
+      let p = SG.matriz[vt.met]?.[grp]?.[vt.tipo];
+      if(p == null && SG.matriz[vt.met]?.[limNext]?.[vt.tipo] != null) p = SG.matriz[vt.met][limNext][vt.tipo]; // ex.: PA3/LA7
+      const exc = SG.excecoes.some(([c,l,t]) => c === vt.met && (l === limNext || l === limPrev) && t === vt.tipo);
+      if(p == null && !exc){ continue; }
+      if(p === 0){ notAdmitted = true; usedGroup = grp; continue; }
+      if(exc && p == null){ p = 0.5; } // PS* em LA1 com V: tratado como LA
+      // ordem das linhas do modelo: o grupo mais restritivo prevalece quando o vértice divide tipos
+      if(allowed == null || p < allowed){ allowed = p; usedGroup = grp; }
+    }
+    if(notAdmitted && allowed == null){ errs.push(`${tag}: método ${vt.met} não admitido para limite ${usedGroup} com vértice ${vt.tipo} (precisão 0 no modelo).`); mark(i,'sg-err'); }
+    else if(allowed == null){
+      const hint = vt.tipo === 'V' ? ' Vértice V (virtual) só é admitido com métodos PA1/PA2, PB1, PS1–PS4 (e PT6/PT7); para GNSS/topografia use M ou P.' : (vt.tipo === 'M' || vt.tipo === 'P') ? ` Vértice ${vt.tipo} exige método GNSS (PG*) ou topográfico (PT*).` : '';
+      errs.push(`${tag}: combinação método ${vt.met} × limite ${grupos.join('/')} × vértice ${vt.tipo} não existe na matriz oficial.${hint}`); mark(i,'sg-err');
+    }
+    else if(vt.slon != null && vt.slat != null && sig > allowed){ errs.push(`${tag}: σ ${sgFmtNum(sig,2)} m > ${sgFmtNum(allowed,2)} m admitido (${vt.met} · ${usedGroup} · ${vt.tipo}).`); mark(i,'sg-err'); }
+    // confrontante da aresta que parte do vértice
+    if(!vt.conf){ warns.push(`Aresta ${vt.code}→${verts[(i+1)%n].code}: confrontante (Descritivo) vazio.`); if(limRows[i]) limRows[i].classList.add('sg-warn'); }
+  });
+  const box = $('sg-valid');
+  let html = '';
+  if(!errs.length && !warns.length) html = '<span class="sg-ok">✓ Nenhuma inconsistência encontrada pelas regras do modelo. Confira no SIGEF antes de submeter.</span>';
+  else {
+    html += `<div><span class="sg-e"><strong>${errs.length} erro(s)</strong></span> · <span class="sg-w"><strong>${warns.length} aviso(s)</strong></span></div>`;
+    if(errs.length) html += '<ul>' + errs.slice(0,40).map(e => `<li class="sg-e">${escapeHtml(e)}</li>`).join('') + (errs.length>40?`<li class="sg-e">… +${errs.length-40}</li>`:'') + '</ul>';
+    if(warns.length) html += '<ul>' + warns.slice(0,40).map(w => `<li class="sg-w">${escapeHtml(w)}</li>`).join('') + (warns.length>40?`<li class="sg-w">… +${warns.length-40}</li>`:'') + '</ul>';
+  }
+  html += '<div class="sg-note">Regras aplicadas: formato do código; letra do código = tipo; duplicidade; limites geográficos do Brasil (aba parametros_vertice); σ máximo por método × grupo de limite (LA/LN) × tipo de vértice (aba parametros_vertice_validacao, 85 combinações; exceções PS1–PS4 em LA1/V); campos obrigatórios. Não substitui a validação do SIGEF.</div>';
+  box.innerHTML = html;
+  return { errs, warns };
+}
+
+// ----- Geração do ODS: abre o modelo oficial, preenche células, baixa -----
+const SG_NS = { table: 'urn:oasis:names:tc:opendocument:xmlns:table:1.0', office: 'urn:oasis:names:tc:opendocument:xmlns:office:1.0', text: 'urn:oasis:names:tc:opendocument:xmlns:text:1.0' };
+function sgRowsOf(tbl){ return Array.from(tbl.childNodes).filter(n => n.nodeType === 1 && (n.localName === 'table-row' || n.localName === 'table-header-rows')).flatMap(n => n.localName === 'table-header-rows' ? Array.from(n.childNodes).filter(c => c.localName === 'table-row') : [n]); }
+function sgGetRow(doc, tbl, rowIdx){
+  // expande number-rows-repeated até alcançar o índice (0-based)
+  const rows = sgRowsOf(tbl); let idx = 0;
+  for(const r of rows){
+    const rep = parseInt(r.getAttributeNS(SG_NS.table, 'number-rows-repeated') || '1', 10);
+    if(rowIdx < idx + rep){
+      if(rep > 1){
+        const before = rowIdx - idx, after = rep - before - 1;
+        const target = r.cloneNode(true); target.removeAttributeNS(SG_NS.table, 'number-rows-repeated');
+        if(before > 0){ const b = r.cloneNode(true); b.setAttributeNS(SG_NS.table, 'table:number-rows-repeated', String(before)); r.parentNode.insertBefore(b, r); }
+        r.parentNode.insertBefore(target, r);
+        if(after > 0){ r.setAttributeNS(SG_NS.table, 'table:number-rows-repeated', String(after)); } else { r.parentNode.removeChild(r); }
+        return target;
+      }
+      return r;
+    }
+    idx += rep;
+  }
+  return null;
+}
+function sgGetCell(doc, row, colIdx){
+  const cells = Array.from(row.childNodes).filter(n => n.nodeType === 1 && (n.localName === 'table-cell' || n.localName === 'covered-table-cell'));
+  let idx = 0;
+  for(const c of cells){
+    const rep = parseInt(c.getAttributeNS(SG_NS.table, 'number-columns-repeated') || '1', 10);
+    if(colIdx < idx + rep){
+      if(rep > 1){
+        const before = colIdx - idx, after = rep - before - 1;
+        const target = c.cloneNode(true); target.removeAttributeNS(SG_NS.table, 'number-columns-repeated');
+        if(before > 0){ const b = c.cloneNode(true); b.setAttributeNS(SG_NS.table, 'table:number-columns-repeated', String(before)); row.insertBefore(b, c); }
+        row.insertBefore(target, c);
+        if(after > 0){ c.setAttributeNS(SG_NS.table, 'table:number-columns-repeated', String(after)); } else { row.removeChild(c); }
+        return target;
+      }
+      return c;
+    }
+    idx += rep;
+  }
+  return null;
+}
+function sgSetCell(doc, cell, value, numeric){
+  if(!cell) return;
+  // limpa conteúdo textual
+  Array.from(cell.childNodes).forEach(n => { if(n.nodeType === 1 && n.localName === 'p') cell.removeChild(n); });
+  if(value === '' || value == null){ cell.removeAttributeNS(SG_NS.office, 'value-type'); cell.removeAttributeNS(SG_NS.office, 'value'); return; }
+  if(numeric){
+    cell.setAttributeNS(SG_NS.office, 'office:value-type', 'float');
+    cell.setAttributeNS(SG_NS.office, 'office:value', String(Number(value)));
+  } else {
+    cell.setAttributeNS(SG_NS.office, 'office:value-type', 'string');
+    cell.removeAttributeNS(SG_NS.office, 'value');
+  }
+  const p = doc.createElementNS(SG_NS.text, 'text:p');
+  p.textContent = numeric ? sgFmtNum(Number(value), 2) : String(value);
+  cell.appendChild(p);
+}
+async function sgGenerateODS(){
+  const { errs } = sgValidate();
+  if(errs.length && !confirm(`Há ${errs.length} erro(s) de validação. Gerar a planilha mesmo assim?`)) return;
+  setStatus('export-status','ok','Abrindo modelo oficial…');
+  const resp = await fetch('assets/sigef_planilha_modelo_1.4_rc5.ods');
+  if(!resp.ok) throw new Error('modelo oficial não encontrado em assets/');
+  const zip = await JSZip.loadAsync(await resp.arrayBuffer());
+  const xml = await zip.file('content.xml').async('string');
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  const tables = Array.from(doc.getElementsByTagNameNS(SG_NS.table, 'table'));
+  const byName = n => tables.find(t => t.getAttributeNS(SG_NS.table, 'name') === n);
+  const tId = byName('identificacao'), tPer = tables.find(t => (t.getAttributeNS(SG_NS.table, 'name') || '').startsWith('perimetro'));
+  if(!tId || !tPer) throw new Error('abas identificacao/perimetro_1 não encontradas no modelo');
+  const { verts, ident } = sgCollect();
+  // identificacao — coluna B (índice 1), linhas 1-based do modelo
+  const setB = (rowNo, val) => sgSetCell(doc, sgGetCell(doc, sgGetRow(doc, tId, rowNo - 1), 1), val, false);
+  setB(2, ident.natServ); setB(5, ident.tipoPessoa); setB(6, ident.nome); setB(7, ident.cpf);
+  setB(10, ident.denominacao); setB(11, ident.situacao); setB(12, ident.natArea); setB(13, ident.sncr); setB(14, ident.cns); setB(15, ident.matricula); setB(16, ident.municipio);
+  // perimetro_1 — metadados
+  const setP = (rowNo, colIdx, val, num) => sgSetCell(doc, sgGetCell(doc, sgGetRow(doc, tPer, rowNo - 1), colIdx), val, !!num);
+  setP(3, 1, ident.parte); setP(4, 1, ident.parcela); setP(5, 1, ident.lado);
+  setP(9, 1, 'Geográfica'); setP(9, 3, ''); setP(9, 5, 'Sul');
+  // dados: a partir da linha 12 (0-based 11). Colunas: 0 Vértice,1 E/Long,2 σlong,3 N/Lat,4 σlat,5 h,6 σh,7 Método,8 Tipo Limite,9 CNS,10 Matrícula,11 Descritivo
+  // Clona a linha-modelo (estilos + dropdown de Tipo Limite) para cada vértice e remove o restante do bloco repetido vazio.
+  const tplRow = sgGetRow(doc, tPer, 11);
+  const parent = tplRow.parentNode;
+  let anchor = tplRow.nextSibling;
+  const firstCellStyle = el => { const c = Array.from(el.childNodes).find(n => n.nodeType === 1 && n.localName === 'table-cell'); return c ? c.getAttributeNS(SG_NS.table, 'style-name') : null; };
+  const tplStyle = firstCellStyle(tplRow);
+  // remove o "resto" do bloco repetido (mesmo estilo de 1ª célula e com number-rows-repeated)
+  let sib = anchor;
+  while(sib && sib.nodeType !== 1) sib = sib.nextSibling;
+  if(sib && sib.localName === 'table-row' && sib.hasAttributeNS(SG_NS.table, 'number-rows-repeated') && firstCellStyle(sib) === tplStyle){ anchor = sib.nextSibling; parent.removeChild(sib); }
+  const tplClone = tplRow.cloneNode(true);
+  parent.removeChild(tplRow);
+  verts.forEach((vt) => {
+    const row = tplClone.cloneNode(true);
+    parent.insertBefore(row, anchor);
+    const c = j => sgGetCell(doc, row, j);
+    sgSetCell(doc, c(0), vt.code, false);
+    sgSetCell(doc, c(1), sgDMS(vt.lng, false), false);
+    sgSetCell(doc, c(2), vt.slon, vt.slon != null);
+    sgSetCell(doc, c(3), sgDMS(vt.lat, true), false);
+    sgSetCell(doc, c(4), vt.slat, vt.slat != null);
+    sgSetCell(doc, c(5), vt.h, vt.h != null);
+    sgSetCell(doc, c(6), vt.sh, vt.sh != null);
+    sgSetCell(doc, c(7), vt.met, false);
+    sgSetCell(doc, c(8), vt.lim, false);
+    sgSetCell(doc, c(9), vt.lcns, false);
+    sgSetCell(doc, c(10), vt.lmat, false);
+    sgSetCell(doc, c(11), vt.conf, false);
+  });
+  const out = new XMLSerializer().serializeToString(doc);
+  zip.file('content.xml', out);
+  // mimetype deve ser a 1ª entrada e sem compressão (regra ODF)
+  zip.file('mimetype', 'application/vnd.oasis.opendocument.spreadsheet', { compression: 'STORE' });
+  const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.oasis.opendocument.spreadsheet', compression: 'DEFLATE' });
+  const slug = (ident.denominacao || 'parcela').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+  downloadBlob(blob, `sigef_${slug}_${verts.length}v.ods`);
+  setStatus('export-status','ok',`Planilha SIGEF gerada (modelo 1.4 rc5, ${verts.length} vértices).`);
+}
+
+(function initSigef(){
+  const $modal = $('sigef-modal');
+  function prefillFromMemorial(){
+    try {
+      const m = collectMemorialMeta();
+      if(m.prop && !$('sg-nome').value){ const first = m.prop.split('\n')[0]; const parts = first.split('/'); $('sg-nome').value = (parts[0]||'').trim(); const cpf = (first.match(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}|\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/)||[])[0]; if(cpf && !$('sg-cpf').value) $('sg-cpf').value = cpf; }
+      if(m.imovel && !$('sg-denominacao').value) $('sg-denominacao').value = m.imovel.slice(0, 120);
+      if(m.matricula && !$('sg-matricula').value) $('sg-matricula').value = m.matricula.replace(/^matr[ií]cula\s*n?[°º]?\s*/i,'').trim();
+      if(m.municipio && !$('sg-municipio').value) $('sg-municipio').value = m.uf ? `${m.municipio}-${m.uf}` : m.municipio;
+    } catch {}
+  }
+  function openSigef(){
+    if(state.vertices.length < 3){ setStatus('export-status','warn','Importe um polígono antes de gerar a planilha SIGEF.'); return; }
+    prefillFromMemorial();
+    sgRenderTables();
+    $modal.classList.add('open');
+  }
+  $('exp-ods').addEventListener('click', openSigef);
+  $('close-sigef').addEventListener('click', () => $modal.classList.remove('open'));
+  $modal.addEventListener('click', e => { if(e.target === $modal) $modal.classList.remove('open'); });
+  $modal.addEventListener('input', e => { if(e.target.closest('.sg-table') || e.target.id.startsWith('sg-')) sgValidate(); });
+  $modal.addEventListener('change', e => { if(e.target.closest('.sg-table') || e.target.id.startsWith('sg-')) sgValidate(); });
+  $('sg-aplicar-def').addEventListener('click', () => { sgApplyDefaults(true); sgValidate(); });
+  $('sg-renomear').addEventListener('change', () => { document.querySelectorAll('[data-sg-code]').forEach((el, i) => { el.value = $('sg-renomear').value === 'gen' ? '' : (SG.codeRe.test(state.vertices[i].name) ? state.vertices[i].name : ''); }); sgValidate(); });
+  $('sg-revalidar').addEventListener('click', sgValidate);
+  $('sg-baixar').addEventListener('click', () => sgGenerateODS().catch(err => { console.error(err); setStatus('export-status','err','Falha ao gerar ODS: ' + (err.message || err)); }));
 })();
 </script>
 
