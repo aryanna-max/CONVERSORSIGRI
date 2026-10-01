@@ -54,6 +54,7 @@ const WFS_FIXTURE = { type: 'FeatureCollection', features: [
 ] };
 await page.route(u => !u.href.startsWith(base), route => {
   const u = route.request().url();
+  if(u.startsWith('https://api.opentopodata.org/v1/srtm30m')){ const locs = decodeURIComponent(u.split('locations=')[1]).split('|'); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'OK', results: locs.map((l, i) => { const [lat, lng] = l.split(',').map(Number); return { elevation: 10 + i * 1.5, location: { lat, lng } }; }) }) }); }
   if(u.startsWith('https://geoservicos.incra.gov.br/geoserver/Sigef/wfs')){ console.log('WFS MOCK hit:', u.slice(0,140)); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(WFS_FIXTURE) }); }
   const hit = CDN[u];
   if(hit){ const f = path.join(LIBS, hit[0]); return route.fulfill({ status: 200, contentType: hit[1], body: fs.readFileSync(f) }); }
@@ -75,6 +76,34 @@ console.log('CHECK SGL≈exata 47,7892:', Math.abs(geo.sglHa - 47.7892) < 0.0006
 console.log('CHECK elips≈exata 47,7892:', Math.abs(geo.elipsHa - 47.7892) < 0.0006 ? 'OK' : 'FAIL');
 console.log('CHECK azGeo − azUTM ≈ γ (≈ +0,26°):', (geo.azGeo01 - geo.azUTM01).toFixed(4), '°');
 
+// ---- URBANO (padrão): quadro em m²/UTM e memorial real Lote 174 Gleba A (AG, REV01) ----
+await page.selectOption('#cfg-tipo', 'urbano');
+const urbCard = await page.evaluate(() => ({ areaK: document.getElementById('m-area-k').textContent, area: document.getElementById('m-area').textContent, haK: document.getElementById('m-ha-k').textContent, odsDisabled: document.getElementById('exp-ods').disabled }));
+console.log('URBANO card:', JSON.stringify(urbCard));
+console.log('CHECK urbano mostra m² (UTM):', /m²/.test(urbCard.area) && urbCard.areaK === 'Área (UTM)' && urbCard.haK === 'Hectares' ? 'OK' : 'FAIL');
+console.log('CHECK SIGEF desabilitado no urbano:', urbCard.odsDisabled ? 'OK' : 'FAIL');
+const MEM174 = `MEMORIAL DESCRITIVO Imóvel: Área de terreno da antiga casa de n.°174, Gleba A, situada na Rua Marechal Bittencourt, bairro do Poço da Panela, Recife. Município: Recife UF: PE Área: 963,89 m² Perímetro: 141,21 m Inicia-se a descrição deste perímetro no vértice V1, definido pelas coordenadas E: 287.831,350 m e N: 9.111.104,430 m com azimute 129° 29' 56,06'' e distância de 19,28 m até o vértice V2, definido pelas coordenadas E: 287.846,228 m e N: 9.111.092,166 m com azimute 220° 01' 20,81'' e distância de 23,14 m até o vértice V3, definido pelas coordenadas E: 287.831,349 m e N: 9.111.074,448 m com azimute 219° 47' 07,05'' e distância de 18,81 m até o vértice V4, definido pelas coordenadas E: 287.819,311 m e N: 9.111.059,992 m com azimute 123° 36' 10,77'' e distância de 0,55 m até o vértice V5, definido pelas coordenadas E: 287.819,767 m e N: 9.111.059,689 m com azimute 219° 01' 37,81'' e distância de 5,33 m até o vértice V6, definido pelas coordenadas E: 287.816,408 m e N: 9.111.055,545 m com azimute 219° 59' 02,99'' e distância de 4,68 m até o vértice V7, definido pelas coordenadas E: 287.813,399 m e N: 9.111.051,957 m com azimute 322° 12' 33,48'' e distância de 21,94 m até o vértice V8, definido pelas coordenadas E: 287.799,954 m e N: 9.111.069,296 m com azimute 44° 05' 02,85'' e distância de 4,16 m até o vértice V9, definido pelas coordenadas E: 287.802,847 m e N: 9.111.072,283 m com azimute 41° 44' 34,48'' e distância de 4,92 m até o vértice V10, definido pelas coordenadas E: 287.806,120 m e N: 9.111.075,951 m com azimute 328° 45' 38,83'' e distância de 0,21 m até o vértice V11, definido pelas coordenadas E: 287.806,009 m e N: 9.111.076,134 m com azimute 51° 36' 10,97'' e distância de 10,42 m até o vértice V12, definido pelas coordenadas E: 287.814,173 m e N: 9.111.082,604 m com azimute 38° 12' 09,52'' e distância de 27,77 m até o vértice V1, encerrando este perímetro. Todas as coordenadas aqui descritas estão georreferenciadas no Sistema Geodésico Brasileiro, e encontram-se representadas no Sistema UTM, referenciadas ao Meridiano Central 33°00'00" WGr/EGr, tendo como o Datum o SIRGAS 2000.`;
+const parsed = await page.evaluate((t) => { const r = parseMemorialText(t); return { utm: r.utmVerts.length, geo: r.geoVerts.length, fuso: r.fuso, names: r.utmVerts.map(v => v.name), first: r.utmVerts[0] }; }, MEM174);
+console.log('PARSE 174:', JSON.stringify(parsed));
+console.log('CHECK parser urbano 12 vértices V1..V12, fuso 25:', parsed.utm === 12 && parsed.geo === 0 && parsed.fuso === 25 && parsed.names.join(',') === 'V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12' && Math.abs(parsed.first.e - 287831.350) < 0.001 ? 'OK' : 'FAIL');
+await page.evaluate((t) => { const r = parseMemorialText(t); document.getElementById('cfg-zone').value = String(r.fuso); state.inputClosed = false; state.fromKML = false; loadFromUTM(r.utmVerts); }, MEM174);
+await page.waitForFunction(() => state.vertices.length === 12);
+const m174 = await page.evaluate(() => ({ area: polyArea(state.vertices), perim: polyPerimeter(state.vertices), card: document.getElementById('m-area').textContent, az12: azimuthUTM(state.vertices[0], state.vertices[1]) }));
+console.log('LOTE 174:', JSON.stringify({ area: +m174.area.toFixed(2), perim: +m174.perim.toFixed(2), card: m174.card, az12: +m174.az12.toFixed(4) }));
+console.log('CHECK área 963,89 m² e perímetro 141,21 m (AG):', Math.abs(m174.area - 963.89) < 0.02 && Math.abs(m174.perim - 141.21) < 0.02 ? 'OK' : 'FAIL');
+console.log('CHECK azimute V1→V2 ≈ 129°29′ (AG 129°29′56″):', Math.abs(m174.az12 - (129 + 29/60 + 56.06/3600)) < 0.01 ? 'OK' : 'FAIL ' + m174.az12);
+// memorial urbano abre em modo urbano (sem memória escondida) e traz Frente/Fundo
+await page.click('#exp-mem'); await page.waitForSelector('#memorial-modal.open');
+const memMode = await page.evaluate(() => ({ tipo: memorialTipo(), hasSides: !!document.querySelector('[data-edge-side]'), preview: document.getElementById('mem-preview').textContent.slice(0, 400) }));
+console.log('MEMORIAL urbano:', memMode.tipo, '| lados?', memMode.hasSides, '|', memMode.preview.replace(/\s+/g,' ').slice(0, 160));
+console.log('CHECK memorial segue global (urbano) com lados:', memMode.tipo === 'urbano' && memMode.hasSides && /E: 287\.831,350 m e N: 9\.111\.104,430 m/.test(memMode.preview) ? 'OK' : 'FAIL');
+await page.click('#close-memorial');
+// restaura a caixa de 4 vértices para o restante da suíte
+await page.evaluate((pts) => { state.fromKML = true; state.inputClosed = false; loadFromKMLPoints(pts.map(([n, lat, lng]) => ({ name: n, lat, lng }))); }, pts);
+await page.waitForFunction(() => state.vertices.length === 4);
+
+await page.selectOption('#cfg-tipo', 'rural');
+await page.waitForFunction(() => !document.getElementById('exp-ods').disabled);
 await page.click('#exp-ods');
 await page.waitForSelector('#sigef-modal.open');
 await page.fill('#sg-nome', 'Teste Detentor'); await page.fill('#sg-cpf', '123.456.789-00');
@@ -144,6 +173,26 @@ console.log('CHECK B = vizinha 0 m²:', rowB && /vizinha/.test(rowB[6]) && parse
 const nOverlapPolys = await page.evaluate(() => { let n = 0; overlapLayer.eachLayer(l => { if(l.options && l.options.fillColor === '#ff3b3b') n++; }); return n; });
 console.log('CHECK mapa: polígonos de sobreposição desenhados =', nOverlapPolys, nOverlapPolys === 1 ? 'OK' : 'FAIL');
 
+// ---- APP / faixa: aresta 1 (V2→V3, lado leste, ≈619,28 m) com 30 m → ≈ 18.578 m² = 1,8578 ha = 3,887 % ----
+await page.selectOption('[data-sg-lim="1"]', 'LN1');
+await page.click('#sg-fx-sel-ln1');
+await page.selectOption('#sg-fx-preset', '30');
+await page.click('#sg-fx-calc');
+const fxStatus = await page.textContent('#sg-fx-status');
+console.log('FAIXA status:', fxStatus);
+const fx = await page.evaluate(() => { const r = sgComputeFaixa(); return { area: r.area, pct: r.pct, polys: r.latlngs.length }; });
+console.log('FAIXA:', JSON.stringify({ area: +fx.area.toFixed(2), ha: +(fx.area/1e4).toFixed(4), pct: +fx.pct.toFixed(3), polys: fx.polys }));
+console.log('CHECK faixa 30 m na aresta leste ≈ 1,8578 ha:', Math.abs(fx.area/1e4 - 1.8578) < 0.01 ? 'OK' : 'FAIL');
+console.log('CHECK faixa % ≈ 3,887:', Math.abs(fx.pct - 3.887) < 0.03 ? 'OK' : 'FAIL');
+const nFx = await page.evaluate(() => { let n = 0; faixaLayer.eachLayer(() => n++); return n; });
+console.log('CHECK faixa desenhada no mapa:', nFx >= 1 ? 'OK' : 'FAIL');
+// ---- Cotas SRTM (mock) ----
+await page.click('#sg-srtm-btn');
+await page.waitForFunction(() => /Cotas SRTM/.test(document.getElementById('sg-srtm-status').textContent), null, { timeout: 10000 });
+const srtm = await page.evaluate(() => Array.from(document.querySelectorAll('[data-sg-srtm]')).map(td => td.textContent));
+console.log('SRTM células:', JSON.stringify(srtm), '|', await page.textContent('#sg-srtm-status'));
+console.log('CHECK SRTM preenchido:', srtm.length === 4 && srtm.every(t => t !== '—') ? 'OK' : 'FAIL');
+
 // ---- PROVA REAL: Granja Alvorada – Lote 75B (certificação SIGEF 0e3b4b7c…, Igarassu/PE) ----
 // Valores publicados pelo INCRA no memorial gerado pelo SIGEF (18/08/26).
 const dms = s => { const m = s.match(/^(-?)(\d+)°(\d+)'([\d,\.]+)"$/); const v = (+m[2]) + (+m[3])/60 + parseFloat(m[4].replace(',','.'))/3600; return m[1] === '-' ? -v : v; };
@@ -199,5 +248,18 @@ REAL.forEach((p, i) => {
   const truncMin = Math.floor(e.az * 60) ; const truncOk = truncMin === expMin;
   console.log(`  ${p.name}→${REAL[(i+1)%4].name}: az ${fmtAz(e.az)} → trunc ${Math.floor(e.az)}°${String(truncMin - Math.floor(e.az)*60).padStart(2,'0')}' (INCRA ${p.az[0]}°${String(p.az[1]).padStart(2,'0')}') ${truncOk ? 'OK' : 'FAIL'} (Δ bruto ${dAz.toFixed(2)}′) · dist ${e.dist.toFixed(2)} (INCRA ${p.dist.toFixed(2)}) Δ=${dD.toFixed(3)} m ${Math.abs(dD) <= 0.05 ? 'OK' : 'FAIL'}`);
 });
+// ---- Escolha vinda da landing: ?tipo=rural abre em rural; sem parâmetro respeita a preferência; badge no cabeçalho ----
+const p2 = await ctx.newPage();
+await p2.route(u => !u.href.startsWith(base), route => { const u = route.request().url(); const hit = CDN[u]; if(hit){ const f = path.join(LIBS, hit[0]); return route.fulfill({ status: 200, contentType: hit[1], body: fs.readFileSync(f) }); } return route.abort('blockedbyclient'); });
+await p2.goto(base + '/conversor.html?tipo=rural', { waitUntil: 'domcontentloaded' });
+await p2.waitForFunction(() => typeof window.proj4 === 'function' && document.getElementById('cfg-tipo'));
+const tr = await p2.evaluate(() => ({ tipo: document.getElementById('cfg-tipo').value, badge: document.getElementById('tipo-badge').textContent, areaK: document.getElementById('m-area-k').textContent }));
+console.log('URL ?tipo=rural →', JSON.stringify(tr));
+console.log('CHECK ?tipo=rural abre em rural com selo:', tr.tipo === 'rural' && /RURAL/.test(tr.badge) ? 'OK' : 'FAIL');
+await p2.goto(base + '/conversor.html?tipo=urbano', { waitUntil: 'domcontentloaded' });
+await p2.waitForFunction(() => typeof window.proj4 === 'function' && document.getElementById('cfg-tipo'));
+const tu = await p2.evaluate(() => ({ tipo: document.getElementById('cfg-tipo').value, badge: document.getElementById('tipo-badge').textContent }));
+console.log('CHECK ?tipo=urbano abre em urbano com selo:', tu.tipo === 'urbano' && /URBANO/.test(tu.badge) ? 'OK' : 'FAIL');
+await p2.close();
 console.log('PAGE ERRORS:', errors.length ? '\n' + errors.join('\n') : 'none');
 await browser.close(); server.close();
