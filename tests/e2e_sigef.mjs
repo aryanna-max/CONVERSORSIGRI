@@ -19,7 +19,18 @@ const OUT = path.join(HERE, 'e2e_out');
 fs.mkdirSync(OUT, { recursive: true });
 
 const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript', '.css':'text/css', '.png':'image/png', '.svg':'image/svg+xml', '.ods':'application/vnd.oasis.opendocument.spreadsheet', '.xml':'text/xml', '.txt':'text/plain' };
+// Simula a função /api/ogc (proxy do Vercel): devolve um GML2 fixo como o i3Geo/MapServer responderia
+const GML_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
+<wfs:FeatureCollection xmlns:ms="http://mapserver.gis.umn.edu/mapserver" xmlns:wfs="http://www.opengis.net/wfs" xmlns:gml="http://www.opengis.net/gml">
+  <gml:featureMember><ms:certificada_sigef_particular_pe gml:id="certificada_sigef_particular_pe.1">
+    <gml:boundedBy><gml:Box srsName="EPSG:4674"><gml:coordinates>-34.8770,-8.0476 -34.8735,-8.0420</gml:coordinates></gml:Box></gml:boundedBy>
+    <ms:msGeometry><gml:Polygon srsName="EPSG:4674"><gml:outerBoundaryIs><gml:LinearRing><gml:coordinates>-34.8735,-8.0476 -34.8700,-8.0476 -34.8700,-8.0420 -34.8735,-8.0420 -34.8735,-8.0476</gml:coordinates></gml:LinearRing></gml:outerBoundaryIs></gml:Polygon></ms:msGeometry>
+    <ms:parcela_co>PE-TESTE-GML</ms:parcela_co><ms:nome_area>Parcela GML (metade leste)</ms:nome_area><ms:situacao_i>Certificada</ms:situacao_i>
+  </ms:certificada_sigef_particular_pe></gml:featureMember>
+</wfs:FeatureCollection>`;
+let proxyHits = [];
 const server = http.createServer((req, res) => {
+  if(req.url.startsWith('/api/ogc')){ proxyHits.push(decodeURIComponent(req.url.split('url=')[1] || '')); res.writeHead(200, { 'Content-Type': 'text/xml' }); return res.end(GML_FIXTURE); }
   let p = decodeURIComponent(req.url.split('?')[0]); if(p === '/') p = '/conversor.html';
   const f = path.join(ROOT, p);
   if(!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()){ res.writeHead(404); return res.end('nf'); }
@@ -114,6 +125,34 @@ console.log('PASTE tabela SIGEF:', JSON.stringify({ n: pp4.n, names: pp4.names, 
 console.log('CHECK tabela SIGEF em GMS colada → 4 vértices, códigos, 3,3022 ha:', pp4.n === 4 && pp4.names === 'F8F-M-0858,F8F-M-0861,F8F-M-0862,F8F-M-0859' && Math.abs(pp4.ha - 3.3022) <= 0.0005 ? 'OK' : 'FAIL');
 const pp5 = await pasteImport(`P1 7°49'13,173" S 34°54'20,689" W\nP2 7°49'21,549" S 34°54'16,638" W\nP3 7°49'18,487" S 34°54'24,549" W\nP4 7°49'14,414" S 34°54'24,662" W`);
 console.log('CHECK GMS com letras S/W (lat antes de long):', pp5.n === 4 && Math.abs(pp5.ha - 3.3022) <= 0.0005 ? 'OK' : 'FAIL ' + JSON.stringify(pp5));
+// Caso real (PDF Catuama REV00, Goiana/PE, 11/05/2026): texto do pdf.js com espaços dentro de palavras e de números.
+// Antes: 6 vértices (V1 e V3 perdidos, V7 com N = 9,152) e perímetro de 15 000 km. Esperado: 8 vértices, 2.219,24 m², 241,20 m.
+const MEM_CATUAMA = `Área : 2 . 219,24 m² Perímetro : 241,20 m Inicia - se a descrição deste perímetro no vértice V1 , definido pelas coord enadas E: 298.436,556 m e N: 9.152.924,331 m com azimu te 109° 13' 59,73'' e distâ ncia de 80,56 m até o vértice V2 , definido pelas coordenadas E: 298.512,618 m e N: 9.152.897,794 m com azimute 108° 46' 03,75'' e distância de 12,00 m até o vértice V3 , defi nido pel as coordenadas E: 298.523,980 m e N: 9.152.893,933 m com azimute 199° 26' 37,22'' e distância de 29,45 m até o vértice V4 , definido pelas coordenadas E: 298.514,178 m e N: 9.152.866,166 m com azimute 292° 39' 51,50'' e distância de 12,00 m até o vértice V5 , definido pelas coordenadas E: 298.503,105 m e N: 9.152.870,790 m com azimute 292° 39' 52,65'' e distância de 48,94 m até o vértice V6 , definido pelas coordenadas E: 298.457,945 m e N: 9.152.889,648 m com azimute 16° 15' 27,11'' e distância de 9,43 m até o vértice V7 , definido pelas coordenadas E: 298.460,585 m e N: 9.152. 898,701 m com azimute 285° 31' 18,85'' e distância de 30 ,55 m até o vértice V8 , definido pelas coordenadas E: 298.431,147 m e N: 9.152.906,877 m com azimute 17° 13' 05,61'' e distância de 18,27 m até o vértice V1 , encerrando este perímetro. . Todas as coordenadas aqu i descritas e stão georreferenciadas no Sistema Geodésico Brasileiro, e encontram - se representadas no Sistema UTM, referenciadas ao Meridiano Central 33°00’00”WGr/ EGr , tendo como o Datum o SIRGAS 2000 . Frente : limita - se com a PE - 001 , do vértice V 8 ao V 1 com 18 , 27 m; Fundo : li mita - se com a Praia , do vértice V 3 ao V 4 com 2 9 , 45 m;`;
+const cat = await pasteImport(MEM_CATUAMA);
+const catM = await page.evaluate(() => ({ perim: polyPerimeter(state.vertices), zone: document.getElementById('cfg-zone').value, cls: document.getElementById('input-status').className }));
+console.log('CATUAMA:', JSON.stringify({ n: cat.n, names: cat.names, area: +cat.area.toFixed(2), perim: +catM.perim.toFixed(2), zone: catM.zone, status: cat.status.slice(0, 120) }));
+console.log('CHECK Catuama (PDF com espaços espúrios) → 8 vértices V1..V8, 2.219,24 m², 241,20 m, fuso 25:', cat.n === 8 && cat.names === 'V1,V2,V3,V4,V5,V6,V7,V8' && Math.abs(cat.area - 2219.24) < 0.05 && Math.abs(catM.perim - 241.20) < 0.05 && catM.zone === '25' ? 'OK' : 'FAIL');
+console.log('CHECK Catuama sem aviso (nenhum vértice descartado/lacuna):', !/⚠/.test(cat.status) && /show ok/.test(catM.cls) ? 'OK' : 'FAIL ' + cat.status);
+// Diagnóstico quando a leitura falha: V7 com N absurdo e V3 ausente → descartado + lacuna + aviso
+const bad = await pasteImport(`V1, definido pelas coordenadas E: 298.436,556 m e N: 9.152.924,331 m V2, definido pelas coordenadas E: 298.512,618 m e N: 9.152.897,794 m V4, definido pelas coordenadas E: 298.514,178 m e N: 9.152.866,166 m V7, definido pelas coordenadas E: 298.460,585 m e N: 9,152 m V8, definido pelas coordenadas E: 298.431,147 m e N: 9.152.906,877 m`);
+console.log('CHECK diagnóstico: descarta V7 (N fora da faixa) e avisa V3, V5, V6 ausentes:', bad.n === 4 && /descartado.*V7/.test(bad.status) && /não encontrei V3, V5, V6/.test(bad.status) ? 'OK' : 'FAIL ' + bad.status);
+// ---- Reconstituição por rumos / azimutes e distâncias (certidão sem coordenadas) ----
+await page.evaluate(() => { state.vertices = []; document.getElementById('rc-box').open = true; });
+await page.click('#btn-rc-example');
+await page.waitForFunction(() => state.vertices.length === 4);
+const rc1 = await page.evaluate(() => ({ n: state.vertices.length, area: polyArea(state.vertices), out: document.getElementById('rc-out').textContent.replace(/\s+/g, ' ') }));
+console.log('RC exemplo:', JSON.stringify({ n: rc1.n, area: +rc1.area.toFixed(2), out: rc1.out.slice(0, 160) }));
+console.log('CHECK rumos NE/deflexão/SW/NW → retângulo 20×15 = 300 m², fechamento 0:', rc1.n === 4 && Math.abs(rc1.area - 300) < 0.01 && /Erro de fechamento: 0,000 m/.test(rc1.out) && /área declarada 300,00/.test(rc1.out) && /Ponto inicial arbitrário/.test(rc1.out) ? 'OK' : 'FAIL');
+// Lote 174 só com azimutes e distâncias (coordenadas removidas) + E/N inicial do V1 → deve reproduzir 963,89 m²
+const MEM174_RUMOS = MEM174.replace(/definido pelas coordenadas E: [\d\.,]+ m e N: [\d\.,]+ m /g, '');
+await page.fill('#rc-e0', '287.831,350'); await page.fill('#rc-n0', '9.111.104,430');
+await page.fill('#paste-area', MEM174_RUMOS); await page.click('#btn-paste-import');
+await page.waitForFunction(() => state.vertices.length === 12);
+const rc2 = await page.evaluate(() => ({ n: state.vertices.length, area: polyArea(state.vertices), e1: state.vertices[0].e, out: document.getElementById('rc-out').textContent.replace(/\s+/g, ' ') }));
+const rcClose = parseFloat((rc2.out.match(/Erro de fechamento: ([\d,]+) m/) || [])[1]?.replace(',', '.'));
+console.log('RC Lote 174 por azimutes:', JSON.stringify({ n: rc2.n, area: +rc2.area.toFixed(2), close: rcClose }));
+console.log('CHECK Lote 174 reconstituído por azimute+distância: 12 lados, área ≈ 963,89 m² (±0,5), fechamento < 5 cm, ancorado em V1:', rc2.n === 12 && Math.abs(rc2.area - 963.89) < 0.5 && rcClose < 0.05 && Math.abs(rc2.e1 - 287831.35) < 0.001 && !/arbitrário/.test(rc2.out) ? 'OK' : 'FAIL ' + rc2.out.slice(0, 200));
+await page.fill('#rc-e0', ''); await page.fill('#rc-n0', '');
 // volta ao Lote 174 para os checks seguintes
 await page.evaluate((t) => { const r = parseMemorialText(t); document.getElementById('cfg-zone').value = String(r.fuso); state.inputClosed = false; state.fromKML = false; loadFromUTM(r.utmVerts); }, MEM174);
 await page.waitForFunction(() => state.vertices.length === 12);
@@ -198,6 +237,35 @@ console.log('CHECK SIGEF por UF (PE) no Acervo Fundiário:', lyr.sigef.wmsUrl ==
 console.log('CHECK UF → BA e tema alternativo:', lyr.sigefBA.wmsLayer === 'certificada_sigef_particular_ba' && lyr.sigefAlt.wmsLayer === 'imoveiscertificados_privado_ba' ? 'OK' : 'FAIL');
 console.log('CHECK CAR por UF e nenhum host morto:', lyr.car.wmsLayer === 'sicar:sicar_imoveis_pe' && !lyr.dead ? 'OK' : 'FAIL');
 
+// ---- GML (i3Geo/MapServer) → GeoJSON; proxy /api/ogc; "ⓘ Info" no clique; popup legível; painel rolável ----
+const gmlRes = await page.evaluate((gml) => { const fc = parseFeatureCollection(gml); const f = fc.features[0]; return { n: fc.features.length, props: f.properties, geom: f.geometry.type, ring: f.geometry.coordinates[0].length, first: f.geometry.coordinates[0][0], ha: sgOverlapCheck(fc).out.map(o => +(o.area / 1e4).toFixed(4)) }; }, GML_FIXTURE);
+console.log('GML:', JSON.stringify(gmlRes));
+console.log('CHECK GML2 → Polygon lon,lat + atributos sem geometria:', gmlRes.n === 1 && gmlRes.geom === 'Polygon' && gmlRes.ring === 5 && gmlRes.first[0] === -34.8735 && gmlRes.first[1] === -8.0476 && gmlRes.props.parcela_co === 'PE-TESTE-GML' && !('msGeometry' in gmlRes.props) && !('boundedBy' in gmlRes.props) ? 'OK' : 'FAIL');
+console.log('CHECK sobreposição calculada a partir do GML ≈ 23,8946 ha:', Math.abs(gmlRes.ha[0] - 23.8946) < 0.001 ? 'OK' : 'FAIL ' + gmlRes.ha);
+const swapped = await page.evaluate(() => gmlRingCoords(new DOMParser().parseFromString('<r xmlns:gml="http://www.opengis.net/gml"><gml:posList>-8.04 -34.87 -8.05 -34.88</gml:posList></r>', 'text/xml').documentElement));
+console.log('CHECK posList em lat,lon é invertido para lon,lat:', swapped[0][0] === -34.87 && swapped[0][1] === -8.04 ? 'OK' : 'FAIL ' + JSON.stringify(swapped));
+await page.click('#close-sigef');
+// clique SEM "Info" ligado não abre popup
+await page.evaluate(() => map.fire('click', { latlng: L.latLng(-8.044, -34.872) }));
+await page.waitForTimeout(300);
+const noPopup = await page.evaluate(() => !document.querySelector('.leaflet-popup'));
+console.log('CHECK clique sem "ⓘ Info" não abre consulta:', noPopup ? 'OK' : 'FAIL');
+// liga Info + camada SIGEF (tiles abortados → cai no proxy no clique) e consulta
+await page.click('#btn-map-info');
+await page.evaluate(() => document.querySelector('input[data-overlay="sigef"]').click());
+await page.evaluate(() => map.fire('click', { latlng: L.latLng(-8.044, -34.872) }));
+await page.waitForFunction(() => { const p = document.querySelector('.leaflet-popup-content'); return p && /PE-TESTE-GML/.test(p.textContent); }, null, { timeout: 15000 });
+const pop = await page.evaluate(() => { const p = document.querySelector('.leaflet-popup-content'); const td = p.querySelector('.gfi td:not(.k)'); const cs = getComputedStyle(td); const wrap = getComputedStyle(p.closest('.leaflet-popup-content-wrapper')); return { text: p.textContent.replace(/\s+/g, ' ').slice(0, 200), color: cs.color, bg: wrap.backgroundColor, via: /via proxy/.test(p.textContent) }; });
+console.log('POPUP:', JSON.stringify(pop), '| proxy hits:', proxyHits.length, proxyHits[0] && proxyHits[0].slice(0, 110));
+const lum = c => { const m = c.match(/\d+/g).map(Number); return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255; };
+console.log('CHECK popup legível (texto claro sobre fundo escuro):', lum(pop.color) > 0.8 && lum(pop.bg) < 0.2 ? 'OK' : 'FAIL ' + pop.color + ' / ' + pop.bg);
+console.log('CHECK GetFeatureInfo do INCRA passou pelo proxy com GML:', pop.via && proxyHits.some(u => /acervofundiario\.incra\.gov\.br.*GetFeatureInfo.*vnd\.ogc\.gml/i.test(u)) ? 'OK' : 'FAIL');
+await page.click('#btn-map-info'); await page.evaluate(() => document.querySelector('input[data-overlay="sigef"]').click());
+const panelScroll = await page.evaluate(() => { const p = document.getElementById('layer-panel'); p.classList.add('open'); const cs = getComputedStyle(p); const r = { overflowY: cs.overflowY, maxH: cs.maxHeight, scrollable: p.scrollHeight > p.clientHeight, h: p.clientHeight, sh: p.scrollHeight }; p.classList.remove('open'); return r; });
+console.log('PAINEL camadas:', JSON.stringify(panelScroll));
+console.log('CHECK painel de camadas rola:', panelScroll.overflowY === 'auto' && panelScroll.maxH !== 'none' ? 'OK' : 'FAIL');
+await page.click('#exp-ods'); await page.waitForSelector('#sigef-modal.open');
+
 // ---- Sobreposição SIGEF (WFS simulado) ----
 await page.click('#sg-ov-btn');
 await page.waitForSelector('#sg-ov-body tr', { timeout: 15000 });
@@ -253,6 +321,43 @@ const fmtAz = d => { const deg = Math.floor(d); const min = (d - deg) * 60; retu
 console.log(`REAL 75B · área SGL ${real.areaHa.toFixed(4)} ha (INCRA ${EXP.areaHa}) · elips. ${real.elipsHa.toFixed(4)} · perímetro ${real.perim.toFixed(2)} m (INCRA ${EXP.perim})`);
 console.log('CHECK área SGL = INCRA ±0,0005 ha:', Math.abs(real.areaHa - EXP.areaHa) <= 0.0005 ? 'OK' : 'FAIL Δ=' + (real.areaHa - EXP.areaHa).toFixed(5));
 console.log('CHECK perímetro = INCRA ±0,05 m:', Math.abs(real.perim - EXP.perim) <= 0.05 ? 'OK' : 'FAIL Δ=' + (real.perim - EXP.perim).toFixed(3));
+
+// ---- Resposta REAL do WFS do Acervo Fundiário (via proxy gru1, 01/10/2026): GML2 com Lote 75B e 75A ----
+const WFS_REAL = `<?xml version='1.0' encoding="UTF-8" ?>
+<wfs:FeatureCollection xmlns:ms="http://www.omsug.ca/osgis2004" xmlns:wfs="http://www.opengis.net/wfs" xmlns:gml="http://www.opengis.net/gml" xmlns:ogc="http://www.opengis.net/ogc">
+  <gml:boundedBy><gml:Box srsName="EPSG:4326"><gml:coordinates>-34.906880,-7.822652 -34.904622,-7.819395</gml:coordinates></gml:Box></gml:boundedBy>
+  <gml:featureMember><ms:certificada_sigef_particular_pe>
+    <gml:boundedBy><gml:Box srsName="EPSG:4326"><gml:coordinates>-34.906851,-7.822652 -34.904622,-7.820326</gml:coordinates></gml:Box></gml:boundedBy>
+    <ms:msGeometry><gml:Polygon srsName="EPSG:4326"><gml:outerBoundaryIs><gml:LinearRing><gml:coordinates>-34.905747,-7.820326 -34.904622,-7.822652 -34.906819,-7.821802 -34.906851,-7.820671 -34.905747,-7.820326 </gml:coordinates></gml:LinearRing></gml:outerBoundaryIs></gml:Polygon></ms:msGeometry>
+    <ms:id>129117309</ms:id><ms:parcela_codigo>0e3b4b7c-e44e-4344-a152-adb31362708b</ms:parcela_codigo><ms:rt>F8F</ms:rt><ms:art>PE20261534001-PE</ms:art><ms:situacao_informada>REGISTRADA</ms:situacao_informada><ms:codigo_imovel>2300900007010</ms:codigo_imovel><ms:data_submissao>2026-05-08</ms:data_submissao><ms:data_aprovacao>2026-05-08</ms:data_aprovacao><ms:status>CERTIFICADA</ms:status><ms:nome_area>Granja Alvorada - Lote 75B</ms:nome_area><ms:registro_matricula>3571</ms:registro_matricula><ms:registro_data></ms:registro_data><ms:codigo_municipio>2606804</ms:codigo_municipio>
+  </ms:certificada_sigef_particular_pe></gml:featureMember>
+  <gml:featureMember><ms:certificada_sigef_particular_pe>
+    <ms:msGeometry><gml:Polygon srsName="EPSG:4326"><gml:outerBoundaryIs><gml:LinearRing><gml:coordinates>-34.906197,-7.819395 -34.905747,-7.820326 -34.906851,-7.820671 -34.906880,-7.819633 -34.906874,-7.819631 -34.906831,-7.819619 -34.906715,-7.819588 -34.906512,-7.819536 -34.906197,-7.819395 </gml:coordinates></gml:LinearRing></gml:outerBoundaryIs></gml:Polygon></ms:msGeometry>
+    <ms:id>129117308</ms:id><ms:parcela_codigo>49cf3807-eed5-4731-a310-4264021ea24b</ms:parcela_codigo><ms:status>CERTIFICADA</ms:status><ms:nome_area>Granja Alvorada - Lote 75A</ms:nome_area><ms:registro_matricula>3571</ms:registro_matricula>
+  </ms:certificada_sigef_particular_pe></gml:featureMember>
+</wfs:FeatureCollection>`;
+const wfsReal = await page.evaluate((gml) => { const fc = parseFeatureCollection(gml); const res = sgOverlapCheck(fc); sgRenderOverlaps(res); return { n: fc.features.length, rows: res.out.map(o => ({ cod: o.f.properties.parcela_codigo, nome: o.f.properties.nome_area, ha: +(o.area/1e4).toFixed(4), pct: +o.pct.toFixed(2) })), table: Array.from(document.querySelectorAll('#sg-ov-body tr')).map(tr => Array.from(tr.children).map(td => td.textContent.trim())) }; }, WFS_REAL);
+console.log('WFS REAL:', JSON.stringify(wfsReal));
+const r75b = wfsReal.rows.find(r => r.cod === '0e3b4b7c-e44e-4344-a152-adb31362708b'), r75a = wfsReal.rows.find(r => /75A/.test(r.nome));
+// 75A compartilha 127 m de limite com 75B: as coordenadas publicadas (6 casas ≈ 0,1 m) geram uma lasca de ~3 m² com
+// largura média de ~2 cm — NÃO é sobreposição, é limite comum. 75B ≈ 100 % = a própria parcela.
+console.log('CHECK WFS real: 75B = a própria parcela (≈100 %, ≈3,302 ha); 75A = lasca < 0,001 ha:', r75b && Math.abs(r75b.pct - 100) < 0.5 && Math.abs(r75b.ha - 3.302) < 0.003 && r75a && r75a.ha < 0.001 ? 'OK' : 'FAIL');
+const t75a = wfsReal.table.find(r => /75A/.test(r[1])), t75b = wfsReal.table.find(r => r[0] === '0e3b4b7c-e44e-4344-a152-adb31362708b');
+console.log('CHECK leitura: 75A = "limite comum" (não SOBREPOSIÇÃO) e 75B = "própria parcela":', t75a && /limite comum/.test(t75a[6]) && !/SOBREPOSIÇÃO/.test(t75a[6]) && t75b && /própria parcela/.test(t75b[6]) ? 'OK' : 'FAIL ' + JSON.stringify([t75a && t75a[6], t75b && t75b[6]]));
+console.log('CHECK tabela mostra código SIGEF, nome · matrícula · SNCR e status reais:', t75b && /Granja Alvorada - Lote 75B · mat\. 3571 · SNCR 2300900007010/.test(t75b[1]) && /CERTIFICADA · REGISTRADA/.test(t75b[2]) ? 'OK' : 'FAIL ' + JSON.stringify(wfsReal.table));
+// GetFeatureInfo do MapServer (msGMLOutput) — formato que o INCRA devolve no clique
+const MSGML = `<?xml version="1.0" encoding="UTF-8"?>
+<msGMLOutput xmlns:gml="http://www.opengis.net/gml" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <certificada_sigef_particular_pe_layer>
+    <gml:name>certificada_sigef_particular_pe</gml:name>
+    <certificada_sigef_particular_pe_feature>
+      <gml:boundedBy><gml:Box srsName="EPSG:4326"><gml:coordinates>-34.906851,-7.822652 -34.904622,-7.820326</gml:coordinates></gml:Box></gml:boundedBy>
+      <id>129117309</id><parcela_codigo>0e3b4b7c-e44e-4344-a152-adb31362708b</parcela_codigo><status>CERTIFICADA</status><nome_area>Granja Alvorada - Lote 75B</nome_area>
+    </certificada_sigef_particular_pe_feature>
+  </certificada_sigef_particular_pe_layer>
+</msGMLOutput>`;
+const msg = await page.evaluate((x) => { const fc = parseFeatureCollection(x); return { n: fc.features.length, props: fc.features[0] && fc.features[0].properties }; }, MSGML);
+console.log('CHECK msGMLOutput (GetFeatureInfo MapServer) → 1 feição com atributos:', msg.n === 1 && msg.props.parcela_codigo === '0e3b4b7c-e44e-4344-a152-adb31362708b' && msg.props.nome_area && !('boundedBy' in msg.props) && !('name' in msg.props) ? 'OK' : 'FAIL ' + JSON.stringify(msg));
 
 // ---- Memorial rural · formato TABELA (réplica do SIGEF) com os vértices reais ----
 await page.click('#close-sigef');

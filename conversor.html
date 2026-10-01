@@ -198,6 +198,20 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .btn-ghost:hover{color:var(--white)}
 .btn-block{width:100%}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap}
+/* Reconstituição por rumos (certidão sem coordenadas) */
+.rc-box{margin-top:12px;border:1px solid rgba(120,170,230,0.25);border-radius:6px;padding:8px 12px;background:rgba(255,255,255,0.03)}
+.rc-box summary{cursor:pointer;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--verde-bright);font-weight:700}
+.rc-help{font-size:11.5px;color:var(--soft);line-height:1.5;margin:8px 0}
+.rc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.rc-grid label{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.rc-grid .input{font-size:12.5px;padding:7px 8px}
+.rc-out{margin-top:8px;font-size:11.5px;line-height:1.55;color:var(--white)}
+.rc-out table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+.rc-out th,.rc-out td{padding:3px 6px;border-bottom:1px solid rgba(120,170,230,0.15);text-align:right}
+.rc-out th:first-child,.rc-out td:first-child{text-align:left}
+.rc-out .rc-warn{color:#e5c878}
+.rc-out .rc-bad{color:#f08585}
+@media(max-width:700px){.rc-grid{grid-template-columns:1fr}}
 
 /* ---------- STATUS ---------- */
 .status{margin-top:12px;padding:10px 12px;border:1px solid var(--line);font-size:12.5px;line-height:1.55;background:rgba(0,0,0,0.3);display:none}
@@ -249,12 +263,23 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .map-overlay{position:absolute;top:14px;right:14px;z-index:500;display:flex;gap:6px}
 .map-btn{padding:8px 10px;background:rgba(6,18,25,0.92);border:1px solid var(--line);color:var(--white);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;font-weight:600;backdrop-filter:blur(6px)}
 .map-btn:hover{border-color:var(--verde);color:var(--verde)}
-.map-label{position:absolute;top:14px;left:14px;z-index:500;padding:7px 12px;background:rgba(6,18,25,0.92);border:1px solid var(--line);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);font-weight:500;backdrop-filter:blur(6px)}
+.map-btn.active{background:var(--verde);border-color:var(--verde);color:#0a1f3d}
+.map-wrap.info-mode .leaflet-container{cursor:help}
+.map-label{position:absolute;top:14px;left:56px;z-index:500;padding:7px 12px;background:rgba(6,18,25,0.92);border:1px solid var(--line);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);font-weight:500;backdrop-filter:blur(6px)}
 .map-label .vcount{color:var(--verde);font-weight:600}
 .leaflet-container{background:#0a0e10}
 .leaflet-popup-content-wrapper{background:#0b1419;color:var(--white);border-radius:1px;border:1px solid var(--line)}
 .leaflet-popup-content{font-family:Asap,sans-serif;font-size:12px;margin:8px 12px;line-height:1.5}
 .leaflet-popup-tip{background:#0b1419}
+/* Popup "clique no mapa": fundo escuro → texto claro */
+.gfi{font-size:11.5px;color:#f4f7f8;max-height:300px;overflow-y:auto;padding:2px}
+.gfi h5{font-weight:700;color:var(--verde-bright);font-size:10.5px;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 4px}
+.gfi .gfi-block{margin-bottom:10px}
+.gfi .gfi-note{font-size:10.5px;color:rgba(244,247,248,0.7)}
+.gfi a{color:var(--verde-bright);text-decoration:underline}
+.gfi table{font-size:10.5px;border-collapse:collapse;width:100%;margin-bottom:4px}
+.gfi td{padding:1px 0;word-break:break-word;color:#f4f7f8;vertical-align:top}
+.gfi td.k{padding-right:8px;color:rgba(244,247,248,0.6);white-space:nowrap}
 .leaflet-control-zoom a{background:#0b1419!important;color:var(--white)!important;border-color:var(--line)!important}
 .leaflet-control-zoom a:hover{background:#152028!important;color:var(--verde)!important}
 .leaflet-control-attribution{background:rgba(6,18,25,0.85)!important;color:var(--muted)!important;font-size:10px!important}
@@ -469,7 +494,7 @@ input, textarea, select, [contenteditable]{cursor:text}
 @media (max-width:680px){.exp-banner-inner{padding:10px 18px;gap:10px}.exp-text{font-size:11px}}
 
 /* ---------- LAYERS PANEL ---------- */
-.layer-panel{position:absolute;top:54px;right:14px;z-index:600;background:rgba(6,18,36,0.96);border:1px solid var(--line);border-radius:8px;padding:0;min-width:280px;backdrop-filter:blur(8px);box-shadow:0 12px 40px rgba(0,0,0,0.5);display:none;font-size:12px}
+.layer-panel{position:absolute;top:54px;right:14px;z-index:600;background:rgba(6,18,36,0.96);border:1px solid var(--line);border-radius:8px;padding:0;min-width:280px;max-width:min(340px,calc(100% - 28px));max-height:calc(100% - 68px);overflow-y:auto;overscroll-behavior:contain;backdrop-filter:blur(8px);box-shadow:0 12px 40px rgba(0,0,0,0.5);display:none;font-size:12px}
 .layer-panel.open{display:block}
 .layer-panel-head{padding:14px 16px 8px;border-bottom:1px solid var(--line)}
 .layer-panel-head h4{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--verde-bright);font-weight:700;margin:0;line-height:1.2}
@@ -671,6 +696,20 @@ Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E:
             <button class="btn btn-secondary" id="btn-paste-example">Exemplo Recife 25S</button>
             <button class="btn-ghost" id="btn-paste-clear">Limpar</button>
           </div>
+          <details class="rc-box" id="rc-box">
+            <summary>Certidão sem coordenadas? Reconstituir por rumos / azimutes e distâncias</summary>
+            <p class="rc-help">Cole acima o texto da certidão ou do memorial antigo (ex.: "mede 12,00 m no rumo NE 45°30'" ou "azimute 109°13'59" e distância de 80,56 m"). A ferramenta encadeia os lados a partir de um ponto inicial e informa o <strong>erro de fechamento</strong>. Resultado de conferência: a posição depende do ponto inicial e a forma segue as medidas declaradas, não o campo.</p>
+            <div class="rc-grid">
+              <label>E inicial (m) <input type="text" id="rc-e0" class="input" placeholder="ex.: 298.436,556 (vazio = origem arbitrária)"></label>
+              <label>N inicial (m) <input type="text" id="rc-n0" class="input" placeholder="ex.: 9.152.924,331"></label>
+              <label>Rumo sem quadrante <select id="rc-quad" class="input"><option value="auto">como estiver no texto</option><option value="NE">NE</option><option value="SE">SE</option><option value="SW">SW / SO</option><option value="NW">NW / NO</option></select></label>
+            </div>
+            <div class="btn-row" style="margin-top:8px">
+              <button class="btn btn-primary" id="btn-rc-run">Reconstituir</button>
+              <button class="btn-ghost" id="btn-rc-example">Exemplo (rumos)</button>
+            </div>
+            <div class="rc-out" id="rc-out"></div>
+          </details>
         </div>
 
         <!-- TAB MANUAL -->
@@ -893,7 +932,7 @@ Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E:
       </div>
       <div class="map-label">Pré-visualização · <span class="vcount" id="map-vcount">0 vértices</span></div>
       <div class="legend-panel" id="legend-panel">
-        <div class="lg-head">Legenda · clique no mapa para detalhes</div>
+        <div class="lg-head">Legenda · ligue "ⓘ Info" para consultar no clique</div>
         <div id="lg-items"></div>
       </div>
       <div class="coord-hud" id="coord-hud">
@@ -905,6 +944,7 @@ Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E:
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" style="width:13px;height:13px;display:inline-block;vertical-align:-2px;margin-right:6px"><path d="M8 2 L14 5 L8 8 L2 5 Z"/><path d="M2 8 L8 11 L14 8"/><path d="M2 11 L8 14 L14 11"/></svg>
           Camadas
         </button>
+        <button class="map-btn" id="btn-map-info" title="Quando ligado, um clique no mapa consulta as camadas ativas naquele ponto" aria-pressed="false">ⓘ Info</button>
         <button class="map-btn" id="btn-map-center">Centralizar</button>
         <button class="map-btn" id="btn-reverse" title="Inverter sentido (mantém V1)">↻ Inverter</button>
         <button class="map-btn" id="btn-map-fs">Tela cheia</button>
@@ -1061,6 +1101,9 @@ $('btn-paste-import').addEventListener('click', () => {
   if(verts.length < 3){
     const parsed = parseMemorialText(text);
     if(parsed.utmVerts.length >= 3 || parsed.geoVerts.length >= 3){ applyParsedMemorial(parsed, 'Memorial colado'); return; }
+    // Sem coordenadas mas com rumos/azimutes + distâncias (certidão antiga): reconstitui
+    const segs = parseBearingsText(text);
+    if(segs.length >= 3){ $('rc-box').open = true; rcRun(); return; }
     setStatus('input-status','err','Foram reconhecidos menos de 3 vértices. Aceito: tabela "NOME E N" (ponto ou vírgula decimal), memorial em prosa ("V1, pelas coordenadas E: … m e N: … m"), tabela do SIGEF (código, longitude e latitude em GMS) ou "NOME, de coordenadas -8,xxxxxx; -34,xxxxxx".'); return;
   }
   // If the polygon is already closed (last vertex == first), drop the duplicate
@@ -1085,7 +1128,120 @@ V3  295312.880  9106475.660
 V4  295248.440  9106453.890
 V1  295234.120  9106518.430`;
 });
-$('btn-paste-clear').addEventListener('click', () => { $('paste-area').value = ''; clearStatus('input-status'); });
+$('btn-paste-clear').addEventListener('click', () => { $('paste-area').value = ''; clearStatus('input-status'); $('rc-out').innerHTML = ''; });
+
+/* ===========================================================
+   RECONSTITUIÇÃO POR RUMOS / AZIMUTES E DISTÂNCIAS (certidão sem coordenadas)
+   Encadeia os lados a partir de um ponto inicial no plano UTM. Azimute plano (de projeção), sentido horário a partir
+   do Norte. Rumo NE θ → az = θ; SE → 180−θ; SW → 180+θ; NW → 360−θ. Deflexão à direita soma, à esquerda subtrai.
+   "Ângulo" sem lado (ângulo horizontal à direita, da ré para a vante): az = az_anterior + ângulo − 180 (mod 360).
+   O lado de fechamento absorve a diferença — o erro de fechamento é informado, nunca distribuído em silêncio.
+=========================================================== */
+function parseBearingsText(text){
+  let t = String(text || '').replace(/\s+/g, ' ');
+  t = t.replace(/(\d)\s*([.,])\s*(?=\d)/g, '$1$2');
+  const ang = (d, mi, se) => (+d || 0) + (+(mi || 0))/60 + parseFloat(String(se || '0').replace(',', '.'))/3600;
+  const DMS = `(\\d{1,3})\\s*[°º]\\s*(?:(\\d{1,2})\\s*['′’]?)?\\s*(?:(\\d{1,2}(?:[\\.,]\\d+)?)\\s*(?:"|″|''|’’)?)?`;
+  const toks = [];
+  const push = (re, type, fn) => { let m; while((m = re.exec(t)) !== null){ const v = fn(m); if(v) toks.push({ i: m.index, end: m.index + m[0].length, type, ...v }); } };
+  // azimute 109° 13' 59,73"
+  push(new RegExp(`azimute\\s+(?:de\\s+)?${DMS}`, 'gi'), 'dir', m => ({ az: ang(m[1], m[2], m[3]), src: m[0] }));
+  // rumo N 45°30' E · rumo NE 45°30' · rumo 45°30' NE · 45°30' NE (sem a palavra rumo)
+  const Q = `([NS])\\s*([EWO])`;
+  push(new RegExp(`(?:[Rr]umo\\s+(?:de\\s+)?)?([NS])\\s*${DMS}\\s*([EWO])(?![A-Za-z])`, 'g'), 'dir', m => ({ rumo: { ns: m[1].toUpperCase(), ew: m[5].toUpperCase().replace('O','W'), th: ang(m[2], m[3], m[4]) }, src: m[0] }));
+  push(new RegExp(`(?:[Rr]umo\\s+(?:de\\s+)?)?(?<![A-Za-z])${Q}\\s*${DMS}`, 'g'), 'dir', m => ({ rumo: { ns: m[1].toUpperCase(), ew: m[2].toUpperCase().replace('O','W'), th: ang(m[3], m[4], m[5]) }, src: m[0] }));
+  push(new RegExp(`(?:[Rr]umo\\s+(?:de\\s+)?)?${DMS}\\s*${Q}(?![A-Za-z])`, 'g'), 'dir', m => ({ rumo: { ns: m[4].toUpperCase(), ew: m[5].toUpperCase().replace('O','W'), th: ang(m[1], m[2], m[3]) }, src: m[0] }));
+  // deflexão à direita/esquerda 90°  ·  ângulo (interno/à direita) 92°15'
+  push(new RegExp(`(?:deflex[ãa]o|deflet\\w*)\\s+(?:[àa]\\s+)?(direita|esquerda)?\\s*(?:de\\s+)?${DMS}`, 'gi'), 'dir', m => ({ defl: { side: (m[1] || 'direita').toLowerCase(), th: ang(m[2], m[3], m[4]) }, src: m[0] }));
+  push(new RegExp(`(?<![A-Za-zÀ-ÿ])[âa]ngulo\\s+(?:horizontal\\s+|interno\\s+)?(?:[àa]\\s+direita\\s+)?(?:de\\s+)?${DMS}`, 'gi'), 'dir', m => ({ angle: ang(m[1], m[2], m[3]), src: m[0] }));
+  // distância de 80,56 m · mede 12,00 m · medindo 12,00m · 12,00 metros · com 18,27 m
+  push(/(?:dist[âa]ncia\s+(?:de\s+)?|mede(?:m)?\s+|medindo\s+|com\s+|extens[ãa]o\s+(?:de\s+)?|comprimento\s+(?:de\s+)?)?(\d{1,4}(?:[\.,]\d{1,3})?)\s*(?:m(?![²2A-Za-z])|metros?(?![A-Za-z]))/gi, 'dist', m => ({ d: parseNumBR(m[1]), src: m[0] }));
+  // remove sobreposições (um rumo casado por duas formas) mantendo o 1º token de cada posição
+  toks.sort((a, b) => a.i - b.i || b.end - a.end);
+  const clean = []; let lastEnd = -1;
+  for(const k of toks){ if(k.i < lastEnd) continue; clean.push(k); lastEnd = k.end; }
+  // Emparelha cada direção com a distância vizinha. O estilo do documento decide o lado: NBR ("azimute X e distância
+  // de Y m") = distância DEPOIS; certidão antiga ("mede Y m no rumo X") = distância ANTES. Votação pela maioria dos
+  // lados; distâncias soltas (Perímetro: 141,21 m, "a 50 m da esquina") não entram porque não ficam junto de uma direção.
+  const dirs = clean.map((k, i) => ({ k, i })).filter(x => x.k.type === 'dir');
+  const gapNext = x => { const n = clean[x.i + 1]; return n && n.type === 'dist' ? n.i - x.k.end : Infinity; };
+  const gapPrev = x => { const p = clean[x.i - 1]; return p && p.type === 'dist' ? x.k.i - p.end : Infinity; };
+  const votesAfter = dirs.filter(x => gapNext(x) < gapPrev(x)).length, votesBefore = dirs.filter(x => gapPrev(x) < gapNext(x)).length;
+  const distAfter = votesAfter >= votesBefore;
+  const segs = []; const used = new Set();
+  for(const x of dirs){
+    const nx = clean[x.i + 1], pv = clean[x.i - 1];
+    const cand = distAfter ? [[nx, gapNext(x)], [pv, gapPrev(x)]] : [[pv, gapPrev(x)], [nx, gapNext(x)]];
+    let dist = null;
+    for(const [tk, gap] of cand){ if(tk && tk.type === 'dist' && !used.has(tk) && gap <= 120 && tk.d > 0){ dist = tk; break; } }
+    if(!dist) continue;
+    used.add(dist); segs.push({ dir: x.k, d: dist.d });
+  }
+  // Área declarada, se houver
+  const am = t.match(/[áa]rea\s*(?:total\s*)?(?:de\s*|:\s*)?([\d\.,]+)\s*m²|[áa]rea\s*(?:total\s*)?(?:de\s*|:\s*)?([\d\.,]+)\s*ha\b/i);
+  const areaDecl = am ? (am[1] ? parseNumBR(am[1]) : parseNumBR(am[2]) * 10000) : null;
+  return Object.assign(segs, { areaDecl });
+}
+function rcAzimuth(seg, prevAz, quadDefault){
+  const dir = seg.dir;
+  if(dir.az != null) return dir.az;
+  if(dir.rumo){ const r = dir.rumo; const th = r.th;
+    if(r.ns === 'N' && r.ew === 'E') return th; if(r.ns === 'S' && r.ew === 'E') return 180 - th;
+    if(r.ns === 'S' && r.ew === 'W') return 180 + th; return 360 - th; }
+  if(dir.defl){ if(prevAz == null) return null; return ((prevAz + (dir.defl.side === 'esquerda' ? -dir.defl.th : dir.defl.th)) % 360 + 360) % 360; }
+  if(dir.angle != null){ if(prevAz == null) return null; return ((prevAz + dir.angle - 180) % 360 + 360) % 360; }
+  return null;
+}
+function rcRun(){
+  const text = $('paste-area').value;
+  const out = $('rc-out');
+  const segs = parseBearingsText(text);
+  if(segs.length < 3){ out.innerHTML = '<span class="rc-bad">Não reconheci pelo menos 3 lados com direção (azimute/rumo/deflexão) e distância.</span>'; setStatus('input-status','err','Reconstituição: menos de 3 lados reconhecidos no texto.'); return; }
+  const e0raw = $('rc-e0').value.trim(), n0raw = $('rc-n0').value.trim();
+  const arbitrary = !(e0raw && n0raw);
+  const { zone, hemi } = cfg();
+  const e0 = arbitrary ? 500000 : parseNumBR(e0raw), n0 = arbitrary ? (hemi === 'N' ? 100000 : 9000000) : parseNumBR(n0raw);
+  if(!isFinite(e0) || !isFinite(n0)){ out.innerHTML = '<span class="rc-bad">E/N inicial inválidos.</span>'; return; }
+  const pts = [{ name: 'V1', e: e0, n: n0 }];
+  const rows = []; let az = null; let perim = 0; const problems = [];
+  for(let i = 0; i < segs.length; i++){
+    const s = segs[i];
+    const a = rcAzimuth(s, az, $('rc-quad').value);
+    if(a == null){ problems.push(`lado ${i+1}: direção relativa (deflexão/ângulo) sem azimute anterior — informe o 1º lado em azimute ou rumo`); break; }
+    az = a;
+    const p = pts[pts.length - 1];
+    const q = { name: 'V' + (pts.length + 1), e: p.e + s.d * Math.sin(a * Math.PI / 180), n: p.n + s.d * Math.cos(a * Math.PI / 180) };
+    rows.push({ from: p.name, to: q.name, az: a, d: s.d, src: s.dir.src });
+    perim += s.d;
+    pts.push(q);
+  }
+  if(pts.length < 4){ out.innerHTML = `<span class="rc-bad">${escapeHtml(problems.join('; ') || 'Lados insuficientes.')}</span>`; return; }
+  // Fechamento: o último ponto deveria coincidir com V1
+  const last = pts[pts.length - 1];
+  const dE = pts[0].e - last.e, dN = pts[0].n - last.n, lin = Math.hypot(dE, dN);
+  const rel = lin > 0 ? Math.round(perim / lin) : Infinity;
+  const polyVerts = pts.slice(0, -1);   // n lados → n vértices; o último lado "fecha" em V1
+  // Carrega no estado (como UTM do fuso configurado) e mede
+  state.inputClosed = true; state.fromKML = false;
+  loadFromUTM(polyVerts);
+  const area = polyArea(polyVerts);
+  const declared = segs.areaDecl;
+  const closeCls = lin <= 0.10 ? '' : lin <= 1 ? 'rc-warn' : 'rc-bad';
+  let html = `<div><strong>${polyVerts.length} lados</strong> · perímetro declarado ${fmtNum(perim, 2)} m · área da figura ${fmtNum(area, 2)} m²${declared ? ` · área declarada ${fmtNum(declared, 2)} m² (Δ ${fmtNum(area - declared, 2)} m², ${fmtNum((area - declared) / declared * 100, 2)} %)` : ''}</div>`;
+  html += `<div class="${closeCls}"><strong>Erro de fechamento:</strong> ${fmtNum(lin, 3)} m (ΔE ${fmtNum(dE, 3)} · ΔN ${fmtNum(dN, 3)}) · precisão 1:${isFinite(rel) ? fmtNum(rel, 0) : '∞'} — o último lado foi mantido como declarado; a figura NÃO foi ajustada.</div>`;
+  if(arbitrary) html += `<div class="rc-warn">Ponto inicial arbitrário (E ${fmtNum(e0, 0)} · N ${fmtNum(n0, 0)}, fuso ${zone} ${hemi}): a forma e o fechamento valem; a POSIÇÃO no mapa não. Informe E/N inicial de um vértice conhecido (matrícula vizinha georreferenciada ou levantamento) para posicionar.</div>`;
+  if(problems.length) html += `<div class="rc-bad">${escapeHtml(problems.join('; '))}</div>`;
+  html += '<table><thead><tr><th>Lado</th><th>Azimute</th><th>Dist. (m)</th><th>Lido como</th></tr></thead><tbody>';
+  for(const r of rows){ const d = Math.floor(r.az), mi = Math.floor((r.az - d) * 60), se = ((r.az - d) * 60 - mi) * 60; html += `<tr><td>${r.from}→${r.to}</td><td>${d}°${String(mi).padStart(2,'0')}'${se.toFixed(1).padStart(4,'0')}"</td><td>${fmtNum(r.d, 2)}</td><td style="text-align:left;color:var(--soft)">${escapeHtml(r.src.slice(0, 40))}</td></tr>`; }
+  html += '</tbody></table>';
+  out.innerHTML = html;
+  setStatus('input-status', lin <= 1 ? 'warn' : 'err', `Reconstituição por rumos: ${polyVerts.length} vértices, erro de fechamento ${fmtNum(lin, 3)} m (1:${isFinite(rel) ? fmtNum(rel, 0) : '∞'}).${arbitrary ? ' Posição arbitrária — informe E/N inicial.' : ''} Resultado de conferência: não substitui levantamento nem a matrícula.`);
+}
+$('btn-rc-run').addEventListener('click', rcRun);
+$('btn-rc-example').addEventListener('click', () => {
+  $('paste-area').value = `Lote de forma retangular, com área de 300,00 m². Partindo do marco inicial, segue com rumo NE 45°00' na extensão de 20,00 m; deflete à direita 90°00' e mede 15,00 m; segue com rumo SW 45°00' por 20,00 m; e finalmente com rumo NW 45°00' mede 15,00 m até o ponto inicial.`;
+  $('rc-box').open = true; rcRun();
+});
 
 /* ===========================================================
    MANUAL TABLE
@@ -1356,26 +1512,32 @@ function parseNumBR(s){
 }
 
 function parseMemorialText(text){
-  const t = text.replace(/\s+/g, ' ');
+  // O texto extraído de PDF (pdf.js) vem com espaços espúrios: dentro de palavras ("coord enadas", "defi nido") e
+  // dentro de números ("9.152. 898,701", "2 . 219,24") — caso real: memorial Catuama REV00 perdeu V1/V3 e V7 ficou com
+  // N = 9,152. Normaliza os números (nunca junta dois números separados só por espaço) e tolera 1 espaço entre letras.
+  let t = text.replace(/\s+/g, ' ');
+  t = t.replace(/(\d)\s*([.,])\s*(?=\d)/g, '$1$2');
+  const fz = w => w.split('').join('\\s?');   // "pelas" → p\s?e\s?l\s?a\s?s
   const utmVerts = [], geoVerts = [];
   const seen = new Set();
   // Nome: aceita V1..Vn (AG/NBR), códigos SIGEF do tipo GLH-V-10491, BWF-P-A238, GLH-M-08524, ou rótulos curtos P1/M01/PT-12
   // Prefixo do credenciado pode ter dígito (F8F). Lookbehind evita casar "M-0858" dentro de "F8F-M-0858".
-  const NAME = `(?<![A-Z0-9\\-])([A-Z0-9]{2,4}-[VMPT]-[A-Z0-9\\-]+|V\\d+|[A-Z]{1,2}-?\\d{1,4})`;
+  const NAME = `(?<![A-Z0-9\\-])([A-Z0-9]{2,4}-[VMPT]-[A-Z0-9\\-]+|V\\s?\\d+|[A-Z]{1,2}-?\\d{1,4})`;
+  const norm = n => n.replace(/\s+/g, '');   // "V 8" → "V8"
   // --- Padrão UTM: "NAME, [definido] pelas coordenadas E: X m e N: Y m" ---
-  const reUTM = new RegExp(NAME + `[,.\\s]{1,4}(?:definido\\s+)?pelas\\s+coordenadas\\s+E[:\\s]*([\\d\\.,]+)\\s*m?\\s*[e,]\\s*N[:\\s]*([\\d\\.,]+)`, 'gi');
+  const reUTM = new RegExp(NAME + `[,.\\s]{1,4}(?:${fz('definido')}\\s+)?${fz('pelas')}\\s+${fz('coordenadas')}\\s+E[:\\s]*([\\d\\.,]+)\\s*m?\\s*[e,]\\s*N[:\\s]*([\\d\\.,]+)`, 'gi');
   let m;
   while((m = reUTM.exec(t)) !== null){
-    const name = m[1];
+    const name = norm(m[1]);
     if(seen.has(name)) continue;
     const e = parseNumBR(m[2]), n = parseNumBR(m[3]);
     if(isFinite(e) && isFinite(n)){ utmVerts.push({ name, e, n }); seen.add(name); }
   }
   // --- Padrão SIGEF geográfico: "NAME, de coordenadas -8,xxxxxx; -34,xxxxxx" ---
   // Lat/long decimais, aceitando ; ou vírgula/espaço entre eles
-  const reGeo = new RegExp(NAME + `[,.\\s]{1,4}(?:de\\s+)?coordenadas\\s+(-?\\d{1,2}[\\.,]\\d{3,})\\s*[;,\\s]+\\s*(-?\\d{1,3}[\\.,]\\d{3,})`, 'gi');
+  const reGeo = new RegExp(NAME + `[,.\\s]{1,4}(?:de\\s+)?${fz('coordenadas')}\\s+(-?\\d{1,2}[\\.,]\\d{3,})\\s*[;,\\s]+\\s*(-?\\d{1,3}[\\.,]\\d{3,})`, 'gi');
   while((m = reGeo.exec(t)) !== null){
-    const name = m[1];
+    const name = norm(m[1]);
     if(seen.has(name)) continue;
     let lat = parseNumBR(m[2]), lng = parseNumBR(m[3]);
     // Heurística para Brasil: lat ~ -5 a -34, lng ~ -34 a -74
@@ -1391,7 +1553,7 @@ function parseMemorialText(text){
   const reDMS = new RegExp(NAME + `[^°º\\d]{0,40}?` + DMS + `[^°º\\d]{0,40}?` + DMS, 'g');
   const dmsVal = (sg, d, mi, se, letter) => { let v = (+d) + (+mi)/60 + parseFloat(String(se).replace(',','.'))/3600; if(sg === '-' || /^[SWO]$/i.test(letter || '')) v = -v; return v; };
   while((m = reDMS.exec(t)) !== null){
-    const name = m[1];
+    const name = norm(m[1]);
     if(seen.has(name)) continue;
     const a = { v: dmsVal(m[2], m[3], m[4], m[5], m[6]), L: (m[6] || '').toUpperCase() };
     const b = { v: dmsVal(m[7], m[8], m[9], m[10], m[11]), L: (m[11] || '').toUpperCase() };
@@ -1407,7 +1569,7 @@ function parseMemorialText(text){
   if(utmVerts.length < 3 && geoVerts.length < 3){
     const reUTM2 = new RegExp(NAME + `[^\\dEN]{1,20}?E[:\\s=]*([\\d\\.,]{5,})[^\\dN]{1,20}?N[:\\s=]*([\\d\\.,]{6,})`, 'gi');
     while((m = reUTM2.exec(t)) !== null){
-      const name = m[1];
+      const name = norm(m[1]);
       if(seen.has(name)) continue;
       const e = parseNumBR(m[2]), n = parseNumBR(m[3]);
       if(isFinite(e) && isFinite(n)){ utmVerts.push({ name, e, n }); seen.add(name); }
@@ -1415,7 +1577,7 @@ function parseMemorialText(text){
   }
   // Detecta Meridiano Central para inferir fuso
   let mc = null;
-  m = t.match(/Meridiano\s+Central\s+(\d+)\s*°?[^\d]{0,20}?(W|WGr|E|EGr)?/i);
+  m = t.match(new RegExp(`${fz('Meridiano')}\\s+${fz('Central')}\\s+(\\d+)\\s*°?[^\\d]{0,20}?(W|WGr|E|EGr)?`, 'i'));
   if(m){
     const deg = parseInt(m[1], 10);
     const isW = !m[2] || /^W/i.test(m[2]);
@@ -1435,7 +1597,22 @@ function parseMemorialText(text){
 
 // Carrega no estado o resultado de parseMemorialText (PDF ou texto colado). Geográfico vence quando tem ≥ 3 vértices.
 function applyParsedMemorial({ utmVerts, geoVerts, fuso }, label){
+  // Sanidade UTM: E em [160 000, 840 000]; N no hemisfério Sul (Brasil) em [6 000 000, 10 000 000], no Norte em [0, 700 000].
+  // Vértice fora disso foi lido errado (ex.: "9.152. 898,701" virando 9,152) — avisa e descarta.
+  const hemiN = (cfg().hemi || 'S') === 'N';
+  const dropped = utmVerts.filter(v => !(v.e >= 160000 && v.e <= 840000 && (hemiN ? (v.n >= 0 && v.n <= 700000) : (v.n >= 6000000 && v.n <= 10000000))));
+  utmVerts = utmVerts.filter(v => !dropped.includes(v));
   const useGeo = geoVerts.length >= utmVerts.length && geoVerts.length >= 3;
+  if(!useGeo && utmVerts.length < 3){ setStatus('input-status','err',`${label}: ${dropped.length ? dropped.length + ' vértice(s) com coordenadas fora da faixa UTM (' + dropped.slice(0,3).map(v => `${v.name} E=${v.e} N=${v.n}`).join('; ') + ') e ' : ''}menos de 3 vértices válidos. Confira o formato do memorial.`); return; }
+  // Diagnóstico: nomes lidos, lacunas na sequência V1..Vn e lados absurdos (> 50 km) — ajudam a ver onde a leitura falhou
+  const names = (useGeo ? geoVerts : utmVerts).map(v => v.name);
+  const nums = names.map(n => (n.match(/^V-?(\d+)$/i) || [])[1]).filter(Boolean).map(Number);
+  const gaps = []; if(nums.length === names.length && nums.length){ const mx = Math.max(...nums); for(let i = 1; i <= mx; i++) if(!nums.includes(i)) gaps.push('V' + i); }
+  const warns = [];
+  if(dropped.length) warns.push(`${dropped.length} vértice(s) descartado(s) por coordenada fora da faixa UTM: ${dropped.slice(0,4).map(v => v.name).join(', ')}`);
+  if(gaps.length) warns.push(`não encontrei ${gaps.slice(0,6).join(', ')}${gaps.length > 6 ? '…' : ''} no texto`);
+  if(!useGeo){ let big = 0; for(let i = 0; i < utmVerts.length; i++){ const a = utmVerts[i], b = utmVerts[(i+1) % utmVerts.length]; if(Math.hypot(a.e-b.e, a.n-b.n) > 50000) big++; } if(big) warns.push(`${big} lado(s) com mais de 50 km — coordenadas provavelmente lidas errado`); }
+  const warnTxt = warns.length ? ` ⚠ ${warns.join(' · ')}. Vértices lidos: ${names.join(', ')}.` : '';
   let msgFuso = '';
   if(!useGeo && fuso && fuso >= 18 && fuso <= 25){
     $('cfg-zone').value = fuso;
@@ -1451,7 +1628,7 @@ function applyParsedMemorial({ utmVerts, geoVerts, fuso }, label){
     }
     state.fromKML = true;
     loadFromKMLPoints(pts);
-    setStatus('input-status','ok',`${label} importado (geográfico, SIRGAS 2000): ${pts.length} vértices com os códigos do memorial.`);
+    setStatus('input-status', warns.length ? 'warn' : 'ok', `${label} importado (geográfico, SIRGAS 2000): ${pts.length} vértices com os códigos do memorial.${warnTxt}`);
   } else {
     let vv = utmVerts.slice();
     if(vv.length >= 4){
@@ -1460,7 +1637,7 @@ function applyParsedMemorial({ utmVerts, geoVerts, fuso }, label){
     }
     state.fromKML = false;
     loadFromUTM(vv);
-    setStatus('input-status','ok',`${label} importado (UTM): ${vv.length} vértices${msgFuso}. Confirme fuso/hemisfério antes de exportar.`);
+    setStatus('input-status', warns.length ? 'warn' : 'ok', `${label} importado (UTM): ${vv.length} vértices${msgFuso}. Confirme fuso/hemisfério antes de exportar.${warnTxt}`);
   }
 }
 
@@ -1882,14 +2059,92 @@ function refreshLegendPanel(){
   }
 }
 
+// ===== ACESSO AOS SERVIÇOS OGC (direto → proxy do site) =====
+// Os órgãos não enviam CORS: o navegador não lê a resposta. Tenta direto e, falhando, passa por /api/ogc
+// (função no Vercel que só repassa GET para hosts/requisições OGC listados — ver api/ogc.js).
+function ogcProxyUrl(url){ return `/api/ogc?url=${encodeURIComponent(url)}`; }
+async function ogcFetchText(url){
+  let direct;
+  try { const r = await fetch(url, { mode: 'cors' }); if(r.ok) return { text: await r.text(), via: 'direto' }; direct = new Error('http ' + r.status); }
+  catch(err){ direct = err; }
+  if(!/^https?:$/.test(location.protocol)) throw direct;
+  const r2 = await fetch(ogcProxyUrl(url));
+  if(!r2.ok){ let d = ''; try { d = (await r2.json()).error || ''; } catch(_){} throw new Error(`proxy http ${r2.status}${d ? ' · ' + d : ''}`); }
+  return { text: await r2.text(), via: 'proxy' };
+}
+// Resposta OGC → GeoJSON FeatureCollection. Aceita GeoJSON ou GML (MapServer/i3Geo responde GML2 por padrão).
+const GML_GEOM_TAGS = /^(boundedBy|geometry|geom|the_geom|msGeometry|shape|wkb_geometry|geometria)$/i;
+function gmlRingCoords(ring){
+  const c = ring.getElementsByTagNameNS('*', 'coordinates')[0];
+  let pts = [];
+  if(c) pts = c.textContent.trim().split(/\s+/).map(p => p.split(',').map(Number));
+  else {
+    const pl = ring.getElementsByTagNameNS('*', 'posList')[0];
+    if(pl){ const n = pl.textContent.trim().split(/\s+/).map(Number); for(let i = 0; i + 1 < n.length; i += 2) pts.push([n[i], n[i+1]]); }
+  }
+  // Eixos: esperado lon,lat (WFS 1.0.0). No Brasil lon ≤ −34,7° e lat ≥ −33,8°: se vier lat,lon, inverte.
+  return pts.filter(p => p.length >= 2 && isFinite(p[0]) && isFinite(p[1])).map(([x, y]) => (x > -34.7 && y < -34.7) ? [y, x] : [x, y]);
+}
+function gmlGeometry(feat){
+  const polys = [...feat.getElementsByTagNameNS('*', 'Polygon')];
+  if(!polys.length) return null;
+  const coords = polys.map(p => {
+    const outer = p.getElementsByTagNameNS('*', 'outerBoundaryIs')[0] || p.getElementsByTagNameNS('*', 'exterior')[0] || p;
+    const inners = [...p.getElementsByTagNameNS('*', 'innerBoundaryIs'), ...p.getElementsByTagNameNS('*', 'interior')];
+    return [gmlRingCoords(outer), ...inners.map(gmlRingCoords)].filter(r => r.length >= 4);
+  }).filter(p => p.length);
+  if(!coords.length) return null;
+  return coords.length === 1 ? { type: 'Polygon', coordinates: coords[0] } : { type: 'MultiPolygon', coordinates: coords };
+}
+function gmlToFeatures(xmlText){
+  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+  if(doc.getElementsByTagName('parsererror').length) throw new Error('XML inválido');
+  // WFS: <gml:featureMember><ms:tema>…</ms:tema></gml:featureMember>
+  // GetFeatureInfo do MapServer (INCRA): <msGMLOutput><tema_layer><tema_feature>…</tema_feature></tema_layer></msGMLOutput>
+  const members = [...doc.getElementsByTagNameNS('*', 'featureMember'), ...doc.getElementsByTagNameNS('*', 'member')];
+  let feats = members.map(m => m.children[0]).filter(Boolean);
+  if(!feats.length && doc.documentElement && doc.documentElement.localName === 'msGMLOutput'){
+    feats = [...doc.getElementsByTagName('*')].filter(el => /_feature$/.test(el.localName));
+  }
+  const out = [];
+  for(const feat of feats){
+    const properties = {};
+    for(const c of feat.children){
+      if(GML_GEOM_TAGS.test(c.localName) || /_geometry$/.test(c.localName) || c.getElementsByTagNameNS('*', 'coordinates').length || c.getElementsByTagNameNS('*', 'posList').length) continue;
+      if(c.children.length === 0) properties[c.localName] = c.textContent.trim();
+    }
+    out.push({ type: 'Feature', properties, geometry: gmlGeometry(feat) });
+  }
+  return out;
+}
+function parseFeatureCollection(text){
+  const t = String(text || '').trim();
+  if(t.startsWith('{')){ const j = JSON.parse(t); if(j && j.type === 'FeatureCollection') return j; if(j && j.type === 'Feature') return { type: 'FeatureCollection', features: [j] }; throw new Error('JSON sem FeatureCollection'); }
+  if(t.startsWith('<')){
+    if(/ServiceException|ExceptionReport|ExceptionText/i.test(t.slice(0, 600))) throw new Error('exceção do servidor: ' + t.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160));
+    return { type: 'FeatureCollection', features: gmlToFeatures(t) };
+  }
+  throw new Error('resposta não reconhecida');
+}
+
 // ===== INFO DAS FEIÇÕES NO CLIQUE (WMS GetFeatureInfo) =====
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// A consulta no clique só acontece com "ⓘ Info" ligado (desligado por padrão: clique livre no mapa).
+let mapInfoMode = false;
+$('btn-map-info').addEventListener('click', () => {
+  mapInfoMode = !mapInfoMode;
+  $('btn-map-info').classList.toggle('active', mapInfoMode);
+  $('btn-map-info').setAttribute('aria-pressed', String(mapInfoMode));
+  $('map-wrap') && $('map-wrap').classList.toggle('info-mode', mapInfoMode);
+  if(!mapInfoMode) map.closePopup();
+});
 map.on('click', async (e) => {
+  if(!mapInfoMode) return;
   const ids = Object.keys(activeOverlays);
-  if(!ids.length) return;
+  if(!ids.length){ L.popup({ maxWidth: 300 }).setLatLng(e.latlng).setContent('<div class="gfi"><em>Nenhuma camada ativa. Ligue uma camada em "Camadas" para consultar neste ponto.</em></div>').openOn(map); return; }
   const popup = L.popup({ maxWidth: 360, autoPan: true })
     .setLatLng(e.latlng)
-    .setContent('<div style="font-size:12px;color:#0a1f3d;padding:2px">Consultando camadas…</div>')
+    .setContent('<div class="gfi">Consultando camadas…</div>')
     .openOn(map);
   const size = map.getSize();
   const point = map.latLngToContainerPoint(e.latlng);
@@ -1898,48 +2153,50 @@ map.on('click', async (e) => {
   for(const id of ids){
     const def = overlayDefs[id];
     const ep = overlayEndpoint(def);
+    // GeoServer responde JSON; i3Geo/MapServer (INCRA) responde GML — o parser aceita os dois.
+    const fmt = def.incra ? 'application/vnd.ogc.gml' : 'application/json';
     const params = new URLSearchParams({
       service: 'WMS', version: '1.1.1', request: 'GetFeatureInfo',
-      layers: ep.wmsLayer, query_layers: ep.wmsLayer, info_format: 'application/json',
+      layers: ep.wmsLayer, query_layers: ep.wmsLayer, info_format: fmt,
       srs: 'EPSG:4326', bbox, width: size.x, height: size.y,
       x: Math.round(point.x), y: Math.round(point.y), feature_count: 5
     });
     const sep = ep.wmsUrl.includes('?') ? '&' : '?';
     const url = `${ep.wmsUrl}${sep}${params.toString()}`;
-    const htmlUrl = url.replace('info_format=application%2Fjson', 'info_format=text%2Fhtml');
+    const htmlUrl = url.replace(/info_format=[^&]+/, 'info_format=text%2Fhtml');
     try {
-      const r = await fetch(url, { mode: 'cors' });
-      if(!r.ok) throw new Error('http ' + r.status);
-      const j = await r.json();
-      results.push({ id, name: def.name, features: (j.features || []), htmlUrl });
+      const { text, via } = await ogcFetchText(url);
+      const fc = parseFeatureCollection(text);
+      results.push({ id, name: def.name, features: (fc.features || []), htmlUrl, via });
     } catch(err){
-      results.push({ id, name: def.name, error: true, htmlUrl });
+      results.push({ id, name: def.name, error: true, detail: String(err && err.message || err), htmlUrl });
     }
   }
-  let html = '<div style="font-size:11.5px;color:#0a1f3d;max-height:300px;overflow-y:auto;padding:2px">';
+  let html = '<div class="gfi">';
   const anyFeature = results.some(r => r.features && r.features.length);
   const anyError = results.some(r => r.error);
   if(!anyFeature && !anyError){ html += '<em>Nenhuma feição encontrada neste ponto.</em>'; }
   for(const r of results){
-    html += `<div style="margin-bottom:10px"><div style="font-weight:700;color:#195d83;font-size:10.5px;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">${escapeHtml(r.name)}</div>`;
+    html += `<div class="gfi-block"><h5>${escapeHtml(r.name)}</h5>`;
     if(r.error){
-      html += `<div style="font-size:10.5px;color:#7b7c7b">Servidor não permite consulta direta. <a href="${escapeHtml(r.htmlUrl)}" target="_blank" rel="noopener" style="color:#195d83;text-decoration:underline">Abrir informações em nova aba</a>.</div>`;
+      html += `<div class="gfi-note">Não foi possível ler a resposta do servidor (${escapeHtml(r.detail || '')}). <a href="${escapeHtml(r.htmlUrl)}" target="_blank" rel="noopener">Abrir informações em nova aba</a>.</div>`;
     } else if(!r.features.length){
-      html += '<div style="font-size:10.5px;color:#7b7c7b;font-style:italic">Sem feição neste ponto.</div>';
+      html += '<div class="gfi-note"><em>Sem feição neste ponto.</em></div>';
     } else {
       for(const f of r.features.slice(0,3)){
         const props = f.properties || {};
         const entries = Object.entries(props).filter(([k,v]) => v != null && v !== '');
         if(entries.length){
-          html += '<table style="font-size:10.5px;border-collapse:collapse;width:100%;margin-bottom:4px"><tbody>';
-          for(const [k,v] of entries.slice(0,10)){
-            html += `<tr><td style="padding:1px 8px 1px 0;color:#7b7c7b;vertical-align:top;white-space:nowrap">${escapeHtml(k)}</td><td style="padding:1px 0;word-break:break-word">${escapeHtml(String(v).slice(0,120))}</td></tr>`;
+          html += '<table><tbody>';
+          for(const [k,v] of entries.slice(0,14)){
+            html += `<tr><td class="k">${escapeHtml(k)}</td><td>${escapeHtml(String(v).slice(0,120))}</td></tr>`;
           }
           html += '</tbody></table>';
         } else {
-          html += '<div style="color:#7b7c7b;font-style:italic">Feição sem atributos.</div>';
+          html += '<div class="gfi-note"><em>Feição sem atributos.</em></div>';
         }
       }
+      if(r.via === 'proxy') html += '<div class="gfi-note">via proxy do Confrontei (o órgão não libera leitura direta pelo navegador)</div>';
     }
     html += '</div>';
   }
@@ -3415,7 +3672,7 @@ async function handleArtRrtFile(file){
         <tbody id="sg-ov-body"></tbody>
       </table>
     </div>
-    <div class="sg-note">Consulta por caixa envolvente no WFS público do Acervo Fundiário do INCRA (i3Geo, tema de imóveis certificados privados da UF escolhida em "Camadas do mapa"; não exige senha; o antigo geoservicos.incra.gov.br foi desativado) e interseção exata (Martinez) no plano SGL do imóvel. Sobreposição &gt; 0,5 m² com parcela certificada é motivo de rejeição no SIGEF; vizinhas com 0 m² apenas confrontam. Se o navegador for bloqueado por CORS, exporte as parcelas do entorno em GeoJSON (QGIS/SIGEF) e carregue aqui. Resultado é de conferência — a validação final é do SIGEF.</div>
+    <div class="sg-note">Consulta por caixa envolvente no WFS público do Acervo Fundiário do INCRA (i3Geo, tema de imóveis certificados privados da UF escolhida em "Camadas do mapa"; não exige senha; o antigo geoservicos.incra.gov.br foi desativado) e interseção exata (Martinez) no plano SGL do imóvel. Sobreposição &gt; 0,5 m² com parcela certificada é motivo de rejeição no SIGEF; vizinhas com 0 m² apenas confrontam. <strong>Limite comum</strong>: o Acervo publica coordenadas com 6 casas decimais (≈ 0,1 m), então parcelas vizinhas geram "lascas" de poucos cm de largura — a ferramenta as separa da sobreposição real (largura média ≤ 0,3 m). <strong>≈ 100 %</strong> costuma ser a própria parcela já certificada. Se o navegador for bloqueado por CORS, exporte as parcelas do entorno em GeoJSON (QGIS/SIGEF) e carregue aqui. Resultado é de conferência — a validação final é do SIGEF.</div>
 
     <div class="mem-section-title">APP e faixas não edificáveis (estimativa local)</div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
@@ -3821,7 +4078,12 @@ function sgOverlapCheck(fc){
     let inter = [];
     try { inter = polygonClipping.intersection([subj], polys); } catch(e){ console.warn('clip', e); continue; }
     const area = inter.length ? sgMultiPolyAreaENU(inter, proj) : 0;
-    out.push({ f, inter, area, pct: subjArea ? area / subjArea * 100 : 0 });
+    // Largura média da interseção (área / semiperímetro): separa sobreposição real de "lasca" ao longo de um limite comum.
+    // O Acervo Fundiário publica coordenadas com 6 casas decimais (≈ 0,1 m): parcelas vizinhas geram lascas de poucos cm.
+    let perim = 0;
+    for(const poly of inter){ for(const ring of poly){ const xy = ring.map(([lng, lat]) => proj(lng, lat)); for(let i = 0; i < xy.length; i++){ const [x1,y1] = xy[i], [x2,y2] = xy[(i+1) % xy.length]; perim += Math.hypot(x2-x1, y2-y1); } } }
+    const width = perim > 0 ? area / (perim / 2) : 0;
+    out.push({ f, inter, area, width, pct: subjArea ? area / subjArea * 100 : 0 });
   }
   out.sort((a, b) => b.area - a.area);
   return { out, subjArea };
@@ -3833,13 +4095,22 @@ function sgRenderOverlaps(res){
   let nOver = 0;
   for(const r of res.out){
     const p = r.f.properties || {};
-    const cod = sgPick(p, ['codigo_imo','codigo_imovel','parcela_co','parcela','codigo','cod_imovel','id']);
-    const nome = sgPick(p, ['nome_area','nome','denominacao','detentor','proprietario']);
-    const status = sgPick(p, ['status','situacao_i','situacao','situacao_imovel']);
-    const over = r.area > 0.5;
+    // Atributos reais do Acervo Fundiário (WFS, 01/10/2026): parcela_codigo (UUID da certificação SIGEF), nome_area,
+    // status (CERTIFICADA), situacao_informada (REGISTRADA), registro_matricula, codigo_imovel (SNCR), rt, art, data_aprovacao
+    const cod = sgPick(p, ['parcela_codigo','parcela_co','codigo_imovel','codigo_imo','parcela','codigo','cod_imovel','id']);
+    const nomeBase = sgPick(p, ['nome_area','nome','denominacao','detentor','proprietario']);
+    const mat = sgPick(p, ['registro_matricula','matricula']), sncr = sgPick(p, ['codigo_imovel','codigo_imo']);
+    const nome = [nomeBase, mat ? `mat. ${mat}` : '', sncr ? `SNCR ${sncr}` : ''].filter(Boolean).join(' · ');
+    const status = [sgPick(p, ['status','situacao_i','situacao','situacao_imovel']), sgPick(p, ['situacao_informada'])].filter(Boolean).join(' · ');
+    // Três leituras: sobreposição real (área > 0,5 m² E largura média > 0,3 m); "limite comum" (lasca mais fina que a
+    // precisão das coordenadas publicadas, 6 casas ≈ 0,1 m); vizinha (0 m²). ≈ 100 % = provavelmente a própria parcela.
+    const sliver = r.area > 0.5 && r.width <= 0.3;
+    const over = r.area > 0.5 && !sliver;
+    const self = over && r.pct >= 99;
     if(over) nOver++;
     const tr = document.createElement('tr');
     tr.className = over ? 'sg-err' : '';
+    r.kind = over ? (self ? 'propria' : 'sobreposicao') : (sliver ? 'limite' : 'vizinha');
     const allProps = Object.entries(p).map(([k, val]) => `${escapeHtml(k)}: ${escapeHtml(String(val))}`).join(' · ');
     tr.innerHTML = `
       <td class="sg-ro" title="${escapeHtml(allProps)}">${escapeHtml(cod || '—')}</td>
@@ -3848,7 +4119,7 @@ function sgRenderOverlaps(res){
       <td class="sg-ro" style="text-align:right">${fmtNum(r.area, 2)}</td>
       <td class="sg-ro" style="text-align:right">${fmtNum(r.area / 10000, 4)}</td>
       <td class="sg-ro" style="text-align:right">${fmtNum(r.pct, 2)} %</td>
-      <td>${over ? '<span class="sg-e"><strong>SOBREPOSIÇÃO</strong> — rejeição provável no SIGEF</span>' : '<span class="sg-ok">vizinha (só confronta)</span>'}</td>`;
+      <td>${self ? '<span class="sg-e"><strong>≈ 100 %</strong> — provavelmente a própria parcela já certificada (conferência); se for outra, é SOBREPOSIÇÃO total</span>' : over ? '<span class="sg-e"><strong>SOBREPOSIÇÃO</strong> — rejeição provável no SIGEF</span>' : sliver ? `<span class="sg-ok">limite comum — lasca de ${fmtNum(r.width * 100, 1)} cm, dentro da precisão das coordenadas publicadas (6 casas ≈ 0,1 m); confere o vértice comum</span>` : '<span class="sg-ok">vizinha (só confronta)</span>'}</td>`;
     body.appendChild(tr);
   }
   const st = $('sg-ov-status');
@@ -3865,7 +4136,9 @@ function sgDrawOverlaps(res){
     const g = r.f.geometry;
     const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
     for(const poly of polys){ L.polygon(poly[0].map(([lng, lat]) => [lat, lng]), { color: '#e8b04a', weight: 1.5, dashArray: '4 4', fill: false }).addTo(overlapLayer); }
-    for(const poly of r.inter){ L.polygon(poly.map(ring => ring.map(([lng, lat]) => [lat, lng])), { color: '#ff3b3b', weight: 2, fillColor: '#ff3b3b', fillOpacity: 0.35 }).bindPopup(`<strong>Sobreposição</strong><br>${fmtNum(r.area,2)} m² · ${fmtNum(r.pct,2)} % do imóvel`).addTo(overlapLayer); }
+    // Lasca de limite comum (r.kind === 'limite') vai em âmbar fino, não em vermelho: não é sobreposição real
+    const isSliver = r.kind === 'limite';
+    for(const poly of r.inter){ L.polygon(poly.map(ring => ring.map(([lng, lat]) => [lat, lng])), isSliver ? { color: '#e8b04a', weight: 1, fillColor: '#e8b04a', fillOpacity: 0.25 } : { color: '#ff3b3b', weight: 2, fillColor: '#ff3b3b', fillOpacity: 0.35 }).bindPopup(isSliver ? `<strong>Limite comum</strong><br>lasca de ${fmtNum(r.area,2)} m² (largura ≈ ${fmtNum(r.width*100,1)} cm) — dentro da precisão das coordenadas publicadas` : `<strong>Sobreposição</strong><br>${fmtNum(r.area,2)} m² · ${fmtNum(r.pct,2)} % do imóvel`).addTo(overlapLayer); }
   }
 }
 function sgClearOverlaps(){ if(overlapLayer) overlapLayer.clearLayers(); $('sg-ov-body').innerHTML = ''; $('sg-ov-wrap').style.display = 'none'; $('sg-ov-status').textContent = ''; }
@@ -3878,16 +4151,20 @@ async function sgFetchSigefWFS(){
   // Tenta cada nome candidato do tema (ver overlayDefs.sigef.temas) até obter uma FeatureCollection.
   const uf = layerUF();
   let lastErr = null;
+  const bboxStr = `${minLng - pad},${minLat - pad},${maxLng + pad},${maxLat + pad}`;
   for(const tpl of overlayDefs.sigef.temas){
     const tema = tpl.replace('{uf}', uf);
-    const params = new URLSearchParams({ tema, SERVICE: 'WFS', VERSION: '1.0.0', REQUEST: 'GetFeature', TYPENAME: tema, OUTPUTFORMAT: 'geojson', SRSNAME: 'EPSG:4674', MAXFEATURES: '300', BBOX: `${minLng - pad},${minLat - pad},${maxLng + pad},${maxLat + pad}` });
-    try {
-      const r = await fetch(`${INCRA_OGC}?${params}`, { mode: 'cors' });
-      if(!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = await r.json();
-      if(!j || !Array.isArray(j.features)) throw new Error('resposta sem features');
-      return j;
-    } catch(err){ lastErr = err; }
+    // 1ª: GeoJSON (se o servidor suportar); 2ª: formato padrão do WFS 1.0.0 (GML2), convertido aqui.
+    for(const fmt of ['geojson', null]){
+      const params = new URLSearchParams({ tema, SERVICE: 'WFS', VERSION: '1.0.0', REQUEST: 'GetFeature', TYPENAME: tema, SRSNAME: 'EPSG:4674', MAXFEATURES: '300', BBOX: bboxStr });
+      if(fmt) params.set('OUTPUTFORMAT', fmt);
+      try {
+        const { text, via } = await ogcFetchText(`${INCRA_OGC}?${params}`);
+        const fc = parseFeatureCollection(text);
+        fc._via = via; fc._tema = tema;
+        return fc;
+      } catch(err){ lastErr = err; }
+    }
   }
   throw lastErr || new Error('WFS indisponível');
 }
@@ -4000,7 +4277,7 @@ async function sgFetchSRTM(){
   // Sobreposição SIGEF
   $('sg-ov-btn').addEventListener('click', async () => {
     const st = $('sg-ov-status'); st.style.color = 'var(--soft)'; st.textContent = 'Consultando WFS do INCRA…';
-    try { const fc = await sgFetchSigefWFS(); sgRenderOverlaps(sgOverlapCheck(fc)); }
+    try { const fc = await sgFetchSigefWFS(); sgRenderOverlaps(sgOverlapCheck(fc)); st.textContent += ` Fonte: WFS do Acervo Fundiário/INCRA (${fc._tema || 'tema'}${fc._via === 'proxy' ? ', via proxy do Confrontei' : ''}), ${(fc.features || []).length} feição(ões) na caixa.`; }
     catch(err){ console.error(err); st.style.color = '#e8b04a'; st.textContent = `Não foi possível consultar o INCRA pelo navegador (${err.message || err}). Exporte as parcelas do entorno em GeoJSON e use "Carregar GeoJSON de parcelas".`; }
   });
   $('sg-ov-file-btn').addEventListener('click', () => $('sg-ov-file').click());
