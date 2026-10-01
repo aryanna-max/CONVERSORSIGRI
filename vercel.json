@@ -3,6 +3,6 @@
   "trailingSlash": false,
   "regions": ["gru1"],
   "functions": {
-    "api/ogc.js": { "maxDuration": 30 }
+    "api/ogc.js": { "maxDuration": 60 }
   }
 }
