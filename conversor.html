@@ -1368,26 +1368,32 @@ function parseNumBR(s){
 }
 
 function parseMemorialText(text){
-  const t = text.replace(/\s+/g, ' ');
+  // O texto extraído de PDF (pdf.js) vem com espaços espúrios: dentro de palavras ("coord enadas", "defi nido") e
+  // dentro de números ("9.152. 898,701", "2 . 219,24") — caso real: memorial Catuama REV00 perdeu V1/V3 e V7 ficou com
+  // N = 9,152. Normaliza os números (nunca junta dois números separados só por espaço) e tolera 1 espaço entre letras.
+  let t = text.replace(/\s+/g, ' ');
+  t = t.replace(/(\d)\s*([.,])\s*(?=\d)/g, '$1$2');
+  const fz = w => w.split('').join('\\s?');   // "pelas" → p\s?e\s?l\s?a\s?s
   const utmVerts = [], geoVerts = [];
   const seen = new Set();
   // Nome: aceita V1..Vn (AG/NBR), códigos SIGEF do tipo GLH-V-10491, BWF-P-A238, GLH-M-08524, ou rótulos curtos P1/M01/PT-12
   // Prefixo do credenciado pode ter dígito (F8F). Lookbehind evita casar "M-0858" dentro de "F8F-M-0858".
-  const NAME = `(?<![A-Z0-9\\-])([A-Z0-9]{2,4}-[VMPT]-[A-Z0-9\\-]+|V\\d+|[A-Z]{1,2}-?\\d{1,4})`;
+  const NAME = `(?<![A-Z0-9\\-])([A-Z0-9]{2,4}-[VMPT]-[A-Z0-9\\-]+|V\\s?\\d+|[A-Z]{1,2}-?\\d{1,4})`;
+  const norm = n => n.replace(/\s+/g, '');   // "V 8" → "V8"
   // --- Padrão UTM: "NAME, [definido] pelas coordenadas E: X m e N: Y m" ---
-  const reUTM = new RegExp(NAME + `[,.\\s]{1,4}(?:definido\\s+)?pelas\\s+coordenadas\\s+E[:\\s]*([\\d\\.,]+)\\s*m?\\s*[e,]\\s*N[:\\s]*([\\d\\.,]+)`, 'gi');
+  const reUTM = new RegExp(NAME + `[,.\\s]{1,4}(?:${fz('definido')}\\s+)?${fz('pelas')}\\s+${fz('coordenadas')}\\s+E[:\\s]*([\\d\\.,]+)\\s*m?\\s*[e,]\\s*N[:\\s]*([\\d\\.,]+)`, 'gi');
   let m;
   while((m = reUTM.exec(t)) !== null){
-    const name = m[1];
+    const name = norm(m[1]);
     if(seen.has(name)) continue;
     const e = parseNumBR(m[2]), n = parseNumBR(m[3]);
     if(isFinite(e) && isFinite(n)){ utmVerts.push({ name, e, n }); seen.add(name); }
   }
   // --- Padrão SIGEF geográfico: "NAME, de coordenadas -8,xxxxxx; -34,xxxxxx" ---
   // Lat/long decimais, aceitando ; ou vírgula/espaço entre eles
-  const reGeo = new RegExp(NAME + `[,.\\s]{1,4}(?:de\\s+)?coordenadas\\s+(-?\\d{1,2}[\\.,]\\d{3,})\\s*[;,\\s]+\\s*(-?\\d{1,3}[\\.,]\\d{3,})`, 'gi');
+  const reGeo = new RegExp(NAME + `[,.\\s]{1,4}(?:de\\s+)?${fz('coordenadas')}\\s+(-?\\d{1,2}[\\.,]\\d{3,})\\s*[;,\\s]+\\s*(-?\\d{1,3}[\\.,]\\d{3,})`, 'gi');
   while((m = reGeo.exec(t)) !== null){
-    const name = m[1];
+    const name = norm(m[1]);
     if(seen.has(name)) continue;
     let lat = parseNumBR(m[2]), lng = parseNumBR(m[3]);
     // Heurística para Brasil: lat ~ -5 a -34, lng ~ -34 a -74
@@ -1403,7 +1409,7 @@ function parseMemorialText(text){
   const reDMS = new RegExp(NAME + `[^°º\\d]{0,40}?` + DMS + `[^°º\\d]{0,40}?` + DMS, 'g');
   const dmsVal = (sg, d, mi, se, letter) => { let v = (+d) + (+mi)/60 + parseFloat(String(se).replace(',','.'))/3600; if(sg === '-' || /^[SWO]$/i.test(letter || '')) v = -v; return v; };
   while((m = reDMS.exec(t)) !== null){
-    const name = m[1];
+    const name = norm(m[1]);
     if(seen.has(name)) continue;
     const a = { v: dmsVal(m[2], m[3], m[4], m[5], m[6]), L: (m[6] || '').toUpperCase() };
     const b = { v: dmsVal(m[7], m[8], m[9], m[10], m[11]), L: (m[11] || '').toUpperCase() };
@@ -1419,7 +1425,7 @@ function parseMemorialText(text){
   if(utmVerts.length < 3 && geoVerts.length < 3){
     const reUTM2 = new RegExp(NAME + `[^\\dEN]{1,20}?E[:\\s=]*([\\d\\.,]{5,})[^\\dN]{1,20}?N[:\\s=]*([\\d\\.,]{6,})`, 'gi');
     while((m = reUTM2.exec(t)) !== null){
-      const name = m[1];
+      const name = norm(m[1]);
       if(seen.has(name)) continue;
       const e = parseNumBR(m[2]), n = parseNumBR(m[3]);
       if(isFinite(e) && isFinite(n)){ utmVerts.push({ name, e, n }); seen.add(name); }
@@ -1427,7 +1433,7 @@ function parseMemorialText(text){
   }
   // Detecta Meridiano Central para inferir fuso
   let mc = null;
-  m = t.match(/Meridiano\s+Central\s+(\d+)\s*°?[^\d]{0,20}?(W|WGr|E|EGr)?/i);
+  m = t.match(new RegExp(`${fz('Meridiano')}\\s+${fz('Central')}\\s+(\\d+)\\s*°?[^\\d]{0,20}?(W|WGr|E|EGr)?`, 'i'));
   if(m){
     const deg = parseInt(m[1], 10);
     const isW = !m[2] || /^W/i.test(m[2]);
@@ -1447,8 +1453,10 @@ function parseMemorialText(text){
 
 // Carrega no estado o resultado de parseMemorialText (PDF ou texto colado). Geográfico vence quando tem ≥ 3 vértices.
 function applyParsedMemorial({ utmVerts, geoVerts, fuso }, label){
-  // Sanidade UTM: E em [160 000, 840 000] e N em [0, 10 000 000]. Vértice fora disso foi lido errado — avisa e descarta.
-  const dropped = utmVerts.filter(v => !(v.e >= 160000 && v.e <= 840000 && v.n >= 0 && v.n <= 10000000));
+  // Sanidade UTM: E em [160 000, 840 000]; N no hemisfério Sul (Brasil) em [6 000 000, 10 000 000], no Norte em [0, 700 000].
+  // Vértice fora disso foi lido errado (ex.: "9.152. 898,701" virando 9,152) — avisa e descarta.
+  const hemiN = (cfg().hemi || 'S') === 'N';
+  const dropped = utmVerts.filter(v => !(v.e >= 160000 && v.e <= 840000 && (hemiN ? (v.n >= 0 && v.n <= 700000) : (v.n >= 6000000 && v.n <= 10000000))));
   utmVerts = utmVerts.filter(v => !dropped.includes(v));
   const useGeo = geoVerts.length >= utmVerts.length && geoVerts.length >= 3;
   if(!useGeo && utmVerts.length < 3){ setStatus('input-status','err',`${label}: ${dropped.length ? dropped.length + ' vértice(s) com coordenadas fora da faixa UTM (' + dropped.slice(0,3).map(v => `${v.name} E=${v.e} N=${v.n}`).join('; ') + ') e ' : ''}menos de 3 vértices válidos. Confira o formato do memorial.`); return; }
