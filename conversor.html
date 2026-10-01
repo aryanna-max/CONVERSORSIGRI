@@ -917,6 +917,8 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
           <label class="layer-opt"><input type="checkbox" data-overlay="ti"><span><span class="name">Terras Indígenas</span><span class="src">FUNAI</span></span><span class="layer-status" data-status="ti"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="quilombo"><span><span class="name">Áreas Quilombolas</span><span class="src">INCRA</span></span><span class="layer-status" data-status="quilombo"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="mun"><span><span class="name">Limites Municipais</span><span class="src">IBGE</span></span><span class="layer-status" data-status="mun"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="dnit"><span><span class="name">Rodovias Federais (eixo SNV)</span><span class="src">DNIT via INDE · camada versionada (snv_202507a) — a faixa de domínio é definida pelo DNIT; use "APP e faixas" no SIGEF para a faixa não edificável de 15 m</span></span><span class="layer-status" data-status="dnit"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="hidro"><span><span class="name">Hidrografia (trechos de drenagem)</span><span class="src">IBGE BC250 · escala 1:250.000 — referência; a largura real do curso d'água deve ser medida</span></span><span class="layer-status" data-status="hidro"></span></label>
         </div>
         <div class="layer-warn">
           <strong>Consultivas, não definitivas.</strong>
@@ -1625,6 +1627,8 @@ const overlayDefs = {
   ti:       { name: 'Terras Indígenas · FUNAI',   wmsUrl: 'https://geoserver.funai.gov.br/geoserver/Funai/wms',         wmsLayer: 'Funai:tis_poligonais',       opacity: 0.55, attribution: '© FUNAI' },
   quilombo: { name: 'Áreas Quilombolas · INCRA',  wmsUrl: 'https://geoservicos.incra.gov.br/geoserver/Quilombola/wms',  wmsLayer: 'Quilombola:Areas_Quilombolas', opacity: 0.55, attribution: '© INCRA' },
   mun:      { name: 'Limites Municipais · IBGE',  wmsUrl: 'https://geoservicos.ibge.gov.br/geoserver/wms',              wmsLayer: 'CCAR:BCIM_Municipio_A',      opacity: 0.6,  attribution: '© IBGE' },
+  dnit:     { name: 'Rodovias Federais (SNV) · DNIT', wmsUrl: 'https://geoservicos.inde.gov.br/geoserver/DNIT/ows',     wmsLayer: 'DNIT:snv_202507a',           opacity: 0.8,  attribution: '© DNIT · SNV via INDE' },
+  hidro:    { name: 'Hidrografia BC250 · IBGE',   wmsUrl: 'https://geoservicos.ibge.gov.br/geoserver/wms',              wmsLayer: 'CCAR:BC250_Trecho_Drenagem_L', opacity: 0.8, attribution: '© IBGE · BC250' },
 };
 function makeWmsLayer(def){
   return L.tileLayer.wms(def.wmsUrl, {
@@ -1928,6 +1932,23 @@ function enuProjectorAt(c){
     const [x, y, z] = ecefGRS80(lng, lat, 0);
     const dx = x - x0, dy = y - y0, dz = z - z0;
     return [-sl * dx + cl * dy, -sp * cl * dx - sp * sl * dy + cp * dz];
+  };
+}
+// Inverso do ENU: [E,N] no plano tangente em c → (lng,lat) geodésicas (ECEF → geodética iterativa, GRS80)
+function enuInverseAt(c){
+  const [X0, Y0, Z0] = ecefGRS80(c.lng, c.lat, 0);
+  const la = c.lat * D2R, lo = c.lng * D2R;
+  const sl = Math.sin(lo), cl = Math.cos(lo), sp = Math.sin(la), cp = Math.cos(la);
+  const { a, e2 } = GRS80;
+  return (e, n) => {
+    const u = 0;
+    const X = X0 + (-sl * e - sp * cl * n + cp * cl * u);
+    const Y = Y0 + ( cl * e - sp * sl * n + cp * sl * u);
+    const Z = Z0 + ( cp * n + sp * u);
+    const lon = Math.atan2(Y, X), p = Math.hypot(X, Y);
+    let lat = Math.atan2(Z, p * (1 - e2));
+    for(let i = 0; i < 6; i++){ const N = a / Math.sqrt(1 - e2 * Math.sin(lat) ** 2); const h = p / Math.cos(lat) - N; lat = Math.atan2(Z, p * (1 - e2 * N / (N + h))); }
+    return [lon / D2R, lat / D2R];
   };
 }
 // Sistema Geodésico Local: plano topocêntrico (ENU) com origem no centroide — geodésica → ECEF → ENU.
@@ -3215,14 +3236,14 @@ async function handleArtRrtFile(file){
       <div class="mem-field"><label for="sg-def-slat">σ lat padrão (m)</label><input id="sg-def-slat" class="sg-num" placeholder="0,10"></div>
       <div class="mem-field"><label for="sg-def-sh">σ h padrão (m)</label><input id="sg-def-sh" class="sg-num" placeholder="0,20"></div>
       <div class="mem-field"><label for="sg-def-h">h (altitude elipsoidal) padrão (m)</label><input id="sg-def-h" class="sg-num" placeholder="deixe vazio se desconhecida"></div>
-      <div class="mem-field sg-2"><button class="btn btn-secondary" id="sg-aplicar-def" type="button" style="margin-top:18px">Aplicar padrões a todas as linhas</button></div>
+      <div class="mem-field sg-2"><button class="btn btn-secondary" id="sg-aplicar-def" type="button" style="margin-top:18px">Aplicar padrões a todas as linhas</button> <button class="btn btn-secondary" id="sg-srtm-btn" type="button" style="margin-top:18px" title="Consulta OpenTopoData (SRTM 30 m). Cota ortométrica aproximada; não substitui nivelamento nem a altitude elipsoidal h.">Buscar cotas SRTM (30 m)</button> <span id="sg-srtm-status" style="font-size:11px;color:var(--soft)"></span></div>
     </div>
     <div class="sg-note">Tipo de vértice inferido do código quando ele já é SIGEF (ex.: <code>GLH-<strong>V</strong>-10491</code> → V). Coordenadas gravadas como <strong>Geográficas</strong> em GMS com hemisfério por letra (<code>34 55 10,123 W</code>), conforme o modelo. Sigmas com 2 casas; segundos com 3.</div>
 
     <div class="mem-section-title">Vértices</div>
     <div class="sg-table-wrap">
       <table class="sg-table">
-        <thead><tr><th>#</th><th>Vértice</th><th>Tipo</th><th>Método</th><th>Longitude</th><th>σ long</th><th>Latitude</th><th>σ lat</th><th>h</th><th>σ h</th></tr></thead>
+        <thead><tr><th>#</th><th>Vértice</th><th>Tipo</th><th>Método</th><th>Longitude</th><th>σ long</th><th>Latitude</th><th>σ lat</th><th>h</th><th>σ h</th><th title="Cota SRTM 30 m (ortométrica EGM96, ±~10 m) — não é a altitude elipsoidal h">Cota SRTM</th></tr></thead>
         <tbody id="sg-vert-body"></tbody>
       </table>
     </div>
@@ -3251,6 +3272,34 @@ async function handleArtRrtFile(file){
       </table>
     </div>
     <div class="sg-note">Consulta por caixa envolvente no WFS <code>Sigef:Imoveis_Certificados</code> (geoservicos.incra.gov.br) e interseção exata (Martinez) no plano SGL do imóvel. Sobreposição &gt; 0,5 m² com parcela certificada é motivo de rejeição no SIGEF; vizinhas com 0 m² apenas confrontam. Se o navegador for bloqueado por CORS, exporte as parcelas do entorno em GeoJSON (QGIS/SIGEF) e carregue aqui. Resultado é de conferência — a validação final é do SIGEF.</div>
+
+    <div class="mem-section-title">APP e faixas não edificáveis (estimativa local)</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)">Faixa
+        <select id="sg-fx-preset" class="input" style="width:auto;padding:4px 8px;font-size:11.5px">
+          <option value="30">APP · curso d'água com menos de 10 m de largura · 30 m (Lei 12.651/12, art. 4º, I, a)</option>
+          <option value="50">APP · curso d'água de 10 a 50 m · 50 m (art. 4º, I, b)</option>
+          <option value="100">APP · curso d'água de 50 a 200 m · 100 m (art. 4º, I, c)</option>
+          <option value="200">APP · curso d'água de 200 a 600 m · 200 m (art. 4º, I, d)</option>
+          <option value="500">APP · curso d'água com mais de 600 m · 500 m (art. 4º, I, e)</option>
+          <option value="15">Não edificável · rodovia / ferrovia / duto · 15 m (Lei 6.766/79, art. 4º, III)</option>
+          <option value="custom">Largura personalizada</option>
+        </select>
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)">Largura <input id="sg-fx-w" class="input sg-num" style="width:70px;padding:4px 6px;font-size:11.5px" value="30"> m</label>
+      <button class="btn btn-secondary" id="sg-fx-sel-ln1" type="button" title="Marca as arestas cujo tipo de limite é LN1 (corpo/curso d'água)">Arestas LN1</button>
+      <button class="btn btn-secondary" id="sg-fx-sel-la3" type="button" title="Marca as arestas cujo tipo de limite é LA3 (estrada)">Arestas LA3</button>
+      <button class="btn btn-primary" id="sg-fx-calc" type="button">Calcular faixa</button>
+      <button class="btn btn-secondary" id="sg-fx-clear" type="button">Limpar</button>
+      <span id="sg-fx-status" style="font-size:11px;color:var(--soft)"></span>
+    </div>
+    <div class="sg-table-wrap" style="max-height:150px">
+      <table class="sg-table">
+        <thead><tr><th>Usar</th><th>Aresta</th><th>Tipo de limite</th><th>Confrontante</th><th>Comprimento SGL (m)</th></tr></thead>
+        <tbody id="sg-fx-edges"></tbody>
+      </table>
+    </div>
+    <div class="sg-note">A faixa é construída por <strong>buffer das arestas marcadas</strong>, com a largura escolhida, no plano SGL do imóvel; união e interseção <strong>exatas</strong> (Martinez) com o polígono. Resultado: área da faixa <strong>dentro do imóvel</strong>, em m²/ha e % — desenhada no mapa. É <strong>estimativa</strong>: a largura legal da APP depende da largura real do curso d'água (medida em campo); a faixa de domínio da rodovia é definida pelo órgão rodoviário; nascentes (raio 50 m), lagos e reservatórios têm regras próprias e não estão incluídos. Não substitui o CAR nem o parecer ambiental.</div>
 
     <div class="mem-section-title">Validação (matriz oficial do modelo 1.4 rc5 · NTGIR 3ª ed.)</div>
     <div class="sg-valid" id="sg-valid">Preencha os campos para validar.</div>
@@ -3350,7 +3399,8 @@ function sgRenderTables(){
       <td class="sg-ro">${sgDMS(p.lat,true)}</td>
       <td><input class="sg-num" data-sg-slat="${i}" placeholder="0,10"></td>
       <td><input class="sg-num" data-sg-h="${i}" placeholder="h"></td>
-      <td><input class="sg-num" data-sg-sh="${i}" placeholder="0,20"></td>`;
+      <td><input class="sg-num" data-sg-sh="${i}" placeholder="0,20"></td>
+      <td class="sg-ro" data-sg-srtm="${i}">—</td>`;
     vb.appendChild(tr);
     tr.querySelector(`[data-sg-met="${i}"]`).value = defM;
   });
@@ -3686,6 +3736,85 @@ async function sgFetchSigefWFS(){
   return r.json();
 }
 
+// ----- APP / faixas não edificáveis: buffer de arestas no plano SGL, união e interseção exatas -----
+let faixaLayer = null;
+function planarMultiPolyArea(mp){
+  let a = 0;
+  for(const poly of mp){ poly.forEach((ring, ri) => { let s = 0; for(let i = 0; i < ring.length; i++){ const [x1,y1] = ring[i], [x2,y2] = ring[(i+1) % ring.length]; s += x1 * y2 - x2 * y1; } a += (ri === 0 ? 1 : -1) * Math.abs(s) / 2; }); }
+  return a;
+}
+function segmentBufferPolygon(p1, p2, w, segs){
+  // "Estádio": retângulo ±w ao longo da normal + semicírculos CONVEXOS nas pontas (arcos varridos para fora do segmento).
+  const [x1,y1] = p1, [x2,y2] = p2; const dx = x2 - x1, dy = y2 - y1; const L = Math.hypot(dx, dy) || 1;
+  const ux = dx / L, uy = dy / L; const nx = -uy, ny = ux; const ang0 = Math.atan2(ny, nx);
+  const ring = [];
+  for(let k = 0; k <= segs; k++){ const t = ang0 - Math.PI * k / segs; ring.push([x2 + w * Math.cos(t), y2 + w * Math.sin(t)]); } // ponta 2: +n → +u → −n (bulge além de p2)
+  for(let k = 0; k <= segs; k++){ const t = ang0 - Math.PI - Math.PI * k / segs; ring.push([x1 + w * Math.cos(t), y1 + w * Math.sin(t)]); } // ponta 1: −n → −u → +n (bulge além de p1)
+  ring.push(ring[0]);
+  return [ring];
+}
+function sgRenderFaixaEdges(){
+  const v = state.vertices; const body = $('sg-fx-edges'); body.innerHTML = '';
+  if(v.length < 3) return;
+  const { xy } = sglAreaPerim(v);
+  v.forEach((p, i) => {
+    const q = v[(i+1) % v.length]; const [x1,y1] = xy[i], [x2,y2] = xy[(i+1) % v.length];
+    const lim = document.querySelector(`[data-sg-lim="${i}"]`)?.value || '';
+    const conf = (document.querySelector(`[data-sg-conf="${i}"]`)?.value || '').trim();
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><input type="checkbox" data-sg-fx="${i}"></td><td class="sg-ro">${p.name}→${q.name}</td><td class="sg-ro" data-sg-fx-lim="${i}">${escapeHtml(lim || '—')}</td><td>${escapeHtml(conf || '—')}</td><td class="sg-ro" style="text-align:right">${fmtNum(Math.hypot(x2-x1, y2-y1), 2)}</td>`;
+    body.appendChild(tr);
+  });
+}
+function sgSelectFaixaEdgesByLim(code){
+  let n = 0;
+  document.querySelectorAll('[data-sg-fx]').forEach(cb => { const i = cb.dataset.sgFx; const lim = document.querySelector(`[data-sg-lim="${i}"]`)?.value || ''; cb.checked = lim === code; if(cb.checked) n++; });
+  $('sg-fx-status').style.color = 'var(--soft)'; $('sg-fx-status').textContent = n ? `${n} aresta(s) ${code} marcada(s).` : `Nenhuma aresta com tipo ${code} na tabela de limites.`;
+}
+function sgComputeFaixa(){
+  const v = state.vertices; if(v.length < 3) return null;
+  const w = sgParseNum($('sg-fx-w').value); if(!(w > 0)){ $('sg-fx-status').style.color = '#ff7b7b'; $('sg-fx-status').textContent = 'Largura inválida.'; return null; }
+  const sel = Array.from(document.querySelectorAll('[data-sg-fx]:checked')).map(cb => +cb.dataset.sgFx);
+  if(!sel.length){ $('sg-fx-status').style.color = '#e8b04a'; $('sg-fx-status').textContent = 'Marque pelo menos uma aresta.'; return null; }
+  const c = polyCentroidLatLng(v); const { xy, ha } = sglAreaPerim(v);
+  const subj = [[...xy, xy[0]]];
+  let union = null;
+  for(const i of sel){ const buf = segmentBufferPolygon(xy[i], xy[(i+1) % v.length], w, 24); union = union ? polygonClipping.union(union, [buf]) : [buf]; }
+  const inter = polygonClipping.intersection([subj], union);
+  const area = inter.length ? planarMultiPolyArea(inter) : 0;
+  const inv = enuInverseAt(c);
+  const latlngs = inter.map(poly => poly.map(ring => ring.map(([x, y]) => { const [lng, lat] = inv(x, y); return [lat, lng]; })));
+  return { w, sel, area, pct: ha ? area / (ha * 10000) * 100 : 0, latlngs };
+}
+function sgDrawFaixa(res){
+  if(!faixaLayer){ faixaLayer = L.layerGroup().addTo(map); }
+  faixaLayer.clearLayers();
+  for(const poly of res.latlngs){ L.polygon(poly, { color: '#1fb6c4', weight: 2, fillColor: '#1fb6c4', fillOpacity: 0.35, dashArray: '6 4' }).bindPopup(`<strong>Faixa ${fmtNum(res.w,0)} m</strong><br>${fmtNum(res.area,2)} m² · ${fmtNum(res.area/10000,4)} ha · ${fmtNum(res.pct,2)} % do imóvel`).addTo(faixaLayer); }
+}
+function sgClearFaixa(){ if(faixaLayer) faixaLayer.clearLayers(); $('sg-fx-status').textContent = ''; }
+
+// ----- Cotas SRTM por vértice (OpenTopoData, SRTM 30 m — ortométrica EGM96, aproximada) -----
+async function sgFetchSRTM(){
+  const v = state.vertices; const st = $('sg-srtm-status');
+  if(!v.length) return;
+  st.style.color = 'var(--soft)'; st.textContent = 'Consultando SRTM…';
+  try {
+    const out = new Array(v.length).fill(null);
+    for(let k = 0; k < v.length; k += 100){
+      const chunk = v.slice(k, k + 100);
+      const r = await fetch(`https://api.opentopodata.org/v1/srtm30m?locations=${chunk.map(p => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`).join('|')}`);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      (j.results || []).forEach((res, idx) => { out[k + idx] = (res && res.elevation != null) ? res.elevation : null; });
+      if(k + 100 < v.length) await new Promise(res => setTimeout(res, 1100)); // limite de 1 req/s do serviço
+    }
+    let min = Infinity, max = -Infinity, n = 0;
+    out.forEach((h, i) => { const td = document.querySelector(`[data-sg-srtm="${i}"]`); if(td) td.textContent = h == null ? '—' : fmtNum(h, 1); if(h != null){ min = Math.min(min, h); max = Math.max(max, h); n++; } });
+    st.style.color = 'var(--verde-bright)';
+    st.textContent = n ? `Cotas SRTM: ${n}/${v.length} vértices · mín ${fmtNum(min,1)} m · máx ${fmtNum(max,1)} m (ortométrica aprox., ±~10 m)` : 'Sem cotas para estes pontos.';
+  } catch(err){ st.style.color = '#e8b04a'; st.textContent = `Serviço de cotas indisponível (${err.message || err}).`; }
+}
+
 (function initSigef(){
   const $modal = $('sigef-modal');
   function prefillFromMemorial(){
@@ -3701,6 +3830,7 @@ async function sgFetchSigefWFS(){
     if(state.vertices.length < 3){ setStatus('export-status','warn','Importe um polígono antes de gerar a planilha SIGEF.'); return; }
     prefillFromMemorial();
     sgRenderTables();
+    sgRenderFaixaEdges();
     $modal.classList.add('open');
   }
   $('exp-ods').addEventListener('click', openSigef);
@@ -3725,6 +3855,18 @@ async function sgFetchSigefWFS(){
     catch(err){ st.style.color = '#ff7b7b'; st.textContent = 'GeoJSON inválido: ' + (err.message || err); }
   });
   $('sg-ov-clear').addEventListener('click', sgClearOverlaps);
+  // APP / faixas
+  $('sg-fx-preset').addEventListener('change', () => { const val = $('sg-fx-preset').value; if(val !== 'custom') $('sg-fx-w').value = val; });
+  $('sg-fx-sel-ln1').addEventListener('click', () => sgSelectFaixaEdgesByLim('LN1'));
+  $('sg-fx-sel-la3').addEventListener('click', () => sgSelectFaixaEdgesByLim('LA3'));
+  $('sg-fx-calc').addEventListener('click', () => {
+    try { const res = sgComputeFaixa(); if(!res) return; sgDrawFaixa(res); $('sg-fx-status').style.color = 'var(--verde-bright)'; $('sg-fx-status').textContent = `Faixa de ${fmtNum(res.w,0)} m em ${res.sel.length} aresta(s): ${fmtNum(res.area,2)} m² · ${fmtNum(res.area/10000,4)} ha · ${fmtNum(res.pct,2)} % do imóvel (estimativa).`; }
+    catch(err){ console.error(err); $('sg-fx-status').style.color = '#ff7b7b'; $('sg-fx-status').textContent = 'Falha no cálculo: ' + (err.message || err); }
+  });
+  $('sg-fx-clear').addEventListener('click', sgClearFaixa);
+  $('sg-srtm-btn').addEventListener('click', sgFetchSRTM);
+  // Tabela de arestas da faixa acompanha a de limites
+  $modal.addEventListener('change', e => { if(e.target.matches('[data-sg-lim]')){ const i = e.target.dataset.sgLim; const td = document.querySelector(`[data-sg-fx-lim="${i}"]`); if(td) td.textContent = e.target.value || '—'; } });
   $('sg-baixar').addEventListener('click', () => sgGenerateODS().catch(err => { console.error(err); setStatus('export-status','err','Falha ao gerar ODS: ' + (err.message || err)); }));
 })();
 </script>

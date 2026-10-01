@@ -54,6 +54,7 @@ const WFS_FIXTURE = { type: 'FeatureCollection', features: [
 ] };
 await page.route(u => !u.href.startsWith(base), route => {
   const u = route.request().url();
+  if(u.startsWith('https://api.opentopodata.org/v1/srtm30m')){ const locs = decodeURIComponent(u.split('locations=')[1]).split('|'); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'OK', results: locs.map((l, i) => { const [lat, lng] = l.split(',').map(Number); return { elevation: 10 + i * 1.5, location: { lat, lng } }; }) }) }); }
   if(u.startsWith('https://geoservicos.incra.gov.br/geoserver/Sigef/wfs')){ console.log('WFS MOCK hit:', u.slice(0,140)); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(WFS_FIXTURE) }); }
   const hit = CDN[u];
   if(hit){ const f = path.join(LIBS, hit[0]); return route.fulfill({ status: 200, contentType: hit[1], body: fs.readFileSync(f) }); }
@@ -143,6 +144,26 @@ console.log('CHECK A ≈ 50 % (metade leste):', Math.abs(pctA - 50) < 0.3 ? 'OK'
 console.log('CHECK B = vizinha 0 m²:', rowB && /vizinha/.test(rowB[6]) && parseFloat(rowB[3].replace('.','').replace(',','.')) < 0.5 ? 'OK' : 'FAIL ' + JSON.stringify(rowB));
 const nOverlapPolys = await page.evaluate(() => { let n = 0; overlapLayer.eachLayer(l => { if(l.options && l.options.fillColor === '#ff3b3b') n++; }); return n; });
 console.log('CHECK mapa: polígonos de sobreposição desenhados =', nOverlapPolys, nOverlapPolys === 1 ? 'OK' : 'FAIL');
+
+// ---- APP / faixa: aresta 1 (V2→V3, lado leste, ≈619,28 m) com 30 m → ≈ 18.578 m² = 1,8578 ha = 3,887 % ----
+await page.selectOption('[data-sg-lim="1"]', 'LN1');
+await page.click('#sg-fx-sel-ln1');
+await page.selectOption('#sg-fx-preset', '30');
+await page.click('#sg-fx-calc');
+const fxStatus = await page.textContent('#sg-fx-status');
+console.log('FAIXA status:', fxStatus);
+const fx = await page.evaluate(() => { const r = sgComputeFaixa(); return { area: r.area, pct: r.pct, polys: r.latlngs.length }; });
+console.log('FAIXA:', JSON.stringify({ area: +fx.area.toFixed(2), ha: +(fx.area/1e4).toFixed(4), pct: +fx.pct.toFixed(3), polys: fx.polys }));
+console.log('CHECK faixa 30 m na aresta leste ≈ 1,8578 ha:', Math.abs(fx.area/1e4 - 1.8578) < 0.01 ? 'OK' : 'FAIL');
+console.log('CHECK faixa % ≈ 3,887:', Math.abs(fx.pct - 3.887) < 0.03 ? 'OK' : 'FAIL');
+const nFx = await page.evaluate(() => { let n = 0; faixaLayer.eachLayer(() => n++); return n; });
+console.log('CHECK faixa desenhada no mapa:', nFx >= 1 ? 'OK' : 'FAIL');
+// ---- Cotas SRTM (mock) ----
+await page.click('#sg-srtm-btn');
+await page.waitForFunction(() => /Cotas SRTM/.test(document.getElementById('sg-srtm-status').textContent), null, { timeout: 10000 });
+const srtm = await page.evaluate(() => Array.from(document.querySelectorAll('[data-sg-srtm]')).map(td => td.textContent));
+console.log('SRTM células:', JSON.stringify(srtm), '|', await page.textContent('#sg-srtm-status'));
+console.log('CHECK SRTM preenchido:', srtm.length === 4 && srtm.every(t => t !== '—') ? 'OK' : 'FAIL');
 
 // ---- PROVA REAL: Granja Alvorada – Lote 75B (certificação SIGEF 0e3b4b7c…, Igarassu/PE) ----
 // Valores publicados pelo INCRA no memorial gerado pelo SIGEF (18/08/26).
