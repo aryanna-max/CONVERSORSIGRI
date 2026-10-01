@@ -22,7 +22,7 @@ Inclui:
 - ✅ Visualização em mapa (OSM + Esri Satélite)
 - ✅ Camadas oficiais sobrepostas: INCRA (SIGEF/SNCI), FUNAI (Terras Indígenas), Áreas Quilombolas, IBGE (Limites Municipais)
 - ✅ Exportação: Texto SIGRI, Shapefile ZIP, KML com vértices nomeados, CSV
-- ⏳ Memorial descritivo automático em PDF (em desenvolvimento)
+- ✅ Memorial descritivo em PDF (NBR 13133/17047 no urbano; modelo SIGEF no rural) com quadro de vértices em anexo
 
 ---
 

@@ -3252,6 +3252,12 @@ function memVertexAlt(i, name){
   const v = sgParseNum(el.value);
   return v == null ? '' : String(Math.round(v * 100) / 100).replace('.', ',');
 }
+// Linhas da tabela do memorial SIGEF (usadas no texto e no PDF)
+function buildSigefRows(meta, verts, edges){
+  edges = edges || buildMemorialEdgesRural(verts);
+  const confs = meta.confs || []; const sign = meta.coordSign || 'sinal';
+  return verts.map((p, i) => { const e = edges[i]; return { cod: p.name, lon: dmsSigned(p.lng, 3, sign, false), lat: dmsSigned(p.lat, 3, sign, true), alt: memVertexAlt(i, p.name), vante: e.to.name, az: azDMtrunc(e.az), dist: fmtNum(e.dist, 2), conf: (confs[i] || '').trim() }; });
+}
 function buildMemorialTextSigefTable(meta, verts){
   const n = verts.length;
   const edges = buildMemorialEdgesRural(verts);
@@ -3283,10 +3289,7 @@ function buildMemorialTextSigefTable(meta, verts){
   txt += `Perímetro (m): ${fmtNum(perim,2)} m    Azimutes: Azimutes geodésicos\n\n`;
   txt += 'DESCRIÇÃO DA PARCELA\n\n';
   // Tabela em texto alinhado: VÉRTICE | SEGMENTO VANTE | Confrontações
-  const rows = verts.map((p, i) => {
-    const e = edges[i];
-    return { cod: p.name, lon: dmsSigned(p.lng, 3, sign, false), lat: dmsSigned(p.lat, 3, sign, true), alt: memVertexAlt(i, p.name), vante: e.to.name, az: azDMtrunc(e.az), dist: fmtNum(e.dist, 2), conf: (confs[i] || '').trim() };
-  });
+  const rows = buildSigefRows(meta, verts, edges);
   const w = { cod: Math.max(7, ...rows.map(r => r.cod.length)), lon: Math.max(9, ...rows.map(r => r.lon.length)), lat: Math.max(8, ...rows.map(r => r.lat.length)), alt: Math.max(12, ...rows.map(r => r.alt.length)), vante: Math.max(6, ...rows.map(r => r.vante.length)), az: 8, dist: 10 };
   const pad = (s, n) => String(s).padEnd(n);
   txt += pad('VÉRTICE', w.cod + w.lon + w.lat + w.alt + 6) + 'SEGMENTO VANTE\n';
@@ -3393,78 +3396,151 @@ function refreshMemorialPreview(){
   $('mem-preview').textContent = buildMemorialText(meta, state.vertices);
 }
 
-function generateMemorialPDF(){
-  if(!window.jspdf){ setStatus('export-status','err','Biblioteca jsPDF não carregou. Recarregue a página.'); return; }
-  const meta = collectMemorialMeta();
-  const text = buildMemorialText(meta, state.vertices);
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const pageW = 210, pageH = 297, margin = 22;
-  const contentW = pageW - 2 * margin;
-  let y = 18;
-
-  // Cabeçalho com nome da empresa (opcional)
-  if(meta.empresa){
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(11);
-    doc.setTextColor(10,31,61);
-    doc.text(meta.empresa, pageW - margin, y, { align: 'right' });
-    y += 4;
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(120,120,120);
-    doc.text('TOPOGRAFIA · GEORREFERENCIAMENTO', pageW - margin, y, { align: 'right' });
-  }
-  doc.setTextColor(0,0,0);
-
-  // Título
-  y = 38;
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(16);
-  doc.text('MEMORIAL DESCRITIVO', pageW/2, y, { align: 'center' });
-  doc.setDrawColor(144,183,40);
-  doc.setLineWidth(0.7);
-  doc.line(pageW/2 - 32, y + 1.8, pageW/2 + 32, y + 1.8);
-  doc.setDrawColor(0,0,0);
-  doc.setLineWidth(0.2);
-
-  // Corpo
-  y += 11;
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10);
-  // Pular as duas primeiras linhas que são título "MEMORIAL DESCRITIVO\n\n"
-  const body = text.replace(/^MEMORIAL DESCRITIVO\s*\n+/, '');
-  // Renderiza preservando parágrafos; cada \n é quebra; doc.splitTextToSize cuida do wrap
-  const paragraphs = body.split(/\n/);
-  for(const p of paragraphs){
-    if(!p){ y += 3.2; continue; }
-    const lines = doc.splitTextToSize(p, contentW);
-    for(const line of lines){
-      if(y > pageH - 25){ doc.addPage(); y = 22; }
-      doc.text(line, margin, y);
-      y += 4.6;
+// ===== MEMORIAL DESCRITIVO EM PDF =====
+// Logo da AG (mesma origem) em dataURL, carregada uma vez; se falhar, o PDF sai sem logo.
+let memLogoData = null;
+async function loadMemLogo(){
+  if(memLogoData !== null) return memLogoData;
+  // Reduz para 180 px (14 mm a ~330 dpi): o jsPDF embute PNG sem compressão, e o original deixaria o PDF com ~800 KB.
+  try {
+    const r = await fetch('assets/ag-symbol.png'); if(!r.ok) throw new Error('http ' + r.status);
+    const b = await r.blob(); const url = URL.createObjectURL(b);
+    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+    const c = document.createElement('canvas'); c.width = 180; c.height = Math.round(180 * img.height / img.width) || 180;
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    memLogoData = c.toDataURL('image/png'); URL.revokeObjectURL(url);
+  } catch(_){ memLogoData = ''; }
+  return memLogoData;
+}
+// As fontes padrão do jsPDF (Helvetica, WinAnsi) não têm →, ″, ′, ≈, −: troca por equivalentes para não sair "!" ou "H".
+function pdfSafe(s){ return String(s == null ? '' : s).replace(/→/g, '-').replace(/″/g, '"').replace(/′/g, "'").replace(/≈/g, '~').replace(/−/g, '-').replace(/[\u2010-\u2012]/g, '-'); }
+// Tabela com quebra de linha nas células e quebra de página. cols: [{t: título, w: largura mm, a: 'left'|'right'|'center'}]
+function pdfTable(doc, ctx, cols, rows, opts){
+  const { margin, pageW, pageH } = ctx; const fs = (opts && opts.fontSize) || 7.5; const lh = fs * 0.42; const padX = 1.2, padY = 1.1;
+  const x0 = margin; const totalW = cols.reduce((a, c) => a + c.w, 0);
+  const drawHeader = () => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(fs); doc.setFillColor(14, 43, 82); doc.setTextColor(255, 255, 255);
+    doc.rect(x0, ctx.y, totalW, lh + 2 * padY, 'F');
+    let x = x0; for(const c of cols){ doc.text(c.t, c.a === 'right' ? x + c.w - padX : c.a === 'center' ? x + c.w / 2 : x + padX, ctx.y + padY + lh * 0.8, { align: c.a || 'left' }); x += c.w; }
+    ctx.y += lh + 2 * padY; doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal');
+  };
+  drawHeader();
+  rows.forEach((r, ri) => {
+    const cells = cols.map((c, ci) => doc.splitTextToSize(pdfSafe(r[ci]), c.w - 2 * padX));
+    const nl = Math.max(1, ...cells.map(c => c.length)); const h = nl * lh + 2 * padY;
+    if(ctx.y + h > pageH - 22){ doc.addPage(); ctx.y = 20; drawHeader(); }
+    if(ri % 2 === 1){ doc.setFillColor(244, 247, 248); doc.rect(x0, ctx.y, totalW, h, 'F'); }
+    let x = x0;
+    cols.forEach((c, ci) => { cells[ci].forEach((line, li) => doc.text(line, c.a === 'right' ? x + c.w - padX : c.a === 'center' ? x + c.w / 2 : x + padX, ctx.y + padY + lh * 0.8 + li * lh, { align: c.a || 'left' })); x += c.w; });
+    doc.setDrawColor(200, 206, 214); doc.setLineWidth(0.15); doc.line(x0, ctx.y + h, x0 + totalW, ctx.y + h);
+    ctx.y += h;
+  });
+  doc.setDrawColor(0, 0, 0);
+}
+function pdfParagraphs(doc, ctx, text, opts){
+  const fs = (opts && opts.fontSize) || 10; const lh = (opts && opts.lineH) || 4.6; const font = (opts && opts.font) || 'helvetica';
+  doc.setFont(font, (opts && opts.style) || 'normal'); doc.setFontSize(fs);
+  for(const p of pdfSafe(text).split(/\n/)){
+    if(!p){ ctx.y += lh * 0.7; continue; }
+    for(const line of doc.splitTextToSize(p, ctx.contentW)){
+      if(ctx.y > ctx.pageH - 24){ doc.addPage(); ctx.y = 20; }
+      doc.text(line, ctx.margin, ctx.y); ctx.y += lh;
     }
   }
+}
+async function generateMemorialPDF(){
+  if(!window.jspdf){ setStatus('export-status','err','Biblioteca jsPDF não carregou. Recarregue a página.'); return; }
+  const verts = state.vertices;
+  if(!verts || verts.length < 3){ setStatus('export-status','err','Importe um polígono com pelo menos 3 vértices.'); return; }
+  const meta = collectMemorialMeta();
+  const text = buildMemorialText(meta, verts);
+  const rural = meta.tipo === 'rural';
+  const sigefTable = rural && (meta.ruralFmt || 'tabela') === 'tabela';
+  const logo = await loadMemLogo();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageW = 210, pageH = 297, margin = 18;
+  const ctx = { margin, pageW, pageH, contentW: pageW - 2 * margin, y: 16 };
 
-  // Rodapé com endereço (opcional)
+  // Cabeçalho: logo + empresa
+  if(logo){ try { doc.addImage(logo, 'PNG', margin, 11, 14, 14); } catch(_){} }
+  if(meta.empresa){
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(10,31,61);
+    doc.text(meta.empresa, pageW - margin, 17, { align: 'right' });
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
+    doc.text(rural ? 'TOPOGRAFIA · GEORREFERENCIAMENTO · CERTIFICAÇÃO SIGEF' : 'TOPOGRAFIA · GEORREFERENCIAMENTO', pageW - margin, 21, { align: 'right' });
+  }
+  doc.setTextColor(0,0,0);
+  doc.setDrawColor(144,183,40); doc.setLineWidth(0.5); doc.line(margin, 28, pageW - margin, 28);
+
+  // Título
+  ctx.y = 38;
+  doc.setFont('helvetica','bold'); doc.setFontSize(15);
+  doc.text('MEMORIAL DESCRITIVO', pageW/2, ctx.y, { align: 'center' });
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(110,110,110);
+  doc.text(rural ? 'Imóvel rural · modelo SIGEF/INCRA · SIRGAS 2000 · azimutes geodésicos · SGL' : 'Imóvel urbano · NBR 13133 / NBR 17047 · SIRGAS 2000 · UTM', pageW/2, ctx.y + 5, { align: 'center' });
+  doc.setTextColor(0,0,0); doc.setDrawColor(0,0,0); doc.setLineWidth(0.2);
+  ctx.y += 13;
+
+  const body = text.replace(/^MEMORIAL DESCRITIVO\s*\n+/, '');
+  if(sigefTable){
+    // Cabeçalho do memorial (linhas "Chave: valor") em prosa; a DESCRIÇÃO DA PARCELA vira tabela de verdade
+    const cut = body.indexOf('DESCRIÇÃO DA PARCELA');
+    const head = cut >= 0 ? body.slice(0, cut) : body;
+    pdfParagraphs(doc, ctx, head.trimEnd(), { fontSize: 9.5, lineH: 4.4 });
+    ctx.y += 3;
+    if(ctx.y > pageH - 60){ doc.addPage(); ctx.y = 20; }
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.text('DESCRIÇÃO DA PARCELA', margin, ctx.y); ctx.y += 5;
+    const rows = buildSigefRows(meta, verts);
+    const cols = [{ t: 'Vértice', w: 20 }, { t: 'Longitude', w: 24 }, { t: 'Latitude', w: 22 }, { t: 'Alt. (m)', w: 13, a: 'right' }, { t: 'Vante', w: 20 }, { t: 'Azimute', w: 16, a: 'right' }, { t: 'Dist. (m)', w: 16, a: 'right' }, { t: 'Confrontações', w: ctx.contentW - 131 }];
+    pdfTable(doc, ctx, cols, rows.map(r => [r.cod, r.lon, r.lat, r.alt, r.vante, r.az, r.dist, r.conf || '—']), { fontSize: 7.5 });
+    ctx.y += 5;
+    // Nota metodológica + data + assinatura (o que vem depois da tabela no texto)
+    const after = body.slice(body.indexOf('\n\n', body.lastIndexOf(rows[rows.length - 1].cod)) ).trim();
+    pdfParagraphs(doc, ctx, after, { fontSize: 8.5, lineH: 4.0 });
+  } else {
+    pdfParagraphs(doc, ctx, body, { fontSize: 10, lineH: 4.6 });
+  }
+
+  // Anexo: quadro de vértices (sempre em página nova)
+  doc.addPage(); ctx.y = 20;
+  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('QUADRO DE VÉRTICES', margin, ctx.y); ctx.y += 4.5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(90,90,90);
+  const { zone, hemi } = cfg();
+  const sub = rural
+    ? `Coordenadas geodésicas SIRGAS 2000 (EPSG:4674) e UTM fuso ${zone} ${hemi}. Azimutes geodésicos (Vincenty, GRS80) e distâncias no Sistema Geodésico Local (SGL) — padrão INCRA/SIGEF.`
+    : `Coordenadas UTM SIRGAS 2000, fuso ${zone} ${hemi} (EPSG:${hemi === 'S' ? 31960 + zone : 31954 + zone}) e geodésicas (EPSG:4674). Azimutes e distâncias no plano de projeção UTM — NBR 13133 / NBR 17047.`;
+  for(const line of doc.splitTextToSize(sub, ctx.contentW)){ doc.text(line, margin, ctx.y); ctx.y += 3.6; }
+  doc.setTextColor(0,0,0); ctx.y += 2;
+  const edges = tableEdges(verts);
+  const qrows = verts.map((p, i) => { const ed = edges[i]; return [p.name, fmtNum(p.e, 3), fmtNum(p.n, 3), latDMS(p.lat), lngDMS(p.lng), ed ? `${p.name}→${ed.to.name}` : '', ed ? (rural ? decToDMSsec(ed.az) : decToDMS(ed.az)) : '', ed ? fmtNum(ed.dist, 2) : '']; });
+  pdfTable(doc, ctx, [{ t: 'V', w: 21 }, { t: 'UTM E (m)', w: 21, a: 'right' }, { t: 'UTM N (m)', w: 23, a: 'right' }, { t: 'Latitude', w: 24 }, { t: 'Longitude', w: 25 }, { t: 'Lado', w: 25 }, { t: rural ? 'Az. geod.' : 'Azimute UTM', w: 18, a: 'right' }, { t: rural ? 'Dist. SGL' : 'Dist. UTM', w: ctx.contentW - 157, a: 'right' }], qrows, { fontSize: 7 });
+  ctx.y += 5;
+  const area = rural ? sglAreaPerim(verts) : null;
+  doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  const resumo = rural ? `Área (SGL): ${fmtNum(area.ha, 4)} ha    Perímetro (SGL): ${fmtNum(area.perim, 2)} m    Vértices: ${verts.length}` : `Área (UTM): ${fmtNum(polyArea(verts), 2)} m²    Perímetro (UTM): ${fmtNum(polyPerimeter(verts), 2)} m    Vértices: ${verts.length}`;
+  if(ctx.y > pageH - 30){ doc.addPage(); ctx.y = 20; }
+  doc.text(resumo, margin, ctx.y); ctx.y += 5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
+  for(const line of doc.splitTextToSize('Quadro gerado pelo Confrontei (AG Topografia) a partir das coordenadas importadas. Valores de conferência: não substituem a matrícula, o levantamento em campo nem, no caso rural, o memorial emitido pelo SIGEF após a certificação.', ctx.contentW)){ doc.text(line, margin, ctx.y); ctx.y += 3.4; }
+  doc.setTextColor(0,0,0);
+
+  // Rodapé em todas as páginas
   const pageCount = doc.internal.getNumberOfPages();
   for(let i = 1; i <= pageCount; i++){
     doc.setPage(i);
-    if(meta.empresaEndereco){
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(7.5);
-      doc.setTextColor(110,110,110);
-      doc.text(meta.empresaEndereco, pageW/2, pageH - 12, { align: 'center', maxWidth: contentW });
-    }
-    doc.setFontSize(7);
-    doc.setTextColor(150,150,150);
-    doc.text(`Página ${i}/${pageCount}`, pageW - margin, pageH - 8, { align: 'right' });
+    doc.setDrawColor(200,206,214); doc.setLineWidth(0.2); doc.line(margin, pageH - 15, pageW - margin, pageH - 15);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
+    if(meta.empresaEndereco) doc.text(meta.empresaEndereco, pageW/2, pageH - 11, { align: 'center', maxWidth: ctx.contentW - 30 });
+    doc.setFontSize(7); doc.setTextColor(150,150,150);
+    doc.text(`Página ${i}/${pageCount}`, pageW - margin, pageH - 7, { align: 'right' });
+    doc.text('Confrontei · por AG Topografia', margin, pageH - 7);
     doc.setTextColor(0,0,0);
   }
 
   const slug = (meta.municipio || 'imovel').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
   doc.save(`memorial_descritivo_${slug}.pdf`);
-  setStatus('export-status','ok','Memorial Descritivo (PDF) gerado.');
+  setStatus('export-status','ok',`Memorial Descritivo (PDF) gerado: ${pageCount} página(s), com quadro de vértices em anexo.`);
 }
 
 // (polyCentroidLatLng declarado em refreshMetrics acima)
