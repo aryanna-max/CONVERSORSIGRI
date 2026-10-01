@@ -143,5 +143,61 @@ console.log('CHECK A ≈ 50 % (metade leste):', Math.abs(pctA - 50) < 0.3 ? 'OK'
 console.log('CHECK B = vizinha 0 m²:', rowB && /vizinha/.test(rowB[6]) && parseFloat(rowB[3].replace('.','').replace(',','.')) < 0.5 ? 'OK' : 'FAIL ' + JSON.stringify(rowB));
 const nOverlapPolys = await page.evaluate(() => { let n = 0; overlapLayer.eachLayer(l => { if(l.options && l.options.fillColor === '#ff3b3b') n++; }); return n; });
 console.log('CHECK mapa: polígonos de sobreposição desenhados =', nOverlapPolys, nOverlapPolys === 1 ? 'OK' : 'FAIL');
+
+// ---- PROVA REAL: Granja Alvorada – Lote 75B (certificação SIGEF 0e3b4b7c…, Igarassu/PE) ----
+// Valores publicados pelo INCRA no memorial gerado pelo SIGEF (18/08/26).
+const dms = s => { const m = s.match(/^(-?)(\d+)°(\d+)'([\d,\.]+)"$/); const v = (+m[2]) + (+m[3])/60 + parseFloat(m[4].replace(',','.'))/3600; return m[1] === '-' ? -v : v; };
+const REAL = [
+  { name: 'F8F-M-0858', lng: dms(`-34°54'20,689"`), lat: dms(`-7°49'13,173"`), h: 3.3,   az: [154,15], dist: 285.67, conf: 'Lote 76C, de matrícula n.°26769, pertencente ao Sr. Emiragi Henrique Pereira' },
+  { name: 'F8F-M-0861', lng: dms(`-34°54'16,638"`), lat: dms(`-7°49'21,549"`), h: -1.56, az: [291,12], dist: 259.97, conf: 'Rio Tabatinga' },
+  { name: 'F8F-M-0862', lng: dms(`-34°54'24,549"`), lat: dms(`-7°49'18,487"`), h: -0.22, az: [358,24], dist: 125.16, conf: 'Lote 74, pertencente ao Município de Igarassu, N.° de Ordem: 94-R' },
+  { name: 'F8F-M-0859', lng: dms(`-34°54'24,662"`), lat: dms(`-7°49'14,414"`), h: -0.85, az: [72,36],  dist: 127.55, conf: 'Lote 75A, da Granja Alvorada' },
+];
+const EXP = { areaHa: 3.3022, perim: 798.34 };
+await page.evaluate((pts) => { state.fromKML = true; state.inputClosed = false; loadFromKMLPoints(pts.map(p => ({ name: p.name, lat: p.lat, lng: p.lng }))); }, REAL);
+await page.waitForFunction(() => state.vertices.length === 4 && state.vertices[0].name === 'F8F-M-0858');
+const real = await page.evaluate(() => {
+  const v = state.vertices; const s = sglAreaPerim(v); const { xy } = s;
+  const edges = v.map((p, i) => { const q = v[(i+1)%v.length]; const [x1,y1] = xy[i], [x2,y2] = xy[(i+1)%v.length]; return { az: azimuthGeodetic(p, q), dist: Math.hypot(x2-x1, y2-y1) }; });
+  return { areaHa: s.ha, perim: s.perim, elipsHa: ellipsoidAreaAuthalic(v)/1e4, edges };
+});
+const fmtAz = d => { const deg = Math.floor(d); const min = (d - deg) * 60; return `${deg}°${min.toFixed(2)}'`; };
+console.log(`REAL 75B · área SGL ${real.areaHa.toFixed(4)} ha (INCRA ${EXP.areaHa}) · elips. ${real.elipsHa.toFixed(4)} · perímetro ${real.perim.toFixed(2)} m (INCRA ${EXP.perim})`);
+console.log('CHECK área SGL = INCRA ±0,0005 ha:', Math.abs(real.areaHa - EXP.areaHa) <= 0.0005 ? 'OK' : 'FAIL Δ=' + (real.areaHa - EXP.areaHa).toFixed(5));
+console.log('CHECK perímetro = INCRA ±0,05 m:', Math.abs(real.perim - EXP.perim) <= 0.05 ? 'OK' : 'FAIL Δ=' + (real.perim - EXP.perim).toFixed(3));
+
+// ---- Memorial rural · formato TABELA (réplica do SIGEF) com os vértices reais ----
+await page.click('#close-sigef');
+await page.click('#exp-mem');
+await page.waitForSelector('#memorial-modal.open');
+await page.check('input[name="mem-tipo"][value="rural"]');
+await page.selectOption('#mem-rural-fmt', 'tabela');
+await page.selectOption('#mem-coord-sign', 'sinal');
+await page.fill('#mem-imovel', 'Granja Alvorada - Lote 75B');
+await page.fill('#mem-prop', 'ISLAN HONORATO DOS SANTOS JUNIOR / CPF: 101.528.084-69');
+await page.fill('#mem-municipio', 'Igarassu'); await page.fill('#mem-uf', 'PE');
+await page.fill('#mem-matricula', '3571 (2 de 2)'); await page.fill('#mem-cns', '(13.058-3) Igarassu - PE'); await page.fill('#mem-sncr', '2300900007010');
+await page.fill('#mem-rt-nome', 'ARAMIS LEITE DE LIMA'); await page.fill('#mem-rt-reg', '30760-D/PE'); await page.fill('#mem-rt-formacao', 'Engenheiro(a) Cartógrafo(a)'); await page.fill('#mem-rt-cred', 'F8F'); await page.fill('#mem-rt-doc', 'PE20261534001 - PE');
+for(let i = 0; i < 4; i++) await page.fill(`[data-edge-conf="${i}"]`, REAL[i].conf);
+const memTxt = await page.textContent('#mem-preview');
+console.log('MEMORIAL TABELA (trecho):\n' + memTxt.split('\n').slice(0, 28).join('\n'));
+// Distâncias NÃO são comparadas por string exata: o INCRA calculou com as coordenadas completas do ODS;
+// o memorial publica DMS a 0,001″ (≈3 cm), o que explica ±1 cm. A comparação numérica (±0,05 m) está acima.
+const must = ['DESCRIÇÃO DA PARCELA', 'Código de credenciamento: F8F', 'Documento de RT: PE20261534001 - PE', "-34°54'20,689\"", "-7°49'13,173\"", "154°15'", "291°12'", "358°24'", "72°36'", '127,55', 'Área (Sistema Geodésico Local): 3,3026 ha', 'Rio Tabatinga', 'arredondamento das coordenadas publicadas'];
+const missing = must.filter(m => !memTxt.includes(m));
+console.log('CHECK memorial tabela = strings do INCRA:', missing.length ? 'FAIL faltam ' + JSON.stringify(missing) : 'OK (' + must.length + ' strings)');
+await page.selectOption('#mem-coord-sign', 'letra');
+const memTxt2 = await page.textContent('#mem-preview');
+console.log('CHECK hemisfério por letra:', memTxt2.includes("34°54'20,689\" W") && memTxt2.includes("7°49'13,173\" S") ? 'OK' : 'FAIL');
+await page.selectOption('#mem-rural-fmt', 'prosa');
+const memTxt3 = await page.textContent('#mem-preview');
+console.log('CHECK prosa ainda funciona:', /Inicia-se a descrição deste perímetro no vértice F8F-M-0858/.test(memTxt3) ? 'OK' : 'FAIL');
+REAL.forEach((p, i) => {
+  const e = real.edges[i]; const azMin = e.az * 60; const expMin = p.az[0]*60 + p.az[1];
+  const dAz = azMin - expMin; const dD = e.dist - p.dist;
+  // O SIGEF publica D°MM' com minutos TRUNCADOS (verificado: 291°12,74' → 291°12'; 358°24,91' → 358°24').
+  const truncMin = Math.floor(e.az * 60) ; const truncOk = truncMin === expMin;
+  console.log(`  ${p.name}→${REAL[(i+1)%4].name}: az ${fmtAz(e.az)} → trunc ${Math.floor(e.az)}°${String(truncMin - Math.floor(e.az)*60).padStart(2,'0')}' (INCRA ${p.az[0]}°${String(p.az[1]).padStart(2,'0')}') ${truncOk ? 'OK' : 'FAIL'} (Δ bruto ${dAz.toFixed(2)}′) · dist ${e.dist.toFixed(2)} (INCRA ${p.dist.toFixed(2)}) Δ=${dD.toFixed(3)} m ${Math.abs(dD) <= 0.05 ? 'OK' : 'FAIL'}`);
+});
 console.log('PAGE ERRORS:', errors.length ? '\n' + errors.join('\n') : 'none');
 await browser.close(); server.close();

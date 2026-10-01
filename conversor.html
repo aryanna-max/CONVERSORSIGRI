@@ -2404,6 +2404,20 @@ setTimeout(() => map.invalidateSize(), 200);
       <span class="mem-tipo-lbl">Tipo de imóvel</span>
       <label><input type="radio" name="mem-tipo" value="urbano" checked><span><strong>Urbano</strong> · NBR 13133 / 17047 · UTM · lados Frente/Fundo/Direito/Esquerdo</span></label>
       <label><input type="radio" name="mem-tipo" value="rural"><span><strong>Rural · SIGEF</strong> · azimutes geodésicos · distâncias, área e perímetro no SGL · confrontantes por trecho</span></label>
+      <div id="mem-rural-opts" style="display:none;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px;padding-top:8px;border-top:1px dashed var(--line)">
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)">Formato
+          <select id="mem-rural-fmt" class="input" style="width:auto;padding:4px 8px;font-size:11.5px">
+            <option value="tabela">Tabela · padrão do memorial gerado pelo SIGEF</option>
+            <option value="prosa">Prosa · memorial para o cartório ("Inicia-se…")</option>
+          </select>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)">Hemisfério
+          <select id="mem-coord-sign" class="input" style="width:auto;padding:4px 8px;font-size:11.5px">
+            <option value="sinal">por sinal (−34°54'20,689") · padrão SIGEF</option>
+            <option value="letra">por letra (34°54'20,689" W) · certidões</option>
+          </select>
+        </label>
+      </div>
     </div>
 
     <div class="mem-section-title">Identificação do imóvel</div>
@@ -2419,6 +2433,8 @@ setTimeout(() => map.invalidateSize(), 200);
       <div class="mem-field"><label for="mem-municipio">Município</label><input id="mem-municipio" placeholder="Recife"></div>
       <div class="mem-field"><label for="mem-uf">UF</label><input id="mem-uf" placeholder="PE" maxlength="2"></div>
       <div class="mem-field"><label for="mem-matricula">Matrícula / Registro (opcional)</label><input id="mem-matricula" placeholder="Matrícula n° XXX do CRI 1° ofício"></div>
+      <div class="mem-field"><label for="mem-cns">Cartório (CNS) · rural</label><input id="mem-cns" placeholder="Ex: (13.058-3) Igarassu - PE"></div>
+      <div class="mem-field"><label for="mem-sncr">Código INCRA/SNCR · rural</label><input id="mem-sncr" placeholder="Ex: 2300900007010"></div>
       <div class="mem-field"><label for="mem-data">Data</label><input id="mem-data" type="date"></div>
     </div>
 
@@ -2435,6 +2451,9 @@ setTimeout(() => map.invalidateSize(), 200);
       <div class="mem-field"><label for="mem-rt-reg">Registro profissional</label><input id="mem-rt-reg" placeholder="Ex: CAU-PE N° A88.162-7 ou CREA-PE N° 1234"></div>
       <div class="mem-field"><label for="mem-empresa">Empresa (opcional · cabeçalho)</label><input id="mem-empresa" placeholder="Ex: AG Topografia e Construções"></div>
       <div class="mem-field"><label for="mem-empresa-endereco">Endereço da empresa (opcional · rodapé)</label><input id="mem-empresa-endereco" placeholder="Rua, número, bairro, cidade/UF · CEP · telefone"></div>
+      <div class="mem-field"><label for="mem-rt-formacao">Formação · rural</label><input id="mem-rt-formacao" placeholder="Ex: Engenheiro(a) Cartógrafo(a) / Arquiteto(a) e Urbanista"></div>
+      <div class="mem-field"><label for="mem-rt-cred">Código de credenciamento INCRA · rural</label><input id="mem-rt-cred" placeholder="Ex: F8F" maxlength="6"></div>
+      <div class="mem-field"><label for="mem-rt-doc">Documento de RT (ART/RRT) · rural</label><input id="mem-rt-doc" placeholder="Ex: PE20261534001 - PE"></div>
     </div>
 
     <div class="mem-section-title">Pré-visualização do texto</div>
@@ -2636,6 +2655,7 @@ function decToDMSsec(deg){
   return `${d}°${String(mm).padStart(2,'0')}'${String(ss).padStart(2,'0')}"`;
 }
 function buildMemorialTextRural(meta, verts){
+  if((meta.ruralFmt || 'tabela') === 'tabela') return buildMemorialTextSigefTable(meta, verts);
   const n = verts.length;
   const edges = buildMemorialEdgesRural(verts);
   const confs = meta.confs || [];
@@ -2704,6 +2724,83 @@ function buildMemorialTextRural(meta, verts){
   return txt;
 }
 
+// ===== MEMORIAL RURAL · formato TABELA (réplica do memorial gerado pelo SIGEF) =====
+// Verificado contra parcela certificada real (Granja Alvorada – Lote 75B, cert. 0e3b4b7c…):
+// coordenadas em DMS com sinal e 3 casas nos segundos; azimute D°MM' com minutos TRUNCADOS; distância 2 casas.
+function dmsSigned(deg, decimals, sign, isLat){
+  const abs = Math.abs(deg);
+  let d = Math.floor(abs), mf = (abs - d) * 60, m = Math.floor(mf), s = (mf - m) * 60;
+  const f = 10 ** decimals; s = Math.round(s * f) / f;
+  if(s >= 60){ s = 0; m += 1; } if(m >= 60){ m = 0; d += 1; }
+  const core = `${d}°${String(m).padStart(2,'0')}'${s.toFixed(decimals).replace('.', ',').padStart(decimals + 3, '0')}"`;
+  if(sign === 'letra') return `${core} ${isLat ? (deg < 0 ? 'S' : 'N') : (deg < 0 ? 'W' : 'E')}`;
+  return (deg < 0 ? '-' : '') + core;
+}
+function azDMtrunc(deg){
+  const d = Math.floor(deg); const m = Math.floor((deg - d) * 60);
+  return `${d}°${String(m).padStart(2,'0')}'`;
+}
+function memVertexAlt(i, name){
+  // Só usa a altitude digitada no modal SIGEF se a linha corresponder ao MESMO vértice (evita dado obsoleto de outro polígono)
+  const codeEl = document.querySelector(`[data-sg-code="${i}"]`); const el = document.querySelector(`[data-sg-h="${i}"]`);
+  if(!el || !codeEl) return '';
+  const code = (codeEl.value || '').trim();
+  if(!code || code !== name) return '';
+  const v = sgParseNum(el.value);
+  return v == null ? '' : String(Math.round(v * 100) / 100).replace('.', ',');
+}
+function buildMemorialTextSigefTable(meta, verts){
+  const n = verts.length;
+  const edges = buildMemorialEdgesRural(verts);
+  const confs = meta.confs || [];
+  const { ha, perim } = sglAreaPerim(verts);
+  const sign = meta.coordSign || 'sinal';
+  const L = (k, v) => v ? `${k}: ${v}\n` : '';
+  let txt = 'MEMORIAL DESCRITIVO\n\n';
+  txt += L('Denominação', meta.imovel);
+  txt += L('Natureza da Área', meta.natArea || 'Particular');
+  if(meta.prop){
+    const first = meta.prop.split('\n').map(s => s.trim()).filter(Boolean)[0] || '';
+    const cpf = (first.match(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}|\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/) || [])[0];
+    const nome = first.replace(/\s*[\/·-]?\s*(CPF|CNPJ)?:?\s*[\d\.\/-]{11,18}\s*$/i, '').replace(/\s*\/\s*$/, '').trim();
+    txt += L('Proprietário(a)', nome || first);
+    txt += L('CPF/CNPJ', cpf || '');
+  }
+  txt += L('Matrícula do imóvel', meta.matricula);
+  txt += L('Código INCRA/SNCR', meta.sncr);
+  txt += L('Município/UF', meta.municipio ? (meta.uf ? `${meta.municipio}-${meta.uf}` : meta.municipio) : '');
+  txt += L('Cartório (CNS)', meta.cns);
+  txt += L('Responsável Técnico(a)', meta.rtNome);
+  txt += L('Formação', meta.rtFormacao);
+  txt += L('Código de credenciamento', meta.rtCred);
+  txt += L('Conselho Profissional', meta.rtReg);
+  txt += L('Documento de RT', meta.rtDoc);
+  txt += `Sistema Geodésico de referência: SIRGAS 2000\n`;
+  txt += `Área (Sistema Geodésico Local): ${fmtNum(ha,4)} ha    Coordenadas: Latitude, longitude e altitude geodésicas\n`;
+  txt += `Perímetro (m): ${fmtNum(perim,2)} m    Azimutes: Azimutes geodésicos\n\n`;
+  txt += 'DESCRIÇÃO DA PARCELA\n\n';
+  // Tabela em texto alinhado: VÉRTICE | SEGMENTO VANTE | Confrontações
+  const rows = verts.map((p, i) => {
+    const e = edges[i];
+    return { cod: p.name, lon: dmsSigned(p.lng, 3, sign, false), lat: dmsSigned(p.lat, 3, sign, true), alt: memVertexAlt(i, p.name), vante: e.to.name, az: azDMtrunc(e.az), dist: fmtNum(e.dist, 2), conf: (confs[i] || '').trim() };
+  });
+  const w = { cod: Math.max(7, ...rows.map(r => r.cod.length)), lon: Math.max(9, ...rows.map(r => r.lon.length)), lat: Math.max(8, ...rows.map(r => r.lat.length)), alt: Math.max(12, ...rows.map(r => r.alt.length)), vante: Math.max(6, ...rows.map(r => r.vante.length)), az: 8, dist: 10 };
+  const pad = (s, n) => String(s).padEnd(n);
+  txt += pad('VÉRTICE', w.cod + w.lon + w.lat + w.alt + 6) + 'SEGMENTO VANTE\n';
+  txt += `${pad('Código', w.cod)}  ${pad('Longitude', w.lon)}  ${pad('Latitude', w.lat)}  ${pad('Altitude (m)', w.alt)}  ${pad('Código', w.vante)}  ${pad('Azimute', w.az)}  ${pad('Dist. (m)', w.dist)}  Confrontações\n`;
+  for(const r of rows){
+    txt += `${pad(r.cod, w.cod)}  ${pad(r.lon, w.lon)}  ${pad(r.lat, w.lat)}  ${pad(r.alt, w.alt)}  ${pad(r.vante, w.vante)}  ${pad(r.az, w.az)}  ${pad(r.dist, w.dist)}  ${r.conf || '____________________'}\n`;
+  }
+  txt += '\n';
+  txt += `Coordenadas geodésicas no SIRGAS 2000 (EPSG:4674), hemisfério ${sign === 'letra' ? 'por letra' : 'por sinal'}; segundos com 3 casas. Azimutes geodésicos (problema inverso, Vincenty, GRS80) em graus e minutos truncados, como no memorial gerado pelo SIGEF. Distâncias, área e perímetro no Sistema Geodésico Local (SGL). Altitudes elipsoidais quando informadas na planilha SIGEF. Valores de conferência — o memorial oficial é o gerado pelo SIGEF após a certificação; diferenças da ordem de 1 cm nas distâncias (e de poucos m² na área) em relação a ele decorrem do arredondamento das coordenadas publicadas (0,001″ ≈ 3 cm).\n\n`;
+  txt += `${meta.municipio || '________'}, ${fmtDateBR(meta.data)}.\n\n\n`;
+  txt += `____________________________________________________\n`;
+  txt += `${meta.rtNome || '_______________________________'}\n`;
+  if(meta.rtReg) txt += `${meta.rtReg}\n`;
+  txt += `Responsável Técnico\n`;
+  return txt;
+}
+
 function renderMemorialEdges(){
   const container = $('mem-edges');
   container.innerHTML = '';
@@ -2756,6 +2853,7 @@ function memorialTipo(){
 }
 function applyMemorialTipoUI(){
   const rural = memorialTipo() === 'rural';
+  const opts = $('mem-rural-opts'); if(opts) opts.style.display = rural ? 'flex' : 'none';
   $('mem-conf-title').textContent = rural ? 'Confrontantes por trecho (SIGEF)' : 'Confrontantes por lado';
   $('mem-conf-help').innerHTML = rural
     ? 'Para cada aresta, informe o confrontante (engenho, fazenda, sítio, rio, estrada, faixa de domínio…). Arestas <strong>consecutivas com o mesmo confrontante</strong> viram um único trecho no texto, no estilo do memorial SIGEF. Azimutes <strong>geodésicos</strong>; distâncias, área e perímetro no <strong>SGL</strong>.'
@@ -2778,6 +2876,10 @@ function collectMemorialMeta(){
     empresa: $('mem-empresa').value.trim(),
     empresaEndereco: $('mem-empresa-endereco').value.trim(),
     tipo: memorialTipo(),
+    ruralFmt: ($('mem-rural-fmt')?.value) || 'tabela',
+    coordSign: ($('mem-coord-sign')?.value) || 'sinal',
+    cns: ($('mem-cns')?.value || '').trim(), sncr: ($('mem-sncr')?.value || '').trim(),
+    rtFormacao: ($('mem-rt-formacao')?.value || '').trim(), rtCred: ($('mem-rt-cred')?.value || '').trim(), rtDoc: ($('mem-rt-doc')?.value || '').trim(),
     sides, confs,
   };
 }
