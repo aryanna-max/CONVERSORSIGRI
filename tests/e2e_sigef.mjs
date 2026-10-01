@@ -136,6 +136,23 @@ console.log('CHECK Catuama sem aviso (nenhum vértice descartado/lacuna):', !/�
 // Diagnóstico quando a leitura falha: V7 com N absurdo e V3 ausente → descartado + lacuna + aviso
 const bad = await pasteImport(`V1, definido pelas coordenadas E: 298.436,556 m e N: 9.152.924,331 m V2, definido pelas coordenadas E: 298.512,618 m e N: 9.152.897,794 m V4, definido pelas coordenadas E: 298.514,178 m e N: 9.152.866,166 m V7, definido pelas coordenadas E: 298.460,585 m e N: 9,152 m V8, definido pelas coordenadas E: 298.431,147 m e N: 9.152.906,877 m`);
 console.log('CHECK diagnóstico: descarta V7 (N fora da faixa) e avisa V3, V5, V6 ausentes:', bad.n === 4 && /descartado.*V7/.test(bad.status) && /não encontrei V3, V5, V6/.test(bad.status) ? 'OK' : 'FAIL ' + bad.status);
+// ---- Reconstituição por rumos / azimutes e distâncias (certidão sem coordenadas) ----
+await page.evaluate(() => { state.vertices = []; document.getElementById('rc-box').open = true; });
+await page.click('#btn-rc-example');
+await page.waitForFunction(() => state.vertices.length === 4);
+const rc1 = await page.evaluate(() => ({ n: state.vertices.length, area: polyArea(state.vertices), out: document.getElementById('rc-out').textContent.replace(/\s+/g, ' ') }));
+console.log('RC exemplo:', JSON.stringify({ n: rc1.n, area: +rc1.area.toFixed(2), out: rc1.out.slice(0, 160) }));
+console.log('CHECK rumos NE/deflexão/SW/NW → retângulo 20×15 = 300 m², fechamento 0:', rc1.n === 4 && Math.abs(rc1.area - 300) < 0.01 && /Erro de fechamento: 0,000 m/.test(rc1.out) && /área declarada 300,00/.test(rc1.out) && /Ponto inicial arbitrário/.test(rc1.out) ? 'OK' : 'FAIL');
+// Lote 174 só com azimutes e distâncias (coordenadas removidas) + E/N inicial do V1 → deve reproduzir 963,89 m²
+const MEM174_RUMOS = MEM174.replace(/definido pelas coordenadas E: [\d\.,]+ m e N: [\d\.,]+ m /g, '');
+await page.fill('#rc-e0', '287.831,350'); await page.fill('#rc-n0', '9.111.104,430');
+await page.fill('#paste-area', MEM174_RUMOS); await page.click('#btn-paste-import');
+await page.waitForFunction(() => state.vertices.length === 12);
+const rc2 = await page.evaluate(() => ({ n: state.vertices.length, area: polyArea(state.vertices), e1: state.vertices[0].e, out: document.getElementById('rc-out').textContent.replace(/\s+/g, ' ') }));
+const rcClose = parseFloat((rc2.out.match(/Erro de fechamento: ([\d,]+) m/) || [])[1]?.replace(',', '.'));
+console.log('RC Lote 174 por azimutes:', JSON.stringify({ n: rc2.n, area: +rc2.area.toFixed(2), close: rcClose }));
+console.log('CHECK Lote 174 reconstituído por azimute+distância: 12 lados, área ≈ 963,89 m² (±0,5), fechamento < 5 cm, ancorado em V1:', rc2.n === 12 && Math.abs(rc2.area - 963.89) < 0.5 && rcClose < 0.05 && Math.abs(rc2.e1 - 287831.35) < 0.001 && !/arbitrário/.test(rc2.out) ? 'OK' : 'FAIL ' + rc2.out.slice(0, 200));
+await page.fill('#rc-e0', ''); await page.fill('#rc-n0', '');
 // volta ao Lote 174 para os checks seguintes
 await page.evaluate((t) => { const r = parseMemorialText(t); document.getElementById('cfg-zone').value = String(r.fuso); state.inputClosed = false; state.fromKML = false; loadFromUTM(r.utmVerts); }, MEM174);
 await page.waitForFunction(() => state.vertices.length === 12);

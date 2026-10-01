@@ -198,6 +198,20 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .btn-ghost:hover{color:var(--white)}
 .btn-block{width:100%}
 .btn-row{display:flex;gap:8px;flex-wrap:wrap}
+/* Reconstituição por rumos (certidão sem coordenadas) */
+.rc-box{margin-top:12px;border:1px solid rgba(120,170,230,0.25);border-radius:6px;padding:8px 12px;background:rgba(255,255,255,0.03)}
+.rc-box summary{cursor:pointer;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--verde-bright);font-weight:700}
+.rc-help{font-size:11.5px;color:var(--soft);line-height:1.5;margin:8px 0}
+.rc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.rc-grid label{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.rc-grid .input{font-size:12.5px;padding:7px 8px}
+.rc-out{margin-top:8px;font-size:11.5px;line-height:1.55;color:var(--white)}
+.rc-out table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+.rc-out th,.rc-out td{padding:3px 6px;border-bottom:1px solid rgba(120,170,230,0.15);text-align:right}
+.rc-out th:first-child,.rc-out td:first-child{text-align:left}
+.rc-out .rc-warn{color:#e5c878}
+.rc-out .rc-bad{color:#f08585}
+@media(max-width:700px){.rc-grid{grid-template-columns:1fr}}
 
 /* ---------- STATUS ---------- */
 .status{margin-top:12px;padding:10px 12px;border:1px solid var(--line);font-size:12.5px;line-height:1.55;background:rgba(0,0,0,0.3);display:none}
@@ -682,6 +696,20 @@ Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E:
             <button class="btn btn-secondary" id="btn-paste-example">Exemplo Recife 25S</button>
             <button class="btn-ghost" id="btn-paste-clear">Limpar</button>
           </div>
+          <details class="rc-box" id="rc-box">
+            <summary>Certidão sem coordenadas? Reconstituir por rumos / azimutes e distâncias</summary>
+            <p class="rc-help">Cole acima o texto da certidão ou do memorial antigo (ex.: "mede 12,00 m no rumo NE 45°30'" ou "azimute 109°13'59" e distância de 80,56 m"). A ferramenta encadeia os lados a partir de um ponto inicial e informa o <strong>erro de fechamento</strong>. Resultado de conferência: a posição depende do ponto inicial e a forma segue as medidas declaradas, não o campo.</p>
+            <div class="rc-grid">
+              <label>E inicial (m) <input type="text" id="rc-e0" class="input" placeholder="ex.: 298.436,556 (vazio = origem arbitrária)"></label>
+              <label>N inicial (m) <input type="text" id="rc-n0" class="input" placeholder="ex.: 9.152.924,331"></label>
+              <label>Rumo sem quadrante <select id="rc-quad" class="input"><option value="auto">como estiver no texto</option><option value="NE">NE</option><option value="SE">SE</option><option value="SW">SW / SO</option><option value="NW">NW / NO</option></select></label>
+            </div>
+            <div class="btn-row" style="margin-top:8px">
+              <button class="btn btn-primary" id="btn-rc-run">Reconstituir</button>
+              <button class="btn-ghost" id="btn-rc-example">Exemplo (rumos)</button>
+            </div>
+            <div class="rc-out" id="rc-out"></div>
+          </details>
         </div>
 
         <!-- TAB MANUAL -->
@@ -1073,6 +1101,9 @@ $('btn-paste-import').addEventListener('click', () => {
   if(verts.length < 3){
     const parsed = parseMemorialText(text);
     if(parsed.utmVerts.length >= 3 || parsed.geoVerts.length >= 3){ applyParsedMemorial(parsed, 'Memorial colado'); return; }
+    // Sem coordenadas mas com rumos/azimutes + distâncias (certidão antiga): reconstitui
+    const segs = parseBearingsText(text);
+    if(segs.length >= 3){ $('rc-box').open = true; rcRun(); return; }
     setStatus('input-status','err','Foram reconhecidos menos de 3 vértices. Aceito: tabela "NOME E N" (ponto ou vírgula decimal), memorial em prosa ("V1, pelas coordenadas E: … m e N: … m"), tabela do SIGEF (código, longitude e latitude em GMS) ou "NOME, de coordenadas -8,xxxxxx; -34,xxxxxx".'); return;
   }
   // If the polygon is already closed (last vertex == first), drop the duplicate
@@ -1097,7 +1128,120 @@ V3  295312.880  9106475.660
 V4  295248.440  9106453.890
 V1  295234.120  9106518.430`;
 });
-$('btn-paste-clear').addEventListener('click', () => { $('paste-area').value = ''; clearStatus('input-status'); });
+$('btn-paste-clear').addEventListener('click', () => { $('paste-area').value = ''; clearStatus('input-status'); $('rc-out').innerHTML = ''; });
+
+/* ===========================================================
+   RECONSTITUIÇÃO POR RUMOS / AZIMUTES E DISTÂNCIAS (certidão sem coordenadas)
+   Encadeia os lados a partir de um ponto inicial no plano UTM. Azimute plano (de projeção), sentido horário a partir
+   do Norte. Rumo NE θ → az = θ; SE → 180−θ; SW → 180+θ; NW → 360−θ. Deflexão à direita soma, à esquerda subtrai.
+   "Ângulo" sem lado (ângulo horizontal à direita, da ré para a vante): az = az_anterior + ângulo − 180 (mod 360).
+   O lado de fechamento absorve a diferença — o erro de fechamento é informado, nunca distribuído em silêncio.
+=========================================================== */
+function parseBearingsText(text){
+  let t = String(text || '').replace(/\s+/g, ' ');
+  t = t.replace(/(\d)\s*([.,])\s*(?=\d)/g, '$1$2');
+  const ang = (d, mi, se) => (+d || 0) + (+(mi || 0))/60 + parseFloat(String(se || '0').replace(',', '.'))/3600;
+  const DMS = `(\\d{1,3})\\s*[°º]\\s*(?:(\\d{1,2})\\s*['′’]?)?\\s*(?:(\\d{1,2}(?:[\\.,]\\d+)?)\\s*(?:"|″|''|’’)?)?`;
+  const toks = [];
+  const push = (re, type, fn) => { let m; while((m = re.exec(t)) !== null){ const v = fn(m); if(v) toks.push({ i: m.index, end: m.index + m[0].length, type, ...v }); } };
+  // azimute 109° 13' 59,73"
+  push(new RegExp(`azimute\\s+(?:de\\s+)?${DMS}`, 'gi'), 'dir', m => ({ az: ang(m[1], m[2], m[3]), src: m[0] }));
+  // rumo N 45°30' E · rumo NE 45°30' · rumo 45°30' NE · 45°30' NE (sem a palavra rumo)
+  const Q = `([NS])\\s*([EWO])`;
+  push(new RegExp(`(?:[Rr]umo\\s+(?:de\\s+)?)?([NS])\\s*${DMS}\\s*([EWO])(?![A-Za-z])`, 'g'), 'dir', m => ({ rumo: { ns: m[1].toUpperCase(), ew: m[5].toUpperCase().replace('O','W'), th: ang(m[2], m[3], m[4]) }, src: m[0] }));
+  push(new RegExp(`(?:[Rr]umo\\s+(?:de\\s+)?)?(?<![A-Za-z])${Q}\\s*${DMS}`, 'g'), 'dir', m => ({ rumo: { ns: m[1].toUpperCase(), ew: m[2].toUpperCase().replace('O','W'), th: ang(m[3], m[4], m[5]) }, src: m[0] }));
+  push(new RegExp(`(?:[Rr]umo\\s+(?:de\\s+)?)?${DMS}\\s*${Q}(?![A-Za-z])`, 'g'), 'dir', m => ({ rumo: { ns: m[4].toUpperCase(), ew: m[5].toUpperCase().replace('O','W'), th: ang(m[1], m[2], m[3]) }, src: m[0] }));
+  // deflexão à direita/esquerda 90°  ·  ângulo (interno/à direita) 92°15'
+  push(new RegExp(`(?:deflex[ãa]o|deflet\\w*)\\s+(?:[àa]\\s+)?(direita|esquerda)?\\s*(?:de\\s+)?${DMS}`, 'gi'), 'dir', m => ({ defl: { side: (m[1] || 'direita').toLowerCase(), th: ang(m[2], m[3], m[4]) }, src: m[0] }));
+  push(new RegExp(`(?<![A-Za-zÀ-ÿ])[âa]ngulo\\s+(?:horizontal\\s+|interno\\s+)?(?:[àa]\\s+direita\\s+)?(?:de\\s+)?${DMS}`, 'gi'), 'dir', m => ({ angle: ang(m[1], m[2], m[3]), src: m[0] }));
+  // distância de 80,56 m · mede 12,00 m · medindo 12,00m · 12,00 metros · com 18,27 m
+  push(/(?:dist[âa]ncia\s+(?:de\s+)?|mede(?:m)?\s+|medindo\s+|com\s+|extens[ãa]o\s+(?:de\s+)?|comprimento\s+(?:de\s+)?)?(\d{1,4}(?:[\.,]\d{1,3})?)\s*(?:m(?![²2A-Za-z])|metros?(?![A-Za-z]))/gi, 'dist', m => ({ d: parseNumBR(m[1]), src: m[0] }));
+  // remove sobreposições (um rumo casado por duas formas) mantendo o 1º token de cada posição
+  toks.sort((a, b) => a.i - b.i || b.end - a.end);
+  const clean = []; let lastEnd = -1;
+  for(const k of toks){ if(k.i < lastEnd) continue; clean.push(k); lastEnd = k.end; }
+  // Emparelha cada direção com a distância vizinha. O estilo do documento decide o lado: NBR ("azimute X e distância
+  // de Y m") = distância DEPOIS; certidão antiga ("mede Y m no rumo X") = distância ANTES. Votação pela maioria dos
+  // lados; distâncias soltas (Perímetro: 141,21 m, "a 50 m da esquina") não entram porque não ficam junto de uma direção.
+  const dirs = clean.map((k, i) => ({ k, i })).filter(x => x.k.type === 'dir');
+  const gapNext = x => { const n = clean[x.i + 1]; return n && n.type === 'dist' ? n.i - x.k.end : Infinity; };
+  const gapPrev = x => { const p = clean[x.i - 1]; return p && p.type === 'dist' ? x.k.i - p.end : Infinity; };
+  const votesAfter = dirs.filter(x => gapNext(x) < gapPrev(x)).length, votesBefore = dirs.filter(x => gapPrev(x) < gapNext(x)).length;
+  const distAfter = votesAfter >= votesBefore;
+  const segs = []; const used = new Set();
+  for(const x of dirs){
+    const nx = clean[x.i + 1], pv = clean[x.i - 1];
+    const cand = distAfter ? [[nx, gapNext(x)], [pv, gapPrev(x)]] : [[pv, gapPrev(x)], [nx, gapNext(x)]];
+    let dist = null;
+    for(const [tk, gap] of cand){ if(tk && tk.type === 'dist' && !used.has(tk) && gap <= 120 && tk.d > 0){ dist = tk; break; } }
+    if(!dist) continue;
+    used.add(dist); segs.push({ dir: x.k, d: dist.d });
+  }
+  // Área declarada, se houver
+  const am = t.match(/[áa]rea\s*(?:total\s*)?(?:de\s*|:\s*)?([\d\.,]+)\s*m²|[áa]rea\s*(?:total\s*)?(?:de\s*|:\s*)?([\d\.,]+)\s*ha\b/i);
+  const areaDecl = am ? (am[1] ? parseNumBR(am[1]) : parseNumBR(am[2]) * 10000) : null;
+  return Object.assign(segs, { areaDecl });
+}
+function rcAzimuth(seg, prevAz, quadDefault){
+  const dir = seg.dir;
+  if(dir.az != null) return dir.az;
+  if(dir.rumo){ const r = dir.rumo; const th = r.th;
+    if(r.ns === 'N' && r.ew === 'E') return th; if(r.ns === 'S' && r.ew === 'E') return 180 - th;
+    if(r.ns === 'S' && r.ew === 'W') return 180 + th; return 360 - th; }
+  if(dir.defl){ if(prevAz == null) return null; return ((prevAz + (dir.defl.side === 'esquerda' ? -dir.defl.th : dir.defl.th)) % 360 + 360) % 360; }
+  if(dir.angle != null){ if(prevAz == null) return null; return ((prevAz + dir.angle - 180) % 360 + 360) % 360; }
+  return null;
+}
+function rcRun(){
+  const text = $('paste-area').value;
+  const out = $('rc-out');
+  const segs = parseBearingsText(text);
+  if(segs.length < 3){ out.innerHTML = '<span class="rc-bad">Não reconheci pelo menos 3 lados com direção (azimute/rumo/deflexão) e distância.</span>'; setStatus('input-status','err','Reconstituição: menos de 3 lados reconhecidos no texto.'); return; }
+  const e0raw = $('rc-e0').value.trim(), n0raw = $('rc-n0').value.trim();
+  const arbitrary = !(e0raw && n0raw);
+  const { zone, hemi } = cfg();
+  const e0 = arbitrary ? 500000 : parseNumBR(e0raw), n0 = arbitrary ? (hemi === 'N' ? 100000 : 9000000) : parseNumBR(n0raw);
+  if(!isFinite(e0) || !isFinite(n0)){ out.innerHTML = '<span class="rc-bad">E/N inicial inválidos.</span>'; return; }
+  const pts = [{ name: 'V1', e: e0, n: n0 }];
+  const rows = []; let az = null; let perim = 0; const problems = [];
+  for(let i = 0; i < segs.length; i++){
+    const s = segs[i];
+    const a = rcAzimuth(s, az, $('rc-quad').value);
+    if(a == null){ problems.push(`lado ${i+1}: direção relativa (deflexão/ângulo) sem azimute anterior — informe o 1º lado em azimute ou rumo`); break; }
+    az = a;
+    const p = pts[pts.length - 1];
+    const q = { name: 'V' + (pts.length + 1), e: p.e + s.d * Math.sin(a * Math.PI / 180), n: p.n + s.d * Math.cos(a * Math.PI / 180) };
+    rows.push({ from: p.name, to: q.name, az: a, d: s.d, src: s.dir.src });
+    perim += s.d;
+    pts.push(q);
+  }
+  if(pts.length < 4){ out.innerHTML = `<span class="rc-bad">${escapeHtml(problems.join('; ') || 'Lados insuficientes.')}</span>`; return; }
+  // Fechamento: o último ponto deveria coincidir com V1
+  const last = pts[pts.length - 1];
+  const dE = pts[0].e - last.e, dN = pts[0].n - last.n, lin = Math.hypot(dE, dN);
+  const rel = lin > 0 ? Math.round(perim / lin) : Infinity;
+  const polyVerts = pts.slice(0, -1);   // n lados → n vértices; o último lado "fecha" em V1
+  // Carrega no estado (como UTM do fuso configurado) e mede
+  state.inputClosed = true; state.fromKML = false;
+  loadFromUTM(polyVerts);
+  const area = polyArea(polyVerts);
+  const declared = segs.areaDecl;
+  const closeCls = lin <= 0.10 ? '' : lin <= 1 ? 'rc-warn' : 'rc-bad';
+  let html = `<div><strong>${polyVerts.length} lados</strong> · perímetro declarado ${fmtNum(perim, 2)} m · área da figura ${fmtNum(area, 2)} m²${declared ? ` · área declarada ${fmtNum(declared, 2)} m² (Δ ${fmtNum(area - declared, 2)} m², ${fmtNum((area - declared) / declared * 100, 2)} %)` : ''}</div>`;
+  html += `<div class="${closeCls}"><strong>Erro de fechamento:</strong> ${fmtNum(lin, 3)} m (ΔE ${fmtNum(dE, 3)} · ΔN ${fmtNum(dN, 3)}) · precisão 1:${isFinite(rel) ? fmtNum(rel, 0) : '∞'} — o último lado foi mantido como declarado; a figura NÃO foi ajustada.</div>`;
+  if(arbitrary) html += `<div class="rc-warn">Ponto inicial arbitrário (E ${fmtNum(e0, 0)} · N ${fmtNum(n0, 0)}, fuso ${zone} ${hemi}): a forma e o fechamento valem; a POSIÇÃO no mapa não. Informe E/N inicial de um vértice conhecido (matrícula vizinha georreferenciada ou levantamento) para posicionar.</div>`;
+  if(problems.length) html += `<div class="rc-bad">${escapeHtml(problems.join('; '))}</div>`;
+  html += '<table><thead><tr><th>Lado</th><th>Azimute</th><th>Dist. (m)</th><th>Lido como</th></tr></thead><tbody>';
+  for(const r of rows){ const d = Math.floor(r.az), mi = Math.floor((r.az - d) * 60), se = ((r.az - d) * 60 - mi) * 60; html += `<tr><td>${r.from}→${r.to}</td><td>${d}°${String(mi).padStart(2,'0')}'${se.toFixed(1).padStart(4,'0')}"</td><td>${fmtNum(r.d, 2)}</td><td style="text-align:left;color:var(--soft)">${escapeHtml(r.src.slice(0, 40))}</td></tr>`; }
+  html += '</tbody></table>';
+  out.innerHTML = html;
+  setStatus('input-status', lin <= 1 ? 'warn' : 'err', `Reconstituição por rumos: ${polyVerts.length} vértices, erro de fechamento ${fmtNum(lin, 3)} m (1:${isFinite(rel) ? fmtNum(rel, 0) : '∞'}).${arbitrary ? ' Posição arbitrária — informe E/N inicial.' : ''} Resultado de conferência: não substitui levantamento nem a matrícula.`);
+}
+$('btn-rc-run').addEventListener('click', rcRun);
+$('btn-rc-example').addEventListener('click', () => {
+  $('paste-area').value = `Lote de forma retangular, com área de 300,00 m². Partindo do marco inicial, segue com rumo NE 45°00' na extensão de 20,00 m; deflete à direita 90°00' e mede 15,00 m; segue com rumo SW 45°00' por 20,00 m; e finalmente com rumo NW 45°00' mede 15,00 m até o ponto inicial.`;
+  $('rc-box').open = true; rcRun();
+});
 
 /* ===========================================================
    MANUAL TABLE
