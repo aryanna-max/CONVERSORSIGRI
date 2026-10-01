@@ -984,15 +984,16 @@ const isRural = () => cfg().tipo === 'rural';
 // Tipo de imóvel: escolha GLOBAL e visível (padrão urbano); persiste no navegador
 (function initTipo(){
   const el = $('cfg-tipo'); if(!el) return;
-  // 1) escolha explícita na URL (vinda da landing: conversor.html?tipo=rural) vence; 2) preferência salva; 3) padrão urbano
+  // 1) escolha explícita na URL (vinda da landing: conversor.html?tipo=rural) vence; 2) escolha feita NESTA aba/sessão; 3) padrão urbano.
+  // Não persiste entre visitas: o foco é urbano e a escolha começa na landing (evita abrir em rural "sem querer").
   const qp = new URLSearchParams(location.search).get('tipo');
-  if(qp === 'urbano' || qp === 'rural'){ el.value = qp; try { localStorage.setItem('confrontei_tipo_imovel', qp); } catch {} }
-  else { try { const t = localStorage.getItem('confrontei_tipo_imovel'); if(t === 'urbano' || t === 'rural') el.value = t; } catch {} }
+  if(qp === 'urbano' || qp === 'rural'){ el.value = qp; try { sessionStorage.setItem('confrontei_tipo_imovel', qp); } catch {} }
+  else { try { const t = sessionStorage.getItem('confrontei_tipo_imovel'); el.value = (t === 'rural') ? 'rural' : 'urbano'; } catch { el.value = 'urbano'; } }
   const badge = $('tipo-badge');
   const paint = () => { if(!badge) return; const r = el.value === 'rural'; badge.textContent = r ? 'RURAL · SIGEF' : 'URBANO · SIG-RI'; badge.classList.toggle('rural', r); badge.title = 'Tipo de imóvel atual — altere no painel 01'; };
   paint();
   el.addEventListener('change', () => {
-    try { localStorage.setItem('confrontei_tipo_imovel', el.value); } catch {}
+    try { sessionStorage.setItem('confrontei_tipo_imovel', el.value); } catch {}
     const r = document.querySelector(`input[name="mem-tipo"][value="${el.value}"]`); if(r) r.checked = true;
     paint();
     refreshAll();
@@ -1778,10 +1779,21 @@ function refreshLegendPanel(){
   for(const id of ids){
     const def = overlayDefs[id];
     const sep = def.wmsUrl.includes('?') ? '&' : '?';
-    const url = `${def.wmsUrl}${sep}service=WMS&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(def.wmsLayer)}&legend_options=fontColor:0xffffff;bgColor:0x0e2b52;dpi:96;fontAntiAliasing:true`;
+    // 1ª tentativa: GetLegendGraphic estilizado; 2ª: forma mínima (alguns GeoServers recusam legend_options); 3ª: link para abrir
+    const urlA = `${def.wmsUrl}${sep}service=WMS&version=1.1.1&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(def.wmsLayer)}&legend_options=fontColor:0xffffff;bgColor:0x0e2b52;dpi:96;fontAntiAliasing:true`;
+    const urlB = `${def.wmsUrl}${sep}SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${encodeURIComponent(def.wmsLayer)}`;
     const item = document.createElement('div');
     item.className = 'lg-item';
-    item.innerHTML = `<span class="lg-name">${def.name}</span><img alt="Legenda ${def.name}" src="${url}" onerror="this.classList.add('lg-err');this.replaceWith(Object.assign(document.createElement('span'),{textContent:'(legenda indisponível)',style:'color:rgba(244,247,248,0.5);font-size:10px;font-style:italic'}))">`;
+    const name = document.createElement('span'); name.className = 'lg-name'; name.textContent = def.name; item.appendChild(name);
+    const img = document.createElement('img'); img.alt = `Legenda ${def.name}`; img.src = urlA;
+    let triedB = false;
+    img.onerror = () => {
+      if(!triedB){ triedB = true; img.src = urlB; return; }
+      const a = document.createElement('a'); a.href = urlB; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = 'legenda não carregou — abrir no servidor'; a.style.cssText = 'color:rgba(244,247,248,0.7);font-size:10px;font-style:italic;text-decoration:underline';
+      img.replaceWith(a);
+    };
+    item.appendChild(img);
     items.appendChild(item);
   }
 }
