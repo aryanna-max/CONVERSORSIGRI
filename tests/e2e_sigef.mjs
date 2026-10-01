@@ -38,6 +38,7 @@ const CDN = {
   'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js': ['jspdf/dist/jspdf.umd.min.js', 'text/javascript'],
   'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js': ['pdfjs-dist/build/pdf.min.js', 'text/javascript'],
   'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.worker.min.js': ['pdfjs-dist/build/pdf.worker.min.js', 'text/javascript'],
+  'https://cdn.jsdelivr.net/npm/polygon-clipping@0.15.7/dist/polygon-clipping.umd.min.js': ['polygon-clipping/dist/polygon-clipping.umd.min.js', 'text/javascript'],
 };
 
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
@@ -47,14 +48,19 @@ const errors = [];
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 page.on('dialog', async d => { console.log('DIALOG:', d.type(), d.message().slice(0,120)); await d.accept(); });
 page.on('console', m => { if(m.type() === 'error') errors.push('console: ' + m.text().slice(0,200)); });
+const WFS_FIXTURE = { type: 'FeatureCollection', features: [
+  { type: 'Feature', properties: { codigo_imo: 'PE-TESTE-A', nome_area: 'Parcela A (sobrepõe)', status: 'Certificada' }, geometry: { type: 'Polygon', coordinates: [[[-34.8735,-8.0500],[-34.8600,-8.0500],[-34.8600,-8.0400],[-34.8735,-8.0400],[-34.8735,-8.0500]]] } },
+  { type: 'Feature', properties: { codigo_imo: 'PE-TESTE-B', nome_area: 'Parcela B (vizinha)', status: 'Certificada' }, geometry: { type: 'Polygon', coordinates: [[[-34.8840,-8.0476],[-34.8770,-8.0476],[-34.8770,-8.0420],[-34.8840,-8.0420],[-34.8840,-8.0476]]] } }
+] };
 await page.route(u => !u.href.startsWith(base), route => {
   const u = route.request().url();
+  if(u.startsWith('https://geoservicos.incra.gov.br/geoserver/Sigef/wfs')){ console.log('WFS MOCK hit:', u.slice(0,140)); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(WFS_FIXTURE) }); }
   const hit = CDN[u];
   if(hit){ const f = path.join(LIBS, hit[0]); return route.fulfill({ status: 200, contentType: hit[1], body: fs.readFileSync(f) }); }
   return route.abort('blockedbyclient');
 });
 await page.goto(base + '/conversor.html', { waitUntil: 'domcontentloaded', timeout: 60000 });
-await page.waitForFunction(() => typeof window.proj4 === 'function' && typeof window.JSZip === 'function' && typeof window.L === 'object', null, { timeout: 30000 });
+await page.waitForFunction(() => typeof window.proj4 === 'function' && typeof window.JSZip === 'function' && typeof window.polygonClipping === 'object' && typeof window.L === 'object', null, { timeout: 30000 });
 console.log('LIBS OK (locais)');
 
 const pts = [ ['GLH-M-00001', -8.0476, -34.8770], ['GLH-M-00002', -8.0476, -34.8700], ['GLH-P-00003', -8.0420, -34.8700], ['GLH-M-00004', -8.0420, -34.8770] ];
@@ -123,5 +129,19 @@ for rep,c in rows(tabs['perimetro_1']):
 `;
 fs.writeFileSync(path.join(OUT, 'inspect.py'), py);
 console.log(execSync(`python3 ${path.join(OUT,'inspect.py')} "${odsPath}"`, { encoding: 'utf8' }));
+
+// ---- Sobreposição SIGEF (WFS simulado) ----
+await page.click('#sg-ov-btn');
+await page.waitForSelector('#sg-ov-body tr', { timeout: 15000 });
+const ov = await page.evaluate(() => Array.from(document.querySelectorAll('#sg-ov-body tr')).map(tr => Array.from(tr.children).map(td => td.textContent.trim())));
+console.log('OVERLAP rows:', JSON.stringify(ov));
+console.log('OVERLAP status:', await page.textContent('#sg-ov-status'));
+const rowA = ov.find(r => r[0] === 'PE-TESTE-A'), rowB = ov.find(r => r[0] === 'PE-TESTE-B');
+const pctA = rowA ? parseFloat(rowA[5].replace('.','').replace(',','.')) : NaN;
+const haA = rowA ? parseFloat(rowA[4].replace('.','').replace(',','.')) : NaN;
+console.log('CHECK A ≈ 50 % (metade leste):', Math.abs(pctA - 50) < 0.3 ? 'OK' : 'FAIL ' + pctA, '| ha', haA, '(esperado ≈ 23,8946)');
+console.log('CHECK B = vizinha 0 m²:', rowB && /vizinha/.test(rowB[6]) && parseFloat(rowB[3].replace('.','').replace(',','.')) < 0.5 ? 'OK' : 'FAIL ' + JSON.stringify(rowB));
+const nOverlapPolys = await page.evaluate(() => { let n = 0; overlapLayer.eachLayer(l => { if(l.options && l.options.fillColor === '#ff3b3b') n++; }); return n; });
+console.log('CHECK mapa: polígonos de sobreposição desenhados =', nOverlapPolys, nOverlapPolys === 1 ? 'OK' : 'FAIL');
 console.log('PAGE ERRORS:', errors.length ? '\n' + errors.join('\n') : 'none');
 await browser.close(); server.close();

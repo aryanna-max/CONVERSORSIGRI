@@ -53,6 +53,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/polygon-clipping@0.15.7/dist/polygon-clipping.umd.min.js"></script>
 
 <style>
 :root{
@@ -1918,18 +1919,22 @@ function ecefGRS80(lonDeg, latDeg, h){
   const N = GRS80.a / Math.sqrt(1 - GRS80.e2 * Math.sin(la) ** 2);
   return [(N + hh) * Math.cos(la) * Math.cos(lo), (N + hh) * Math.cos(la) * Math.sin(lo), (N * (1 - GRS80.e2) + hh) * Math.sin(la)];
 }
-// Sistema Geodésico Local: plano topocêntrico (ENU) com origem no centroide — geodésica → ECEF → ENU.
-// É a definição usada pelo INCRA/SIGEF (origem na média dos vértices; aqui média aritmética de lat/long).
-function sglXY(verts){
-  const c = polyCentroidLatLng(verts);
+// Projetor ENU (plano topocêntrico) com origem em c = {lat,lng}: (lng,lat) -> [E,N] metros
+function enuProjectorAt(c){
   const [x0, y0, z0] = ecefGRS80(c.lng, c.lat, 0);
   const la = c.lat * D2R, lo = c.lng * D2R;
   const sl = Math.sin(lo), cl = Math.cos(lo), sp = Math.sin(la), cp = Math.cos(la);
-  return verts.map(p => {
-    const [x, y, z] = ecefGRS80(p.lng, p.lat, 0);
+  return (lng, lat) => {
+    const [x, y, z] = ecefGRS80(lng, lat, 0);
     const dx = x - x0, dy = y - y0, dz = z - z0;
-    return [-sl * dx + cl * dy, -sp * cl * dx - sp * sl * dy + cp * dz]; // [E, N] em metros
-  });
+    return [-sl * dx + cl * dy, -sp * cl * dx - sp * sl * dy + cp * dz];
+  };
+}
+// Sistema Geodésico Local: plano topocêntrico (ENU) com origem no centroide — geodésica → ECEF → ENU.
+// É a definição usada pelo INCRA/SIGEF (origem na média dos vértices; aqui média aritmética de lat/long).
+function sglXY(verts){
+  const proj = enuProjectorAt(polyCentroidLatLng(verts));
+  return verts.map(p => proj(p.lng, p.lat));
 }
 function sglAreaPerim(verts){
   const xy = sglXY(verts);
@@ -3129,6 +3134,22 @@ async function handleArtRrtFile(file){
     </div>
     <div class="sg-note">Confrontantes vêm pré-preenchidos do memorial (modo Rural), se você já os digitou lá. Na planilha oficial o tipo de limite, o CNS, a matrícula e o descritivo são gravados <strong>na linha do vértice de partida</strong> de cada lado.</div>
 
+    <div class="mem-section-title">Sobreposição com parcelas certificadas (SIGEF)</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <button class="btn btn-secondary" id="sg-ov-btn" type="button">Consultar SIGEF (WFS INCRA)</button>
+      <input type="file" id="sg-ov-file" accept=".geojson,.json,application/geo+json,application/json" style="display:none">
+      <button class="btn btn-secondary" id="sg-ov-file-btn" type="button">Carregar GeoJSON de parcelas</button>
+      <button class="btn btn-secondary" id="sg-ov-clear" type="button">Limpar do mapa</button>
+      <span id="sg-ov-status" style="font-size:11px;color:var(--soft)"></span>
+    </div>
+    <div class="sg-table-wrap" id="sg-ov-wrap" style="display:none">
+      <table class="sg-table">
+        <thead><tr><th>Parcela certificada</th><th>Nome / detentor</th><th>Status</th><th>Interseção (m²)</th><th>ha</th><th>% do imóvel</th><th>Leitura</th></tr></thead>
+        <tbody id="sg-ov-body"></tbody>
+      </table>
+    </div>
+    <div class="sg-note">Consulta por caixa envolvente no WFS <code>Sigef:Imoveis_Certificados</code> (geoservicos.incra.gov.br) e interseção exata (Martinez) no plano SGL do imóvel. Sobreposição &gt; 0,5 m² com parcela certificada é motivo de rejeição no SIGEF; vizinhas com 0 m² apenas confrontam. Se o navegador for bloqueado por CORS, exporte as parcelas do entorno em GeoJSON (QGIS/SIGEF) e carregue aqui. Resultado é de conferência — a validação final é do SIGEF.</div>
+
     <div class="mem-section-title">Validação (matriz oficial do modelo 1.4 rc5 · NTGIR 3ª ed.)</div>
     <div class="sg-valid" id="sg-valid">Preencha os campos para validar.</div>
 
@@ -3472,6 +3493,97 @@ async function sgGenerateODS(){
   setStatus('export-status','ok',`Planilha SIGEF gerada (modelo 1.4 rc5, ${verts.length} vértices).`);
 }
 
+// ----- Sobreposição com parcelas certificadas (SIGEF WFS / GeoJSON) -----
+const SG_WFS = 'https://geoservicos.incra.gov.br/geoserver/Sigef/wfs';
+let overlapLayer = null;
+function sgRingAreaENU(ring, proj){
+  let a = 0; const xy = ring.map(([lng, lat]) => proj(lng, lat));
+  for(let i = 0; i < xy.length; i++){ const [x1,y1] = xy[i], [x2,y2] = xy[(i+1) % xy.length]; a += x1 * y2 - x2 * y1; }
+  return Math.abs(a) / 2;
+}
+function sgMultiPolyAreaENU(mp, proj){ // [poly][ring][pt]; anel 0 externo, demais buracos
+  let a = 0;
+  for(const poly of mp){ poly.forEach((ring, ri) => { const ar = sgRingAreaENU(ring, proj); a += ri === 0 ? ar : -ar; }); }
+  return a;
+}
+function sgSubjectPolygon(){
+  const v = state.vertices;
+  return [[...v.map(p => [p.lng, p.lat]), [v[0].lng, v[0].lat]]];
+}
+function sgOverlapCheck(fc){
+  if(!window.polygonClipping) throw new Error('biblioteca polygon-clipping não carregou');
+  const v = state.vertices;
+  const subj = sgSubjectPolygon();
+  const proj = enuProjectorAt(polyCentroidLatLng(v));
+  const subjArea = sgMultiPolyAreaENU([subj], proj);
+  const feats = fc.type === 'FeatureCollection' ? (fc.features || []) : fc.type === 'Feature' ? [fc] : (fc.type ? [{ type: 'Feature', properties: {}, geometry: fc }] : []);
+  const out = [];
+  for(const f of feats){
+    const g = f.geometry; if(!g) continue;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    if(!polys.length) continue;
+    let inter = [];
+    try { inter = polygonClipping.intersection([subj], polys); } catch(e){ console.warn('clip', e); continue; }
+    const area = inter.length ? sgMultiPolyAreaENU(inter, proj) : 0;
+    out.push({ f, inter, area, pct: subjArea ? area / subjArea * 100 : 0 });
+  }
+  out.sort((a, b) => b.area - a.area);
+  return { out, subjArea };
+}
+function sgPick(props, keys){ for(const k of keys){ if(props && props[k] != null && String(props[k]).trim() !== '') return String(props[k]); } return ''; }
+function sgRenderOverlaps(res){
+  const body = $('sg-ov-body'); body.innerHTML = '';
+  $('sg-ov-wrap').style.display = res.out.length ? 'block' : 'none';
+  let nOver = 0;
+  for(const r of res.out){
+    const p = r.f.properties || {};
+    const cod = sgPick(p, ['codigo_imo','codigo_imovel','parcela_co','parcela','codigo','cod_imovel','id']);
+    const nome = sgPick(p, ['nome_area','nome','denominacao','detentor','proprietario']);
+    const status = sgPick(p, ['status','situacao_i','situacao','situacao_imovel']);
+    const over = r.area > 0.5;
+    if(over) nOver++;
+    const tr = document.createElement('tr');
+    tr.className = over ? 'sg-err' : '';
+    const allProps = Object.entries(p).map(([k, val]) => `${escapeHtml(k)}: ${escapeHtml(String(val))}`).join(' · ');
+    tr.innerHTML = `
+      <td class="sg-ro" title="${escapeHtml(allProps)}">${escapeHtml(cod || '—')}</td>
+      <td>${escapeHtml(nome || '—')}</td>
+      <td class="sg-ro">${escapeHtml(status || '—')}</td>
+      <td class="sg-ro" style="text-align:right">${fmtNum(r.area, 2)}</td>
+      <td class="sg-ro" style="text-align:right">${fmtNum(r.area / 10000, 4)}</td>
+      <td class="sg-ro" style="text-align:right">${fmtNum(r.pct, 2)} %</td>
+      <td>${over ? '<span class="sg-e"><strong>SOBREPOSIÇÃO</strong> — rejeição provável no SIGEF</span>' : '<span class="sg-ok">vizinha (só confronta)</span>'}</td>`;
+    body.appendChild(tr);
+  }
+  const st = $('sg-ov-status');
+  st.style.color = nOver ? '#ff7b7b' : 'var(--verde-bright)';
+  st.textContent = res.out.length
+    ? (nOver ? `${nOver} parcela(s) certificada(s) SOBREPÕEM o imóvel (de ${res.out.length} na caixa envolvente).` : `${res.out.length} parcela(s) no entorno, nenhuma sobreposição > 0,5 m².`)
+    : 'Nenhuma parcela certificada na caixa envolvente.';
+  sgDrawOverlaps(res);
+}
+function sgDrawOverlaps(res){
+  if(!overlapLayer){ overlapLayer = L.layerGroup().addTo(map); }
+  overlapLayer.clearLayers();
+  for(const r of res.out){
+    const g = r.f.geometry;
+    const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+    for(const poly of polys){ L.polygon(poly[0].map(([lng, lat]) => [lat, lng]), { color: '#e8b04a', weight: 1.5, dashArray: '4 4', fill: false }).addTo(overlapLayer); }
+    for(const poly of r.inter){ L.polygon(poly.map(ring => ring.map(([lng, lat]) => [lat, lng])), { color: '#ff3b3b', weight: 2, fillColor: '#ff3b3b', fillOpacity: 0.35 }).bindPopup(`<strong>Sobreposição</strong><br>${fmtNum(r.area,2)} m² · ${fmtNum(r.pct,2)} % do imóvel`).addTo(overlapLayer); }
+  }
+}
+function sgClearOverlaps(){ if(overlapLayer) overlapLayer.clearLayers(); $('sg-ov-body').innerHTML = ''; $('sg-ov-wrap').style.display = 'none'; $('sg-ov-status').textContent = ''; }
+async function sgFetchSigefWFS(){
+  const v = state.vertices;
+  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+  for(const p of v){ minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat); minLng = Math.min(minLng, p.lng); maxLng = Math.max(maxLng, p.lng); }
+  const pad = 0.0015; // ~165 m
+  const params = new URLSearchParams({ service: 'WFS', version: '1.0.0', request: 'GetFeature', typeName: 'Sigef:Imoveis_Certificados', outputFormat: 'application/json', srsName: 'EPSG:4674', maxFeatures: '300', bbox: `${minLng - pad},${minLat - pad},${maxLng + pad},${maxLat + pad}` });
+  const r = await fetch(`${SG_WFS}?${params}`, { mode: 'cors' });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
 (function initSigef(){
   const $modal = $('sigef-modal');
   function prefillFromMemorial(){
@@ -3497,6 +3609,20 @@ async function sgGenerateODS(){
   $('sg-aplicar-def').addEventListener('click', () => { sgApplyDefaults(true); sgValidate(); });
   $('sg-renomear').addEventListener('change', () => { document.querySelectorAll('[data-sg-code]').forEach((el, i) => { el.value = $('sg-renomear').value === 'gen' ? '' : (SG.codeRe.test(state.vertices[i].name) ? state.vertices[i].name : ''); }); sgValidate(); });
   $('sg-revalidar').addEventListener('click', sgValidate);
+  // Sobreposição SIGEF
+  $('sg-ov-btn').addEventListener('click', async () => {
+    const st = $('sg-ov-status'); st.style.color = 'var(--soft)'; st.textContent = 'Consultando WFS do INCRA…';
+    try { const fc = await sgFetchSigefWFS(); sgRenderOverlaps(sgOverlapCheck(fc)); }
+    catch(err){ console.error(err); st.style.color = '#e8b04a'; st.textContent = `Não foi possível consultar o INCRA pelo navegador (${err.message || err}). Exporte as parcelas do entorno em GeoJSON e use "Carregar GeoJSON de parcelas".`; }
+  });
+  $('sg-ov-file-btn').addEventListener('click', () => $('sg-ov-file').click());
+  $('sg-ov-file').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+    const st = $('sg-ov-status'); st.style.color = 'var(--soft)'; st.textContent = `Lendo ${f.name}…`;
+    try { const fc = JSON.parse(await f.text()); sgRenderOverlaps(sgOverlapCheck(fc)); }
+    catch(err){ st.style.color = '#ff7b7b'; st.textContent = 'GeoJSON inválido: ' + (err.message || err); }
+  });
+  $('sg-ov-clear').addEventListener('click', sgClearOverlaps);
   $('sg-baixar').addEventListener('click', () => sgGenerateODS().catch(err => { console.error(err); setStatus('export-status','err','Falha ao gerar ODS: ' + (err.message || err)); }));
 })();
 </script>
