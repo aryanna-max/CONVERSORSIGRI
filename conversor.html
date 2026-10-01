@@ -2954,6 +2954,15 @@ setTimeout(() => map.invalidateSize(), 200);
       <div class="mem-field"><label for="mem-rt-reg">Registro profissional</label><input id="mem-rt-reg" placeholder="Ex: CAU-PE N° A88.162-7 ou CREA-PE N° 1234"></div>
       <div class="mem-field"><label for="mem-empresa">Empresa (opcional · cabeçalho)</label><input id="mem-empresa" placeholder="Ex: AG Topografia e Construções"></div>
       <div class="mem-field"><label for="mem-empresa-endereco">Endereço da empresa (opcional · rodapé)</label><input id="mem-empresa-endereco" placeholder="Rua, número, bairro, cidade/UF · CEP · telefone"></div>
+      <div class="mem-field"><label for="mem-logo-file">Logo no cabeçalho do PDF (opcional · PNG/JPG)</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="file" id="mem-logo-file" accept="image/png,image/jpeg,image/webp" style="display:none">
+          <button class="btn btn-secondary" id="mem-logo-btn" type="button">Enviar logo</button>
+          <img id="mem-logo-prev" alt="" style="display:none;height:34px;max-width:120px;background:#fff;padding:2px;border-radius:3px">
+          <button class="btn-ghost" id="mem-logo-rm" type="button" style="display:none">Remover</button>
+          <span id="mem-logo-status" style="font-size:11px;color:var(--soft)">Sem logo: o cabeçalho sai só com o nome da empresa. A logo fica salva neste navegador.</span>
+        </div>
+      </div>
       <div class="mem-field"><label for="mem-rt-formacao">Formação · rural</label><input id="mem-rt-formacao" placeholder="Ex: Engenheiro(a) Cartógrafo(a) / Arquiteto(a) e Urbanista"></div>
       <div class="mem-field"><label for="mem-rt-cred">Código de credenciamento INCRA · rural</label><input id="mem-rt-cred" placeholder="Ex: F8F" maxlength="6"></div>
       <div class="mem-field"><label for="mem-rt-doc">Documento de RT (ART/RRT) · rural</label><input id="mem-rt-doc" placeholder="Ex: PE20261534001 - PE"></div>
@@ -3397,21 +3406,32 @@ function refreshMemorialPreview(){
 }
 
 // ===== MEMORIAL DESCRITIVO EM PDF =====
-// Logo da AG (mesma origem) em dataURL, carregada uma vez; se falhar, o PDF sai sem logo.
-let memLogoData = null;
-async function loadMemLogo(){
-  if(memLogoData !== null) return memLogoData;
-  // Reduz para 180 px (14 mm a ~330 dpi): o jsPDF embute PNG sem compressão, e o original deixaria o PDF com ~800 KB.
-  try {
-    const r = await fetch('assets/ag-symbol.png'); if(!r.ok) throw new Error('http ' + r.status);
-    const b = await r.blob(); const url = URL.createObjectURL(b);
-    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
-    const c = document.createElement('canvas'); c.width = 180; c.height = Math.round(180 * img.height / img.width) || 180;
-    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    memLogoData = c.toDataURL('image/png'); URL.revokeObjectURL(url);
-  } catch(_){ memLogoData = ''; }
-  return memLogoData;
+// Logo do cabeçalho do PDF: enviada pela usuária (PNG/JPG/WebP), reduzida a 360 px de largura e salva neste navegador
+// (localStorage `confrontei_logo`). Sem logo, o cabeçalho sai só com o nome da empresa — nada de marca fixa.
+const LOGO_KEY = 'confrontei_logo';
+function getMemLogo(){ try { return localStorage.getItem(LOGO_KEY) || ''; } catch(_){ return ''; } }
+function paintMemLogo(){
+  const d = getMemLogo(); const prev = $('mem-logo-prev'), rm = $('mem-logo-rm'), st = $('mem-logo-status');
+  if(!prev) return;
+  prev.style.display = d ? 'inline-block' : 'none'; if(d) prev.src = d;
+  rm.style.display = d ? 'inline-block' : 'none';
+  st.textContent = d ? 'Logo salva neste navegador; entra no cabeçalho de todos os PDFs.' : 'Sem logo: o cabeçalho sai só com o nome da empresa. A logo fica salva neste navegador.';
 }
+async function setMemLogoFromFile(file){
+  if(!file) return;
+  if(!/^image\/(png|jpeg|webp)$/.test(file.type)){ setStatus('export-status','err','Logo: envie PNG, JPG ou WebP.'); return; }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+    const W = Math.min(360, img.width); const H = Math.max(1, Math.round(W * img.height / img.width));
+    const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(img, 0, 0, W, H);
+    const data = c.toDataURL('image/png');
+    try { localStorage.setItem(LOGO_KEY, data); } catch(_){ setStatus('export-status','err','Logo grande demais para salvar no navegador; use uma imagem menor.'); return; }
+    paintMemLogo(); setStatus('export-status','ok','Logo salva. Ela entra no cabeçalho do PDF.');
+  } catch(_){ setStatus('export-status','err','Não consegui ler a imagem da logo.'); }
+  finally { URL.revokeObjectURL(url); }
+}
+function clearMemLogo(){ try { localStorage.removeItem(LOGO_KEY); } catch(_){} paintMemLogo(); }
 // As fontes padrão do jsPDF (Helvetica, WinAnsi) não têm →, ″, ′, ≈, −: troca por equivalentes para não sair "!" ou "H".
 function pdfSafe(s){ return String(s == null ? '' : s).replace(/→/g, '-').replace(/″/g, '"').replace(/′/g, "'").replace(/≈/g, '~').replace(/−/g, '-').replace(/[\u2010-\u2012]/g, '-'); }
 // Tabela com quebra de linha nas células e quebra de página. cols: [{t: título, w: largura mm, a: 'left'|'right'|'center'}]
@@ -3456,14 +3476,17 @@ async function generateMemorialPDF(){
   const text = buildMemorialText(meta, verts);
   const rural = meta.tipo === 'rural';
   const sigefTable = rural && (meta.ruralFmt || 'tabela') === 'tabela';
-  const logo = await loadMemLogo();
+  const logo = getMemLogo();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = 210, pageH = 297, margin = 18;
   const ctx = { margin, pageW, pageH, contentW: pageW - 2 * margin, y: 16 };
 
   // Cabeçalho: logo + empresa
-  if(logo){ try { doc.addImage(logo, 'PNG', margin, 11, 14, 14); } catch(_){} }
+  if(logo){
+    // caixa de 14 mm de altura × até 42 mm de largura, mantendo a proporção da imagem
+    try { const pr = doc.getImageProperties(logo); const h = 14; let w = h * pr.width / pr.height; if(w > 42){ w = 42; } const hh = w * pr.height / pr.width; doc.addImage(logo, 'PNG', margin, 11 + (h - hh) / 2, w, hh); } catch(_){}
+  }
   if(meta.empresa){
     doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(10,31,61);
     doc.text(meta.empresa, pageW - margin, 17, { align: 'right' });
@@ -3698,6 +3721,10 @@ async function handleArtRrtFile(file){
   const today = new Date(); const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   $('mem-data').value = iso;
   loadMemorialRT();
+  paintMemLogo();
+  $('mem-logo-btn').addEventListener('click', () => $('mem-logo-file').click());
+  $('mem-logo-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; setMemLogoFromFile(f); });
+  $('mem-logo-rm').addEventListener('click', clearMemLogo);
 
   function openMemorial(){
     if(state.vertices.length < 3){ setStatus('export-status','warn','Importe um polígono antes de gerar o memorial.'); return; }
