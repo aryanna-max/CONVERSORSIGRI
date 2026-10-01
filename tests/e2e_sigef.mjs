@@ -164,6 +164,13 @@ await page.fill('#rc-e0', ''); await page.fill('#rc-n0', '');
 // volta ao Lote 174 para os checks seguintes
 await page.evaluate((t) => { const r = parseMemorialText(t); document.getElementById('cfg-zone').value = String(r.fuso); state.inputClosed = false; state.fromKML = false; loadFromUTM(r.utmVerts); }, MEM174);
 await page.waitForFunction(() => state.vertices.length === 12);
+// Quadro de vértices com Lado · Azimute · Distância (pedido de cliente: "não sai o azimute e a medida")
+await page.evaluate(() => { if(!document.getElementById('coord-table-wrap').classList.contains('show')) document.getElementById('btn-toggle-table').click(); });
+const quadro = await page.evaluate(() => { const r = Array.from(document.querySelectorAll('#coord-table-body tr')).map(tr => Array.from(tr.children).map(td => td.textContent.trim())); return { n: r.length, v1: r[0], v12: r[11], thAz: document.getElementById('th-az').textContent, thDist: document.getElementById('th-dist').textContent }; });
+console.log('QUADRO V1:', JSON.stringify(quadro.v1), '|', quadro.thAz, '|', quadro.thDist);
+console.log('CHECK quadro urbano traz lado V1→V2, azimute 129° 29\' 56" e distância 19,28 m (AG):', quadro.n === 12 && quadro.v1[5] === 'V1→V2' && /^129° 29' 56/.test(quadro.v1[6]) && quadro.v1[7] === '19,28' && quadro.v12[5] === 'V12→V1' && /plano UTM/.test(quadro.thAz) ? 'OK' : 'FAIL ' + JSON.stringify(quadro));
+const csvTxt = await page.evaluate(() => { const v = state.vertices; const ed = tableEdges(v); return { hasEdges: ed.length === v.length, az: decToDMS(ed[0].az), d: ed[0].dist.toFixed(2) }; });
+console.log('CHECK tableEdges = mesmos valores do memorial:', csvTxt.hasEdges && /^129° 29' 56/.test(csvTxt.az) && csvTxt.d === '19.28' ? 'OK' : 'FAIL ' + JSON.stringify(csvTxt));
 // memorial urbano abre em modo urbano (sem memória escondida) e traz Frente/Fundo
 await page.click('#exp-mem'); await page.waitForSelector('#memorial-modal.open');
 const memMode = await page.evaluate(() => ({ tipo: memorialTipo(), hasSides: !!document.querySelector('[data-edge-side]'), preview: document.getElementById('mem-preview').textContent.slice(0, 400) }));
@@ -277,7 +284,7 @@ await page.evaluate(() => document.querySelector('input[data-overlay="spu"]').cl
 await page.waitForFunction(() => overlayDefs.spu.resolved === true, null, { timeout: 15000 });
 const spu = await page.evaluate(() => ({ layer: overlayDefs.spu.wmsLayer, status: document.querySelector('[data-status="spu"]').textContent, nImg: document.querySelectorAll('#lg-items .lg-item img').length, ep: overlayEndpoint(overlayDefs.spu) }));
 console.log('SPU:', JSON.stringify(spu), '| caps hits:', proxyHits.filter(u => /SPU\/wms/.test(u)).length);
-console.log('CHECK SPU resolve o nome mais recente (03092026, não 15012025) para terreno de marinha + acrescido:', spu.layer === 'vw_app_trecho_terreno_marinha_a_03092026,vw_app_trecho_terreno_acrescido_marinha_a_03092026' && spu.ep.wmsUrl === 'https://geoservicos.inde.gov.br/geoserver/SPU/wms' && !/indisponível/.test(spu.status) ? 'OK' : 'FAIL');
+console.log('CHECK SPU resolve o nome mais recente (03092026, não 15012025) para terreno de marinha + acrescido:', spu.layer === 'vw_app_trecho_terreno_marinha_a_03092026,vw_app_trecho_terreno_acrescido_marinha_a_03092026' && spu.ep.wmsUrl === 'https://geoservicos.inde.gov.br/geoserver/SPU/wms' && !/nome da camada não encontrado/.test(spu.status) ? 'OK' : 'FAIL');   // tiles são bloqueados no sandbox: só o nome resolvido é verificável aqui
 await page.evaluate(() => document.querySelector('input[data-overlay="spu"]').click());
 const dead = await page.evaluate(() => JSON.stringify(overlayDefs).includes('sigespa'));
 console.log('CHECK nenhuma referência ao host morto da SPU (sigespa):', !dead ? 'OK' : 'FAIL');
