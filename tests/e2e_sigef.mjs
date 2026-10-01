@@ -248,5 +248,18 @@ REAL.forEach((p, i) => {
   const truncMin = Math.floor(e.az * 60) ; const truncOk = truncMin === expMin;
   console.log(`  ${p.name}→${REAL[(i+1)%4].name}: az ${fmtAz(e.az)} → trunc ${Math.floor(e.az)}°${String(truncMin - Math.floor(e.az)*60).padStart(2,'0')}' (INCRA ${p.az[0]}°${String(p.az[1]).padStart(2,'0')}') ${truncOk ? 'OK' : 'FAIL'} (Δ bruto ${dAz.toFixed(2)}′) · dist ${e.dist.toFixed(2)} (INCRA ${p.dist.toFixed(2)}) Δ=${dD.toFixed(3)} m ${Math.abs(dD) <= 0.05 ? 'OK' : 'FAIL'}`);
 });
+// ---- Escolha vinda da landing: ?tipo=rural abre em rural; sem parâmetro respeita a preferência; badge no cabeçalho ----
+const p2 = await ctx.newPage();
+await p2.route(u => !u.href.startsWith(base), route => { const u = route.request().url(); const hit = CDN[u]; if(hit){ const f = path.join(LIBS, hit[0]); return route.fulfill({ status: 200, contentType: hit[1], body: fs.readFileSync(f) }); } return route.abort('blockedbyclient'); });
+await p2.goto(base + '/conversor.html?tipo=rural', { waitUntil: 'domcontentloaded' });
+await p2.waitForFunction(() => typeof window.proj4 === 'function' && document.getElementById('cfg-tipo'));
+const tr = await p2.evaluate(() => ({ tipo: document.getElementById('cfg-tipo').value, badge: document.getElementById('tipo-badge').textContent, areaK: document.getElementById('m-area-k').textContent }));
+console.log('URL ?tipo=rural →', JSON.stringify(tr));
+console.log('CHECK ?tipo=rural abre em rural com selo:', tr.tipo === 'rural' && /RURAL/.test(tr.badge) ? 'OK' : 'FAIL');
+await p2.goto(base + '/conversor.html?tipo=urbano', { waitUntil: 'domcontentloaded' });
+await p2.waitForFunction(() => typeof window.proj4 === 'function' && document.getElementById('cfg-tipo'));
+const tu = await p2.evaluate(() => ({ tipo: document.getElementById('cfg-tipo').value, badge: document.getElementById('tipo-badge').textContent }));
+console.log('CHECK ?tipo=urbano abre em urbano com selo:', tu.tipo === 'urbano' && /URBANO/.test(tu.badge) ? 'OK' : 'FAIL');
+await p2.close();
 console.log('PAGE ERRORS:', errors.length ? '\n' + errors.join('\n') : 'none');
 await browser.close(); server.close();

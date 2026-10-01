@@ -269,6 +269,15 @@ body{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' wi
 a, button, .feedback-btn, .dropzone, .tool-card, .nav-link, .qw-cta, .btn{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='28' viewBox='0 0 26 28'%3E%3Cpath d='M2 2 L2 24 L8 20 L20 20 Z' fill='%2390b728' stroke='%230a1f3d' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E") 2 2, pointer}
 input, textarea, select{cursor:text}
 
+
+/* ---------- MÓDULO RURAL (caixa secundária no hero) ---------- */
+.rural-box{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;margin-top:18px;max-width:760px;padding:12px 16px;background:rgba(0,144,131,0.10);border:1px solid rgba(144,183,40,0.45);border-radius:8px;text-decoration:none;color:inherit;transition:all .15s}
+.rural-box:hover{border-color:var(--verde);background:rgba(0,144,131,0.16)}
+.rural-box .rb-tag{font-size:9.5px;letter-spacing:0.2em;text-transform:uppercase;font-weight:700;color:var(--black);background:var(--verde);padding:4px 8px;border-radius:1px;white-space:nowrap}
+.rural-box .rb-body{font-size:12.5px;color:var(--muted);line-height:1.5}
+.rural-box .rb-body strong{color:var(--white)}
+.rural-box .rb-go{font-size:12px;font-weight:600;color:var(--verde);white-space:nowrap}
+@media (max-width:680px){.rural-box{grid-template-columns:1fr}.rural-box .rb-go{justify-self:start}}
 </style>
 </head>
 <body>
@@ -314,7 +323,7 @@ input, textarea, select{cursor:text}
     <div class="hero-left">
       <span class="eyebrow"><span class="dot"></span> Toolkit técnico · conferência + entrega para SIG-RI e ONR</span>
       <h1 class="hero-title">Da coordenada UTM ao arquivo aceito pelo <span class="green">SIG-RI e pelo ONR</span> — num só lugar.</h1>
-      <p class="hero-lead">Converte coordenadas, calcula área e perímetro pelo método de Gauss, valida fechamento, importa DXF, KML e KMZ, visualiza no mapa e exporta nos formatos exatos exigidos pelo manual do SIG-RI e pelo mapa público do ONR. Tudo no navegador, sem cadastro, sem upload para servidor.</p>
+      <p class="hero-lead">Converte coordenadas, calcula área e perímetro pelo método de Gauss, valida fechamento, importa DXF, KML e KMZ, visualiza no mapa e exporta nos formatos exatos exigidos pelo manual do SIG-RI e pelo mapa público do ONR. Tudo no navegador, sem cadastro, sem upload para servidor. <strong>Imóvel rural?</strong> O mesmo conversor calcula no SGL, gera o memorial e a planilha no padrão SIGEF e confere sobreposição com parcelas certificadas do INCRA.</p>
 
       <div class="features-row">
         <span class="f-item"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8l3.5 3.5L13 5"/></svg> Conversão + cálculo + validação</span>
@@ -324,9 +333,15 @@ input, textarea, select{cursor:text}
       </div>
 
       <div class="cta-row">
-        <a class="btn btn-primary" href="conversor.html">Abrir conversor →</a>
+        <a class="btn btn-primary" href="conversor.html?tipo=urbano">Abrir conversor →</a>
         <a class="btn btn-secondary" href="#how">Ver como funciona</a>
       </div>
+      <a class="rural-box" href="conversor.html?tipo=rural">
+        <span class="rb-tag">Módulo rural</span>
+        <span class="rb-body"><strong>Imóvel rural (INCRA / SIGEF)?</strong> O mesmo conversor, em modo rural: área e perímetro no SGL, memorial e planilha ODS no padrão SIGEF, validação de precisão, sobreposição com parcelas certificadas, APP e faixas.</span>
+        <span class="rb-go">Abrir módulo rural →</span>
+      </a>
+
     </div>
 
     <!-- Right: Quick widget -->
@@ -464,6 +479,20 @@ input, textarea, select{cursor:text}
         <h3>Memorial Descritivo (PDF)</h3>
         <p>Memorial descritivo automático no padrão NBR 13133 / NBR 17047, com azimutes em graus/min/seg, distâncias, área, perímetro e agrupamento de confrontantes por lado. Município pré-preenchido pela localização. Saída em PDF pronto para protocolar.</p>
         <span class="arrow-link">Abrir ferramenta →</span>
+      </a>
+
+      <!-- LIVE 7: Rural / SIGEF -->
+      <a class="tool-card" href="conversor.html?tipo=rural">
+        <div class="corner"></div>
+        <span class="tool-status live">Disponível</span>
+        <svg class="tool-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M6 36 L18 12 L30 30 L36 22 L42 36 Z"/>
+          <path d="M6 40 L42 40"/>
+          <circle cx="18" cy="12" r="2.5" fill="#90b728" stroke="none"/><circle cx="30" cy="30" r="2.5" fill="#90b728" stroke="none"/><circle cx="36" cy="22" r="2.5" fill="#90b728" stroke="none"/>
+        </svg>
+        <h3>Módulo rural · INCRA / SIGEF</h3>
+        <p>Área e perímetro no Sistema Geodésico Local (oficial do INCRA), memorial no formato gerado pelo SIGEF, planilha ODS no modelo oficial 1.4 com validação pela matriz de precisão, sobreposição com parcelas certificadas, APP e faixas não edificáveis.</p>
+        <span class="arrow-link">Abrir no modo rural →</span>
       </a>
     </div>
   </div>

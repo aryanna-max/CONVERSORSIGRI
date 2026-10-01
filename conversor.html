@@ -112,6 +112,8 @@ a{color:var(--verde);text-decoration:none}
 .brand-text .tool .accent{color:var(--verde)}
 .beta-badge{display:inline-flex;align-items:center;gap:6px;margin-left:10px;padding:3px 7px 3px 8px;font-size:9.5px;letter-spacing:0.22em;font-weight:700;color:var(--black);background:var(--verde);border-radius:1px;vertical-align:3px;line-height:1}
 .beta-badge .beta-ver{padding:2px 5px;background:rgba(3,6,8,0.78);color:var(--verde);font-weight:600;letter-spacing:0.1em;border-radius:1px}
+.tipo-badge{display:inline-flex;align-items:center;margin-left:8px;padding:3px 8px;font-size:9.5px;letter-spacing:0.2em;font-weight:700;color:var(--white);background:rgba(25,93,131,0.55);border:1px solid rgba(120,170,230,0.45);border-radius:1px;vertical-align:3px;line-height:1;cursor:help}
+.tipo-badge.rural{background:rgba(0,144,131,0.45);border-color:rgba(144,183,40,0.6);color:var(--verde-bright)}
 .header-meta{text-align:right;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);line-height:1.7}
 .header-meta strong{color:var(--white);font-weight:500}
 
@@ -557,7 +559,7 @@ input, textarea, select, [contenteditable]{cursor:text}
         </svg>
       </div>
       <div class="brand-text">
-        <div class="tool">Conversor UTM <span class="accent">→</span> Geográficas (SIRGAS 2000) <span class="beta-badge">BETA <span class="beta-ver">v0.1</span></span></div>
+        <div class="tool">Conversor UTM <span class="accent">→</span> Geográficas (SIRGAS 2000) <span class="beta-badge">BETA <span class="beta-ver">v0.1</span></span> <span class="tipo-badge" id="tipo-badge">URBANO · SIG-RI</span></div>
       </div>
     </div>
     <button class="feedback-btn" id="open-feedback">
@@ -982,10 +984,17 @@ const isRural = () => cfg().tipo === 'rural';
 // Tipo de imóvel: escolha GLOBAL e visível (padrão urbano); persiste no navegador
 (function initTipo(){
   const el = $('cfg-tipo'); if(!el) return;
-  try { const t = localStorage.getItem('confrontei_tipo_imovel'); if(t === 'urbano' || t === 'rural') el.value = t; } catch {}
+  // 1) escolha explícita na URL (vinda da landing: conversor.html?tipo=rural) vence; 2) preferência salva; 3) padrão urbano
+  const qp = new URLSearchParams(location.search).get('tipo');
+  if(qp === 'urbano' || qp === 'rural'){ el.value = qp; try { localStorage.setItem('confrontei_tipo_imovel', qp); } catch {} }
+  else { try { const t = localStorage.getItem('confrontei_tipo_imovel'); if(t === 'urbano' || t === 'rural') el.value = t; } catch {} }
+  const badge = $('tipo-badge');
+  const paint = () => { if(!badge) return; const r = el.value === 'rural'; badge.textContent = r ? 'RURAL · SIGEF' : 'URBANO · SIG-RI'; badge.classList.toggle('rural', r); badge.title = 'Tipo de imóvel atual — altere no painel 01'; };
+  paint();
   el.addEventListener('change', () => {
     try { localStorage.setItem('confrontei_tipo_imovel', el.value); } catch {}
     const r = document.querySelector(`input[name="mem-tipo"][value="${el.value}"]`); if(r) r.checked = true;
+    paint();
     refreshAll();
   });
 })();
@@ -1853,10 +1862,14 @@ $('btn-map-fs').addEventListener('click', () => {
 function refreshMetrics(){
   const v = state.vertices;
   if(v.length < 3){
+    const ruralEmpty = isRural();
+    $('m-perim-k').textContent = ruralEmpty ? 'Perímetro · SGL (oficial) e UTM' : 'Perímetro (UTM)';
+    $('m-area-k').textContent = ruralEmpty ? 'Área · SGL (oficial), UTM, elipsoide' : 'Área (UTM)';
+    $('m-ha-k').textContent = ruralEmpty ? 'Escala UTM (k) · Convergência (γ)' : 'Hectares';
     $('m-vert').textContent = v.length || '—';
     $('m-perim').innerHTML = '— <span class="u">m</span>';
-    $('m-area').innerHTML = '— <span class="u">ha</span>';
-    $('m-ha').innerHTML = '— <span class="u">k</span>';
+    $('m-area').innerHTML = ruralEmpty ? '— <span class="u">ha</span>' : '— <span class="u">m²</span>';
+    $('m-ha').innerHTML = ruralEmpty ? '— <span class="u">k</span>' : '— <span class="u">ha</span>';
     $('m-clos').innerHTML = '<span class="dot gray"></span> Aguardando entrada';
     return;
   }

@@ -44,6 +44,8 @@ CNJ 195/2025. Produto da **AG Topografia**.
 ## Tipo de imóvel — escolha GLOBAL (decisão da usuária, 2026-10-01)
 - **"Urbano / Rural" é a PRIMEIRA escolha**, no painel 01 (`#cfg-tipo`, antes do fuso), **padrão Urbano**, visível e persistida em `confrontei_tipo_imovel`. Nunca esconder modo em memória do modal (bug real: o modal lembrava "Rural · Tabela SIGEF" e abriu um lote urbano no formato do INCRA).
 - Urbano: quadro de áreas ORIGINAL (Área m² UTM · Perímetro UTM · Hectares; k/γ só como sublinha se |k−1|>1e-4), memorial NBR com lados, planilha SIGEF desabilitada (tooltip explica). Rural: SGL/UTM/elipsoide + k/γ, memorial Tabela SIGEF/Prosa, planilha SIGEF e sobreposição liberadas. `isRural()` é a fonte única; o rádio do modal espelha o global a cada abertura.
+- **Foco é URBANO; rural é um MÓDULO** (usuária, 2026-10-01): na landing o CTA principal é "Abrir conversor →" (`conversor.html?tipo=urbano`) e o rural aparece como caixa secundária "Módulo rural" (`?tipo=rural`) + card "Módulo rural · INCRA/SIGEF". Nunca apresentar como escolha 50/50.
+- O conversor lê `?tipo=urbano|rural` (escolha explícita vence a preferência salva), mostra selo `#tipo-badge` no cabeçalho (URBANO · SIG-RI / RURAL · SIGEF) e os rótulos do quadro seguem o modo até no estado vazio.
 - Regressão urbana no E2E com o memorial real do Lote 174 Gleba A (AG): 12 vértices, fuso 25, 963,90 m² / 141,22 m (AG 963,89 / 141,21), azimute V1→V2 129°29′56″.
 
 ## Princípio de produto (inegociável)
