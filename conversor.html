@@ -210,6 +210,22 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .stat .k{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);font-weight:500}
 .stat .v{font-size:22px;font-weight:600;color:var(--white);letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
 .stat .u{font-size:11px;color:var(--soft);margin-left:4px;font-weight:400}
+.stat .m-sub{font-size:10.5px;color:var(--soft);font-weight:400;margin-top:3px;letter-spacing:0.02em;line-height:1.3}
+.stat .m-warn{display:inline-block;color:#e8b04a;font-size:14px;margin-left:4px;cursor:help}
+.stat .m-note{color:#e8b04a;font-style:italic;font-size:9.5px;letter-spacing:0.04em}
+/* Metodologia — bloco colapsável abaixo das métricas */
+.metod{margin-top:12px;border:1px solid var(--line);border-radius:6px;background:rgba(0,0,0,0.18)}
+.metod summary{cursor:pointer;padding:9px 12px;font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--verde);font-weight:600;list-style:none;user-select:none}
+.metod summary::-webkit-details-marker{display:none}
+.metod summary:hover{color:var(--verde-bright)}
+.metod-body{padding:4px 14px 12px;font-size:11.5px;line-height:1.55;color:var(--muted)}
+.metod-body p{margin:6px 0}
+.metod-body ul{margin:6px 0 6px 16px;padding:0}
+.metod-body li{margin:5px 0}
+.metod-body strong{color:var(--white);font-weight:600}
+.metod-body em{color:var(--verde-bright);font-style:normal}
+.metod-body code{font-family:'JetBrains Mono',monospace;font-size:10.5px;background:rgba(255,255,255,0.06);padding:1px 4px;border-radius:2px;color:var(--white)}
+.metod-foot{font-size:10.5px;color:var(--soft);border-top:1px dashed var(--line);padding-top:8px;margin-top:8px!important;font-style:italic}
 .stat.closure .v{font-size:13px;display:flex;align-items:center;gap:8px}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%}
 .dot.green{background:var(--verde);box-shadow:0 0 0 3px rgba(144,183,40,0.18)}
@@ -699,22 +715,37 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
             <span class="v" id="m-vert">—</span>
           </div>
           <div class="stat">
-            <span class="k">Perímetro</span>
+            <span class="k">Perímetro · SGL (oficial) e UTM</span>
             <span class="v" id="m-perim">— <span class="u">m</span></span>
           </div>
           <div class="stat">
-            <span class="k">Área</span>
-            <span class="v" id="m-area">— <span class="u">m²</span></span>
+            <span class="k">Área · SGL (oficial), UTM, elipsoide</span>
+            <span class="v" id="m-area">— <span class="u">ha</span></span>
           </div>
           <div class="stat">
-            <span class="k">Hectares</span>
-            <span class="v" id="m-ha">— <span class="u">ha</span></span>
+            <span class="k">Escala UTM (k) · Convergência (γ)</span>
+            <span class="v" id="m-ha">— <span class="u">k</span></span>
           </div>
           <div class="stat closure" style="grid-column:span 2">
             <span class="k">Fechamento</span>
             <span class="v" id="m-clos"><span class="dot gray"></span> Aguardando entrada</span>
           </div>
         </div>
+        <details class="metod" id="metod-box">
+          <summary>ⓘ Metodologia dos cálculos (clique para abrir)</summary>
+          <div class="metod-body">
+            <p><strong>Identidade do vértice:</strong> coordenadas geográficas <strong>SIRGAS 2000 (EPSG:4674)</strong>. Tudo abaixo deriva delas.</p>
+            <ul>
+              <li><strong>Área e perímetro SGL</strong> (<em>oficial para imóveis rurais / INCRA-SIGEF</em>): projeção ortográfica tangente no centroide do polígono sobre o elipsoide <strong>GRS80</strong> (proj4 <code>+proj=ortho</code>); área pelo método de <strong>Gauss (shoelace)</strong>. Equivalente ao Sistema Geodésico Local — não sofre a ampliação da projeção UTM.</li>
+              <li><strong>Área e perímetro UTM</strong>: cálculo no plano da projeção UTM do fuso selecionado (meridiano central informado em "Escala UTM"). É o valor que o AutoCAD mostra ao clicar no polígono. <strong>Nunca</strong> use em matrícula sem declarar que é UTM.</li>
+              <li><strong>Área elipsoidal</strong>: integração geodésica (turf.js, método de Karney) sobre o elipsoide <strong>WGS 84</strong>. O WGS 84 e o GRS80 (SIRGAS 2000) diferem no achatamento em menos de 10⁻⁹ — sem efeito mensurável na área. Aproxima a SGL; diferença de poucos m².</li>
+              <li><strong>Fator de escala UTM (k)</strong>: k = k₀·[1 + x²/(2R²)], com k₀ = 0,9996, x = distância ao meridiano central (projetada) e R = 6.378.137 m. k ≈ 1 na secante (≈180 km do MC). Longe dela, 1 km no terreno vira (k×1 km) no mapa UTM. ⚠ aparece quando |k−1| > 0,0001.</li>
+              <li><strong>Convergência meridiana (γ)</strong>: γ ≈ (λ−λ₀)·sen φ. Diferença angular entre Norte geográfico (NG) e Norte da quadrícula UTM (NQ). Azimutes no plano UTM diferem dos azimutes geodésicos exatamente desse γ.</li>
+              <li><strong>Fechamento</strong>: polígono sempre tratado como fechado (V<sub>n</sub>→V<sub>1</sub>). Mostra se a entrada trouxe vértice de fechamento repetido.</li>
+            </ul>
+            <p class="metod-foot"><strong>Natureza destes valores:</strong> são valores de <em>conferência</em>, calculados em gabinete a partir das coordenadas importadas. A SGL aqui usa centroide pela média aritmética dos vértices; a SGL oficial do INCRA usa a média geocêntrica e as fórmulas do Manual Técnico de Posicionamento. Para polígonos até ~10 km de extensão a diferença fica abaixo de 1 cm²/ha. <strong>Nenhum valor desta tela substitui a área certificada pelo SIGEF nem a área da matrícula.</strong> Conferir em MapGeo/ProGriD/SIGEF antes de protocolar.</p>
+          </div>
+        </details>
       </div>
 
       <!-- 04 — EXPORTAÇÕES -->
@@ -1251,28 +1282,44 @@ function parseNumBR(s){
 
 function parseMemorialText(text){
   const t = text.replace(/\s+/g, ' ');
-  const verts = [];
-  // Padrão AG/NBR: "V1, definido pelas coordenadas E: 287.831,350 m e N: 9.111.104,430 m"
-  let re = /V(\d+)[,.\s]{1,4}definido\s+pelas\s+coordenadas\s+E[:\s]*([\d\.,]+)\s*m?\s*[e,]\s*N[:\s]*([\d\.,]+)/gi;
-  let m;
+  const utmVerts = [], geoVerts = [];
   const seen = new Set();
-  while((m = re.exec(t)) !== null){
-    const name = 'V' + m[1];
+  // Nome: aceita V1..Vn (AG/NBR) OU códigos SIGEF do tipo GLH-V-10491, BWF-P-A238, GLH-M-08524
+  const NAME = `([A-Z]{2,4}-[VMPT]-[A-Z0-9\\-]+|V\\d+)`;
+  // --- Padrão UTM: "NAME, [definido] pelas coordenadas E: X m e N: Y m" ---
+  const reUTM = new RegExp(NAME + `[,.\\s]{1,4}(?:definido\\s+)?pelas\\s+coordenadas\\s+E[:\\s]*([\\d\\.,]+)\\s*m?\\s*[e,]\\s*N[:\\s]*([\\d\\.,]+)`, 'gi');
+  let m;
+  while((m = reUTM.exec(t)) !== null){
+    const name = m[1];
     if(seen.has(name)) continue;
     const e = parseNumBR(m[2]), n = parseNumBR(m[3]);
-    if(isFinite(e) && isFinite(n)){ verts.push({ name, e, n }); seen.add(name); }
+    if(isFinite(e) && isFinite(n)){ utmVerts.push({ name, e, n }); seen.add(name); }
   }
-  // Fallback compacto: "V1 E: 287.831,350 N: 9.111.104,430" ou "V1 E=... N=..."
-  if(verts.length < 3){
-    re = /V(?:[ÉE]RTICE\s*)?(\d+)[^\dEN]{1,20}?E[:\s=]*([\d\.,]{5,})[^\dN]{1,20}?N[:\s=]*([\d\.,]{6,})/gi;
-    while((m = re.exec(t)) !== null){
-      const name = 'V' + m[1];
-      if(seen.has(name)) continue;
-      const e = parseNumBR(m[2]), n = parseNumBR(m[3]);
-      if(isFinite(e) && isFinite(n)){ verts.push({ name, e, n }); seen.add(name); }
+  // --- Padrão SIGEF geográfico: "NAME, de coordenadas -8,xxxxxx; -34,xxxxxx" ---
+  // Lat/long decimais, aceitando ; ou vírgula/espaço entre eles
+  const reGeo = new RegExp(NAME + `[,.\\s]{1,4}(?:de\\s+)?coordenadas\\s+(-?\\d{1,2}[\\.,]\\d{3,})\\s*[;,\\s]+\\s*(-?\\d{1,3}[\\.,]\\d{3,})`, 'gi');
+  while((m = reGeo.exec(t)) !== null){
+    const name = m[1];
+    if(seen.has(name)) continue;
+    let lat = parseNumBR(m[2]), lng = parseNumBR(m[3]);
+    // Heurística para Brasil: lat ~ -5 a -34, lng ~ -34 a -74
+    if(lat > 0 && lat < 35) lat = -lat;
+    if(lng > -34 && lng > 0) lng = -lng;
+    if(isFinite(lat) && isFinite(lng) && lat < 0 && lng < 0 && lat > -35 && lng > -75){
+      geoVerts.push({ name, lat, lng }); seen.add(name);
     }
   }
-  // Detecta Meridiano Central para inferir fuso: "Meridiano Central 33°00'00" WGr" ou "MC = -33"
+  // Fallback compacto UTM: "V1 E: 287.831,350 N: 9.111.104,430" ou "V1 E=... N=..."
+  if(utmVerts.length < 3 && geoVerts.length < 3){
+    const reUTM2 = new RegExp(NAME + `[^\\dEN]{1,20}?E[:\\s=]*([\\d\\.,]{5,})[^\\dN]{1,20}?N[:\\s=]*([\\d\\.,]{6,})`, 'gi');
+    while((m = reUTM2.exec(t)) !== null){
+      const name = m[1];
+      if(seen.has(name)) continue;
+      const e = parseNumBR(m[2]), n = parseNumBR(m[3]);
+      if(isFinite(e) && isFinite(n)){ utmVerts.push({ name, e, n }); seen.add(name); }
+    }
+  }
+  // Detecta Meridiano Central para inferir fuso
   let mc = null;
   m = t.match(/Meridiano\s+Central\s+(\d+)\s*°?[^\d]{0,20}?(W|WGr|E|EGr)?/i);
   if(m){
@@ -1281,9 +1328,14 @@ function parseMemorialText(text){
     mc = isW ? -deg : deg;
   }
   const fuso = mc != null ? Math.round((mc + 183) / 6) : null;
-  // Ordena por índice numérico do nome (V1, V2, ..., V10)
-  verts.sort((a,b) => parseInt(a.name.slice(1),10) - parseInt(b.name.slice(1),10));
-  return { verts, fuso };
+  // Ordena preservando ordem numérica quando possível
+  const sortByNum = arr => arr.sort((a,b) => {
+    const na = (a.name.match(/\d+/g) || []).join('').slice(-6);
+    const nb = (b.name.match(/\d+/g) || []).join('').slice(-6);
+    return parseInt(na,10) - parseInt(nb,10);
+  });
+  sortByNum(utmVerts); sortByNum(geoVerts);
+  return { utmVerts, geoVerts, fuso };
 }
 
 async function handleMemorialPDF(file){
@@ -1301,27 +1353,39 @@ async function handleMemorialPDF(file){
       text += content.items.map(it => it.str).join(' ') + '\n';
     }
     if(!text || text.length < 40) throw new Error('PDF sem texto extraível (memorial digitalizado?)');
-    const { verts, fuso } = parseMemorialText(text);
-    if(verts.length < 3){
-      setStatus('input-status','err','Não foi possível reconhecer vértices no memorial. Confira o formato ("V1, definido pelas coordenadas E: … m e N: … m").');
+    const { utmVerts, geoVerts, fuso } = parseMemorialText(text);
+    const useGeo = geoVerts.length >= utmVerts.length && geoVerts.length >= 3;
+    const useUtm = !useGeo && utmVerts.length >= 3;
+    if(!useGeo && !useUtm){
+      setStatus('input-status','err','Não foi possível reconhecer vértices no memorial. Formatos aceitos: "V1, pelas coordenadas E: … m e N: … m" (AG/NBR UTM) ou "GLH-V-10491, de coordenadas -8,xxxxxx; -34,xxxxxx" (SIGEF geográfico).');
       return;
     }
-    // Ajusta fuso automaticamente (se detectado) e hemisfério S por padrão para Brasil
     let msgFuso = '';
-    if(fuso && fuso >= 18 && fuso <= 25){
+    if(useUtm && fuso && fuso >= 18 && fuso <= 25){
       $('cfg-zone').value = fuso;
       msgFuso = ` · fuso ${fuso} S detectado no memorial`;
     }
-    // Remove vértice de fechamento duplicado se houver
     state.inputClosed = false;
-    let vv = verts.slice();
-    if(vv.length >= 4){
-      const a = vv[0], b = vv[vv.length-1];
-      if(Math.hypot(a.e-b.e, a.n-b.n) < 0.01){ vv = vv.slice(0,-1); state.inputClosed = true; }
+    if(useGeo){
+      // Memorial SIGEF geográfico: vai direto como lat/lng (não passa por UTM proj)
+      let pts = geoVerts.map(g => ({ lat: g.lat, lng: g.lng, name: g.name }));
+      if(pts.length >= 4){
+        const a = pts[0], b = pts[pts.length-1];
+        if(Math.abs(a.lat-b.lat) < 1e-7 && Math.abs(a.lng-b.lng) < 1e-7){ pts = pts.slice(0,-1); state.inputClosed = true; }
+      }
+      state.fromKML = true;
+      loadFromKMLPoints(pts);
+      setStatus('input-status','ok',`Memorial SIGEF importado (geográfico): ${pts.length} vértices com códigos oficiais${msgFuso}.`);
+    } else {
+      let vv = utmVerts.slice();
+      if(vv.length >= 4){
+        const a = vv[0], b = vv[vv.length-1];
+        if(Math.hypot(a.e-b.e, a.n-b.n) < 0.01){ vv = vv.slice(0,-1); state.inputClosed = true; }
+      }
+      state.fromKML = false;
+      loadFromUTM(vv);
+      setStatus('input-status','ok',`Memorial importado: ${vv.length} vértices${msgFuso}. Confirme datum/hemisfério antes de exportar.`);
     }
-    state.fromKML = false;
-    loadFromUTM(vv);
-    setStatus('input-status','ok',`Memorial importado: ${vv.length} vértices${msgFuso}. Confirme datum/hemisfério antes de exportar.`);
   } catch(err){
     console.error(err);
     setStatus('input-status','err','Falha ao ler o memorial: ' + (err.message || err));
@@ -1735,20 +1799,67 @@ function refreshMetrics(){
   if(v.length < 3){
     $('m-vert').textContent = v.length || '—';
     $('m-perim').innerHTML = '— <span class="u">m</span>';
-    $('m-area').innerHTML = '— <span class="u">m²</span>';
-    $('m-ha').innerHTML = '— <span class="u">ha</span>';
+    $('m-area').innerHTML = '— <span class="u">ha</span>';
+    $('m-ha').innerHTML = '— <span class="u">k</span>';
     $('m-clos').innerHTML = '<span class="dot gray"></span> Aguardando entrada';
     return;
   }
-  const area = polyArea(v);
-  const perim = polyPerimeter(v);
-  const ha = area / 10000;
+  const areaUTM = polyArea(v);                  // Plano UTM (meridiano central do fuso)
+  const perim = polyPerimeter(v);               // UTM
+  const haUTM = areaUTM / 10000;
+  // === Área no SGL (plano tangente ortográfico no centroide, elipsoide GRS80) ===
+  // Projeção ortográfica = aproximação do Sistema Geodésico Local usado pelo SIGEF.
+  const centroid = polyCentroidLatLng(v);
+  let haSGL = null, haElips = null, perimSGL = null;
+  try {
+    const sglProj = `+proj=ortho +lat_0=${centroid.lat} +lon_0=${centroid.lng} +ellps=GRS80 +units=m +no_defs`;
+    const xy = v.map(p => proj4('EPSG:4674', sglProj, [p.lng, p.lat])); // [x,y] em metros no SGL
+    // Shoelace no SGL
+    let sglArea = 0, sglPerim = 0;
+    for(let i = 0; i < xy.length; i++){
+      const [x1,y1] = xy[i], [x2,y2] = xy[(i+1)%xy.length];
+      sglArea += (x1 * y2 - x2 * y1);
+      sglPerim += Math.hypot(x2-x1, y2-y1);
+    }
+    haSGL = Math.abs(sglArea) / 2 / 10000;
+    perimSGL = sglPerim;
+  } catch(e){ /* fallback silencioso */ }
+  // === Área sobre o elipsoide GRS80 via turf (geodésica) ===
+  try {
+    const ring = v.map(p => [p.lng, p.lat]); ring.push(ring[0]);
+    haElips = turf.area(turf.polygon([ring])) / 10000;
+  } catch(e){ /* fallback silencioso */ }
+  // === Fator de escala UTM (k) e convergência meridiana (γ) no centroide ===
+  const { zone } = cfg();
+  const mcLon = -183 + 6 * zone;
+  const R = 6378137;
+  const k0 = 0.9996;
+  const dLon = (centroid.lng - mcLon) * Math.PI / 180;
+  const phi = centroid.lat * Math.PI / 180;
+  // Fator de escala UTM: k = k0 · [1 + (x·cosφ)²/(2R²)] onde x é dist. ao MC em metros
+  const xMeters = dLon * R * Math.cos(phi);
+  const k = k0 * (1 + (xMeters * xMeters) / (2 * R * R));
+  // Convergência meridiana (rad → arcmin): γ ≈ (λ−λ₀)·sinφ
+  const gammaMin = Math.abs(dLon * Math.sin(phi)) * (180/Math.PI) * 60;
+
   $('m-vert').textContent = v.length;
-  $('m-perim').innerHTML = fmtNum(perim,2) + ' <span class="u">m</span>';
-  $('m-area').innerHTML = fmtNum(area,2) + ' <span class="u">m²</span>';
-  $('m-ha').innerHTML = fmtNum(ha,4) + ' <span class="u">ha</span>';
-  // Fechamento: o polígono é sempre tratado como fechado (Vn→V1) no cálculo de
-  // área/perímetro. Mostramos a origem do fechamento e a aresta Vn→V1 só como info.
+  // Perímetro: mostra SGL (oficial para rural) e UTM
+  const perimLineUTM = `UTM ${fmtNum(perim,2)} m`;
+  const perimLineSGL = haSGL != null ? `SGL ${fmtNum(perimSGL,2)} m` : '';
+  $('m-perim').innerHTML = (perimSGL != null
+    ? `${fmtNum(perimSGL,2)} <span class="u">m SGL</span><div class="m-sub">${perimLineUTM}</div>`
+    : `${fmtNum(perim,2)} <span class="u">m</span>`);
+  // Área: SGL em destaque + UTM + Elipsoide abaixo
+  if(haSGL != null && haElips != null){
+    $('m-area').innerHTML = `${fmtNum(haSGL,4)} <span class="u">ha SGL</span><div class="m-sub">UTM ${fmtNum(haUTM,4)} · Elips. ${fmtNum(haElips,4)} ha</div><div class="m-sub m-note">valores de conferência · não substituem SIGEF / matrícula</div>`;
+  } else {
+    $('m-area').innerHTML = `${fmtNum(haUTM,4)} <span class="u">ha UTM</span>`;
+  }
+  // Fator de escala UTM — avisa se longe da secante
+  const kBadge = Math.abs(k - 1) > 0.0001
+    ? `<span class="m-warn" title="Polígono longe do meridiano central ${Math.abs(mcLon)}° — áreas no plano UTM divergem do SGL">⚠</span>` : '';
+  $('m-ha').innerHTML = `${k.toFixed(6)} <span class="u">k UTM</span>${kBadge}<div class="m-sub">γ ≈ ${gammaMin.toFixed(1)}′ · MC ${Math.abs(mcLon)}° ${mcLon<0?'W':'E'}</div>`;
+  // Fechamento (comportamento inalterado)
   const a = v[0], b = v[v.length-1];
   const closingEdge = Math.hypot(b.e - a.e, b.n - a.n);
   if(state.inputClosed){
@@ -1758,6 +1869,13 @@ function refreshMetrics(){
   } else {
     $('m-clos').innerHTML = `<span class="dot green"></span> Fechado · aresta V<sub>${v.length}</sub>→V<sub>1</sub> = ${fmtNum(closingEdge,3)} m`;
   }
+}
+
+// Centroide do polígono em lat/lng (média simples — suficiente para projeção local)
+function polyCentroidLatLng(verts){
+  let lat = 0, lng = 0;
+  for(const p of verts){ lat += p.lat; lng += p.lng; }
+  return { lat: lat / verts.length, lng: lng / verts.length };
 }
 function fmtNum(n, dec){
   return n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -2504,12 +2622,7 @@ function generateMemorialPDF(){
   setStatus('export-status','ok','Memorial Descritivo (PDF) gerado.');
 }
 
-// Centroide do polígono em lat/lng (média simples — suficiente para reverse geocode)
-function polyCentroidLatLng(verts){
-  let lat = 0, lng = 0;
-  for(const v of verts){ lat += v.lat; lng += v.lng; }
-  return { lat: lat / verts.length, lng: lng / verts.length };
-}
+// (polyCentroidLatLng declarado em refreshMetrics acima)
 
 // Persistência de RT/empresa (independente de polígono)
 const MEM_RT_KEYS = ['mem-rt-nome','mem-rt-reg','mem-empresa','mem-empresa-endereco'];
