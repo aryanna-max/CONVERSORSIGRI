@@ -264,6 +264,16 @@ await page.click('#btn-map-info'); await page.evaluate(() => document.querySelec
 const panelScroll = await page.evaluate(() => { const p = document.getElementById('layer-panel'); p.classList.add('open'); const cs = getComputedStyle(p); const r = { overflowY: cs.overflowY, maxH: cs.maxHeight, scrollable: p.scrollHeight > p.clientHeight, h: p.clientHeight, sh: p.scrollHeight }; p.classList.remove('open'); return r; });
 console.log('PAINEL camadas:', JSON.stringify(panelScroll));
 console.log('CHECK painel de camadas rola:', panelScroll.overflowY === 'auto' && panelScroll.maxH !== 'none' ? 'OK' : 'FAIL');
+// Legenda recolhível e compacta (pedido: "ocupando boa parte do mapa")
+await page.evaluate(() => document.querySelector('input[data-overlay="sigef"]').click());
+await page.waitForFunction(() => document.getElementById('legend-panel').classList.contains('show'));
+const lg0 = await page.evaluate(() => { const p = document.getElementById('legend-panel'); return { collapsed: p.classList.contains('collapsed'), itemsVisible: getComputedStyle(document.getElementById('lg-items')).display !== 'none', h: p.getBoundingClientRect().height, flex: getComputedStyle(document.querySelector('.lg-item')).display }; });
+await page.click('#lg-head');
+const lg1 = await page.evaluate(() => { const p = document.getElementById('legend-panel'); return { collapsed: p.classList.contains('collapsed'), itemsVisible: getComputedStyle(document.getElementById('lg-items')).display !== 'none', h: p.getBoundingClientRect().height, tgl: document.getElementById('lg-tgl').textContent, saved: sessionStorage.getItem('confrontei_legenda') }; });
+console.log('LEGENDA:', JSON.stringify({ antes: lg0, depois: lg1 }));
+console.log('CHECK legenda compacta (item em linha) e recolhe ao clicar no cabeçalho:', lg0.flex === 'flex' && !lg0.collapsed && lg0.itemsVisible && lg1.collapsed && !lg1.itemsVisible && lg1.h < lg0.h && lg1.tgl === '▸' && lg1.saved === 'recolhida' ? 'OK' : 'FAIL');
+await page.click('#lg-head');
+await page.evaluate(() => document.querySelector('input[data-overlay="sigef"]').click());
 await page.click('#exp-ods'); await page.waitForSelector('#sigef-modal.open');
 
 // ---- Sobreposição SIGEF (WFS simulado) ----

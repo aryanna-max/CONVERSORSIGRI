@@ -289,13 +289,18 @@ textarea.paste{min-height:140px;font-family:'JetBrains Mono','SF Mono',Menlo,Con
 .vtx-marker.vtx-start{background:#f4f7f8;color:#0a1f3d;border-color:var(--verde);box-shadow:0 0 0 3px rgba(144,183,40,0.7)}
 
 /* Legend panel (overlays ativas) */
-.legend-panel{position:absolute;bottom:34px;left:14px;z-index:500;background:rgba(10,31,61,0.94);border:1px solid var(--line);border-radius:5px;padding:9px 11px;max-width:220px;max-height:300px;overflow-y:auto;display:none;backdrop-filter:blur(6px)}
+.legend-panel{position:absolute;bottom:34px;left:14px;z-index:500;background:rgba(10,31,61,0.94);border:1px solid var(--line);border-radius:5px;padding:6px 9px;max-width:230px;max-height:200px;overflow-y:auto;display:none;backdrop-filter:blur(6px)}
 .legend-panel.show{display:block}
-.legend-panel .lg-head{font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--verde);font-weight:600;margin-bottom:8px;line-height:1.3}
-.legend-panel .lg-item{margin-bottom:10px}
+.legend-panel .lg-head{font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;color:var(--verde);font-weight:600;line-height:1.3;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.legend-panel .lg-head .lg-tgl{margin-left:auto;font-size:11px;color:var(--white);opacity:0.8}
+.legend-panel .lg-head .lg-sub{display:block;font-size:8.5px;letter-spacing:0.08em;color:var(--soft);text-transform:none;font-weight:500}
+.legend-panel #lg-items{margin-top:6px}
+.legend-panel.collapsed #lg-items{display:none}
+.legend-panel.collapsed{max-height:none;overflow:visible}
+.legend-panel .lg-item{display:flex;align-items:center;gap:7px;margin-bottom:4px;min-height:18px}
 .legend-panel .lg-item:last-child{margin-bottom:0}
-.legend-panel .lg-name{font-size:10.5px;color:var(--white);font-weight:600;margin-bottom:3px;display:block}
-.legend-panel img{max-width:100%;background:#fff;padding:3px;border-radius:2px;display:block}
+.legend-panel .lg-name{font-size:10px;color:var(--white);font-weight:600;line-height:1.25;flex:1}
+.legend-panel img{max-width:96px;max-height:48px;background:#fff;padding:2px;border-radius:2px;display:block;flex-shrink:0}
 .legend-panel img.lg-err{display:none}
 
 /* base switch */
@@ -932,7 +937,7 @@ Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E:
       </div>
       <div class="map-label">Pré-visualização · <span class="vcount" id="map-vcount">0 vértices</span></div>
       <div class="legend-panel" id="legend-panel">
-        <div class="lg-head">Legenda · ligue "ⓘ Info" para consultar no clique</div>
+        <div class="lg-head" id="lg-head" title="Clique para recolher ou expandir a legenda"><span>Legenda <span class="lg-sub">ligue "ⓘ Info" para consultar no clique</span></span><span class="lg-tgl" id="lg-tgl">▾</span></div>
         <div id="lg-items"></div>
       </div>
       <div class="coord-hud" id="coord-hud">
@@ -2038,7 +2043,13 @@ function reverseVertices(){
 $('btn-reverse').addEventListener('click', reverseVertices);
 
 // ===== LEGENDA DAS CAMADAS ATIVAS =====
+// Legenda recolhível: clique no cabeçalho recolhe/expande; o estado vale para a aba (sessionStorage).
+let legendCollapsed = false;
+try { legendCollapsed = sessionStorage.getItem('confrontei_legenda') === 'recolhida'; } catch(_){}
+function paintLegendState(){ const p = $('legend-panel'); p.classList.toggle('collapsed', legendCollapsed); $('lg-tgl').textContent = legendCollapsed ? '▸' : '▾'; }
+$('lg-head').addEventListener('click', () => { legendCollapsed = !legendCollapsed; try { sessionStorage.setItem('confrontei_legenda', legendCollapsed ? 'recolhida' : 'aberta'); } catch(_){} paintLegendState(); });
 function refreshLegendPanel(){
+  paintLegendState();
   const panel = $('legend-panel');
   const items = $('lg-items');
   items.innerHTML = '';
@@ -2054,7 +2065,7 @@ function refreshLegendPanel(){
     const urlB = `${ep.wmsUrl}${sep}SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${encodeURIComponent(ep.wmsLayer)}`;
     const item = document.createElement('div');
     item.className = 'lg-item';
-    const name = document.createElement('span'); name.className = 'lg-name'; name.textContent = def.name; item.appendChild(name);
+    const name = document.createElement('span'); name.className = 'lg-name'; name.textContent = def.name;
     const img = document.createElement('img'); img.alt = `Legenda ${def.name}`; img.src = urlA;
     let triedB = false;
     img.onerror = () => {
@@ -2063,7 +2074,7 @@ function refreshLegendPanel(){
       a.textContent = 'legenda não carregou — abrir no servidor'; a.style.cssText = 'color:rgba(244,247,248,0.7);font-size:10px;font-style:italic;text-decoration:underline';
       img.replaceWith(a);
     };
-    item.appendChild(img);
+    item.appendChild(img); item.appendChild(name);
     items.appendChild(item);
   }
 }
