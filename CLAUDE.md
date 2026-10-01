@@ -88,7 +88,7 @@ CNJ 195/2025. Produto da **AG Topografia**.
 5. **Modo Conferência**: carregar 2–3 versões do mesmo polígono (certidão × memorial × DWG) e relatar divergências vértice a vértice — automatizar o que o relatório Boaçica fez à mão.
 
 ## Pendências
-- **Memorial Descritivo em PDF** — prometido no README (⏳) e na landing; ainda não implementado. Entregável citado pela NBR 13133. Próxima grande entrega.
+- ~~Memorial Descritivo em PDF~~ — **ENTREGUE (PR #13, 01/10/2026)**: `generateMemorialPDF` (jsPDF): logo da AG reduzida a 180 px (senão o PDF passa de 800 KB), cabeçalho com empresa, título + subtítulo do regime (NBR/UTM ou SIGEF/SGL), corpo em prosa; no formato **Tabela SIGEF** a DESCRIÇÃO DA PARCELA é uma tabela desenhada (`pdfTable`, com quebra de célula e de página; linhas via `buildSigefRows`, compartilhadas com o texto); anexo **QUADRO DE VÉRTICES** (E/N, lat/long, lado, azimute, distância — `tableEdges`) + resumo de área/perímetro + nota de conferência; rodapé com endereço, paginação e "Confrontei · por AG Topografia". `pdfSafe` troca → ″ ′ ≈ − (fora do WinAnsi do jsPDF) — sem isso saem "!"/"H". E2E baixa os dois PDFs (urbano Lote 174 e SIGEF 75B) e checa páginas/strings; `scratchpad/render_pdf.mjs` rasteriza com pdf.js para conferência visual.
 - **SEO on-page do Confrontei** (meta description na landing, canonical, Open Graph/Twitter, JSON-LD SoftwareApplication, robots.txt, sitemap.xml) — planejado, ainda não implementado. Aguardando definição final do domínio.
 - Menores: função `isClosed()` não usada; `name` de vértice via innerHTML; links `href="#"` placeholder na nav da landing.
 

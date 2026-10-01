@@ -176,6 +176,17 @@ await page.click('#exp-mem'); await page.waitForSelector('#memorial-modal.open')
 const memMode = await page.evaluate(() => ({ tipo: memorialTipo(), hasSides: !!document.querySelector('[data-edge-side]'), preview: document.getElementById('mem-preview').textContent.slice(0, 400) }));
 console.log('MEMORIAL urbano:', memMode.tipo, '| lados?', memMode.hasSides, '|', memMode.preview.replace(/\s+/g,' ').slice(0, 160));
 console.log('CHECK memorial segue global (urbano) com lados:', memMode.tipo === 'urbano' && memMode.hasSides && /E: 287\.831,350 m e N: 9\.111\.104,430 m/.test(memMode.preview) ? 'OK' : 'FAIL');
+// Baixa o PDF do memorial e inspeciona os bytes (jsPDF sem compressão: texto WinAnsi legível no content stream)
+async function grabMemorialPDF(tag){
+  const [dl] = await Promise.all([ page.waitForEvent('download', { timeout: 30000 }), page.click('#mem-pdf') ]);
+  const f = path.join(OUT, `memorial_${tag}.pdf`); await dl.saveAs(f);
+  const buf = fs.readFileSync(f); const txt = buf.toString('latin1');
+  return { name: dl.suggestedFilename(), size: buf.length, pages: (txt.match(/\/Type \/Page[^s]/g) || []).length, has: w => txt.includes(w), status: await page.textContent('#export-status') };
+}
+await page.fill('#mem-empresa', 'AG Topografia e Construções'); await page.fill('#mem-rt-nome', 'Aryanna Barbosa de Araújo Gonzaga'); await page.fill('#mem-rt-reg', 'CAU-PE A88.162-7'); await page.fill('#mem-municipio', 'Recife'); await page.fill('#mem-uf', 'PE');
+const pdfU = await grabMemorialPDF('urbano');
+console.log('PDF urbano:', JSON.stringify({ name: pdfU.name, size: pdfU.size, pages: pdfU.pages, status: pdfU.status }));
+console.log('CHECK PDF urbano: ≥ 2 páginas (memorial + quadro), título, quadro de vértices, V12, logo PNG, rodapé:', pdfU.pages >= 2 && pdfU.has('MEMORIAL DESCRITIVO') && pdfU.has('QUADRO DE V') && pdfU.has('V12') && pdfU.has('/Subtype /Image') && pdfU.has('gina 1/') && pdfU.name === 'memorial_descritivo_recife.pdf' ? 'OK' : 'FAIL');
 await page.click('#close-memorial');
 // restaura a caixa de 4 vértices para o restante da suíte
 await page.evaluate((pts) => { state.fromKML = true; state.inputClosed = false; loadFromKMLPoints(pts.map(([n, lat, lng]) => ({ name: n, lat, lng }))); }, pts);
@@ -413,6 +424,9 @@ console.log('MEMORIAL TABELA (trecho):\n' + memTxt.split('\n').slice(0, 28).join
 const must = ['DESCRIÇÃO DA PARCELA', 'Código de credenciamento: F8F', 'Documento de RT: PE20261534001 - PE', "-34°54'20,689\"", "-7°49'13,173\"", "154°15'", "291°12'", "358°24'", "72°36'", '127,55', 'Área (Sistema Geodésico Local): 3,3026 ha', 'Rio Tabatinga', 'arredondamento das coordenadas publicadas'];
 const missing = must.filter(m => !memTxt.includes(m));
 console.log('CHECK memorial tabela = strings do INCRA:', missing.length ? 'FAIL faltam ' + JSON.stringify(missing) : 'OK (' + must.length + ' strings)');
+const pdfR = await grabMemorialPDF('sigef');
+console.log('PDF SIGEF:', JSON.stringify({ name: pdfR.name, size: pdfR.size, pages: pdfR.pages, status: pdfR.status }));
+console.log('CHECK PDF rural (tabela SIGEF): DESCRIÇÃO DA PARCELA em tabela, códigos F8F, azimute truncado 154°15\', quadro em anexo:', pdfR.pages >= 2 && pdfR.has('DA PARCELA') && pdfR.has('F8F-M-0858') && pdfR.has('F8F-M-0859') && pdfR.has('154') && pdfR.has('QUADRO DE V') && pdfR.has('Rio Tabatinga') ? 'OK' : 'FAIL');
 await page.selectOption('#mem-coord-sign', 'letra');
 const memTxt2 = await page.textContent('#mem-preview');
 console.log('CHECK hemisfério por letra:', memTxt2.includes("34°54'20,689\" W") && memTxt2.includes("7°49'13,173\" S") ? 'OK' : 'FAIL');
