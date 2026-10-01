@@ -186,14 +186,14 @@ async function grabMemorialPDF(tag){
 await page.fill('#mem-empresa', 'AG Topografia e Construções'); await page.fill('#mem-rt-nome', 'Aryanna Barbosa de Araújo Gonzaga'); await page.fill('#mem-rt-reg', 'CAU-PE A88.162-7'); await page.fill('#mem-municipio', 'Recife'); await page.fill('#mem-uf', 'PE');
 const pdfU = await grabMemorialPDF('urbano');
 console.log('PDF urbano:', JSON.stringify({ name: pdfU.name, size: pdfU.size, pages: pdfU.pages, status: pdfU.status }));
-console.log('CHECK PDF urbano: ≥ 2 páginas (memorial + quadro), título, quadro de vértices, V12, rodapé e SEM logo fixa:', pdfU.pages >= 2 && pdfU.has('MEMORIAL DESCRITIVO') && pdfU.has('QUADRO DE V') && pdfU.has('V12') && !pdfU.has('/Subtype /Image') && pdfU.has('gina 1/') && pdfU.name === 'memorial_descritivo_recife.pdf' ? 'OK' : 'FAIL');
+console.log('CHECK PDF urbano: ≥ 2 páginas (memorial + quadro), título, quadro de vértices, V12, rodapé e logo padrão da AG:', pdfU.pages >= 2 && pdfU.has('MEMORIAL DESCRITIVO') && pdfU.has('QUADRO DE V') && pdfU.has('V12') && pdfU.has('/Subtype /Image') && pdfU.size < 200000 && pdfU.has('gina 1/') && pdfU.name === 'memorial_descritivo_recife.pdf' ? 'OK' : 'FAIL');
 // Logo enviada pela usuária (salva no navegador) entra no cabeçalho; "Remover" tira
 await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 300; c.height = 120; const g = c.getContext('2d'); g.fillStyle = '#0a1f3d'; g.fillRect(0, 0, 300, 120); g.fillStyle = '#90b728'; g.fillRect(20, 20, 100, 80); localStorage.setItem('confrontei_logo', c.toDataURL('image/png')); paintMemLogo(); });
 const logoUI = await page.evaluate(() => ({ prev: getComputedStyle(document.getElementById('mem-logo-prev')).display !== 'none', rm: getComputedStyle(document.getElementById('mem-logo-rm')).display !== 'none' }));
 const pdfL = await grabMemorialPDF('urbano_logo');
 await page.click('#mem-logo-rm');
 const logoGone = await page.evaluate(() => !localStorage.getItem('confrontei_logo') && getComputedStyle(document.getElementById('mem-logo-prev')).display === 'none');
-console.log('CHECK logo enviada → prévia + imagem no PDF; Remover → some:', logoUI.prev && logoUI.rm && pdfL.has('/Subtype /Image') && logoGone ? 'OK' : 'FAIL ' + JSON.stringify({ logoUI, img: pdfL.has('/Subtype /Image'), logoGone }));
+console.log('CHECK logo enviada → prévia + substitui no PDF (tamanho muda); Remover → volta ao padrão AG:', logoUI.prev && logoUI.rm && pdfL.has('/Subtype /Image') && pdfL.size !== pdfU.size && logoGone ? 'OK' : 'FAIL ' + JSON.stringify({ logoUI, img: pdfL.has('/Subtype /Image'), sizes: [pdfU.size, pdfL.size], logoGone }));
 await page.click('#close-memorial');
 // restaura a caixa de 4 vértices para o restante da suíte
 await page.evaluate((pts) => { state.fromKML = true; state.inputClosed = false; loadFromKMLPoints(pts.map(([n, lat, lng]) => ({ name: n, lat, lng }))); }, pts);
