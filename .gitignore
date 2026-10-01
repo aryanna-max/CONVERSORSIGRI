@@ -1,5 +1,8 @@
-.DS_Store
-Thumbs.db
 *.log
+.DS_Store
 .vercel
+Thumbs.db
 node_modules/
+tests/e2e_out/
+tests/libs/
+tests/node_modules/
