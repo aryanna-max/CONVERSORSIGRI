@@ -29,13 +29,13 @@ module.exports = async (req, res) => {
   }
   let reqType = '';
   target.searchParams.forEach((v, k) => { if (k.toLowerCase() === 'request') reqType = String(v).toLowerCase(); });
-  // Exceção única: a lista pública de temas do i3Geo do INCRA (HTML), para descobrir nomes de camada.
-  const isIncraCatalog = target.hostname === 'acervofundiario.incra.gov.br'
-    && (target.pathname === '/i3geo/ogc/index.php' || (target.pathname === '/i3geo/ogc.php' && !target.search));
+  // Exceção: o catálogo público do i3Geo do INCRA (páginas de listagem de temas, KML de rede, metadados de tema),
+  // só leitura e só sob /i3geo/, para descobrir/conferir nomes de camada. Não é um proxy aberto: um host, GET, 8 MB.
+  const isIncraCatalog = target.hostname === 'acervofundiario.incra.gov.br' && target.pathname.startsWith('/i3geo/');
   if (!ALLOW_REQUESTS.has(reqType) && !isIncraCatalog) return res.status(403).json({ error: 'REQUEST não permitido', request: reqType });
 
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), isIncraCatalog ? 55000 : TIMEOUT_MS);
   try {
     const up = await fetch(target, {
       signal: ctrl.signal,

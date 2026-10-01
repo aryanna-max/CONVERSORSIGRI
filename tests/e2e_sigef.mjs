@@ -66,7 +66,7 @@ const WFS_FIXTURE = { type: 'FeatureCollection', features: [
 await page.route(u => !u.href.startsWith(base), route => {
   const u = route.request().url();
   if(u.startsWith('https://api.opentopodata.org/v1/srtm30m')){ const locs = decodeURIComponent(u.split('locations=')[1]).split('|'); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'OK', results: locs.map((l, i) => { const [lat, lng] = l.split(',').map(Number); return { elevation: 10 + i * 1.5, location: { lat, lng } }; }) }) }); }
-  if(u.startsWith('https://acervofundiario.incra.gov.br/i3geo/ogc.php') && /SERVICE=WFS/i.test(u)){ console.log('WFS MOCK hit:', u.slice(0,140)); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(WFS_FIXTURE) }); }
+  if(u.startsWith('https://acervofundiario.incra.gov.br/i3geo/ogc.php') && /SERVICE=WFS/i.test(u)){ console.log('WFS MOCK hit:', u.slice(0,140)); const isSnci = /tema=imoveiscertificados_/.test(u); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(isSnci ? { type: 'FeatureCollection', features: [] } : WFS_FIXTURE) }); }
   const hit = CDN[u];
   if(hit){ const f = path.join(LIBS, hit[0]); return route.fulfill({ status: 200, contentType: hit[1], body: fs.readFileSync(f) }); }
   return route.abort('blockedbyclient');
@@ -227,14 +227,14 @@ console.log(execSync(`python3 ${path.join(OUT,'inspect.py')} "${odsPath}"`, { en
 const lyr = await page.evaluate(() => {
   const r = { uf: layerUF(), sigef: overlayEndpoint(overlayDefs.sigef), car: overlayEndpoint(overlayDefs.car), quil: overlayEndpoint(overlayDefs.quilombo) };
   document.getElementById('layer-uf').value = 'BA';
-  r.sigefBA = overlayEndpoint(overlayDefs.sigef); overlayDefs.sigef.temaIdx = 1; r.sigefAlt = overlayEndpoint(overlayDefs.sigef); overlayDefs.sigef.temaIdx = 0;
+  r.sigefBA = overlayEndpoint(overlayDefs.sigef); r.snciBA = overlayEndpoint(overlayDefs.snci);
   document.getElementById('layer-uf').value = 'PE';
   r.dead = JSON.stringify(overlayDefs).includes('geoservicos.incra');
   return r;
 });
 console.log('LAYERS:', JSON.stringify(lyr));
 console.log('CHECK SIGEF por UF (PE) no Acervo Fundiário:', lyr.sigef.wmsUrl === 'https://acervofundiario.incra.gov.br/i3geo/ogc.php?tema=certificada_sigef_particular_pe' && lyr.sigef.wmsLayer === 'certificada_sigef_particular_pe' ? 'OK' : 'FAIL');
-console.log('CHECK UF → BA e tema alternativo:', lyr.sigefBA.wmsLayer === 'certificada_sigef_particular_ba' && lyr.sigefAlt.wmsLayer === 'imoveiscertificados_privado_ba' ? 'OK' : 'FAIL');
+console.log('CHECK UF → BA; SNCI = imoveiscertificados_privado_<uf>; Quilombolas = quilombolas_<uf> (nomes confirmados no GetCapabilities):', lyr.sigefBA.wmsLayer === 'certificada_sigef_particular_ba' && lyr.snciBA.wmsLayer === 'imoveiscertificados_privado_ba' && lyr.quil.wmsLayer === 'quilombolas_pe' ? 'OK' : 'FAIL ' + JSON.stringify(lyr));
 console.log('CHECK CAR por UF e nenhum host morto:', lyr.car.wmsLayer === 'sicar:sicar_imoveis_pe' && !lyr.dead ? 'OK' : 'FAIL');
 
 // ---- GML (i3Geo/MapServer) → GeoJSON; proxy /api/ogc; "ⓘ Info" no clique; popup legível; painel rolável ----
