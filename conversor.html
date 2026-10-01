@@ -1447,7 +1447,20 @@ function parseMemorialText(text){
 
 // Carrega no estado o resultado de parseMemorialText (PDF ou texto colado). Geográfico vence quando tem ≥ 3 vértices.
 function applyParsedMemorial({ utmVerts, geoVerts, fuso }, label){
+  // Sanidade UTM: E em [160 000, 840 000] e N em [0, 10 000 000]. Vértice fora disso foi lido errado — avisa e descarta.
+  const dropped = utmVerts.filter(v => !(v.e >= 160000 && v.e <= 840000 && v.n >= 0 && v.n <= 10000000));
+  utmVerts = utmVerts.filter(v => !dropped.includes(v));
   const useGeo = geoVerts.length >= utmVerts.length && geoVerts.length >= 3;
+  if(!useGeo && utmVerts.length < 3){ setStatus('input-status','err',`${label}: ${dropped.length ? dropped.length + ' vértice(s) com coordenadas fora da faixa UTM (' + dropped.slice(0,3).map(v => `${v.name} E=${v.e} N=${v.n}`).join('; ') + ') e ' : ''}menos de 3 vértices válidos. Confira o formato do memorial.`); return; }
+  // Diagnóstico: nomes lidos, lacunas na sequência V1..Vn e lados absurdos (> 50 km) — ajudam a ver onde a leitura falhou
+  const names = (useGeo ? geoVerts : utmVerts).map(v => v.name);
+  const nums = names.map(n => (n.match(/^V-?(\d+)$/i) || [])[1]).filter(Boolean).map(Number);
+  const gaps = []; if(nums.length === names.length && nums.length){ const mx = Math.max(...nums); for(let i = 1; i <= mx; i++) if(!nums.includes(i)) gaps.push('V' + i); }
+  const warns = [];
+  if(dropped.length) warns.push(`${dropped.length} vértice(s) descartado(s) por coordenada fora da faixa UTM: ${dropped.slice(0,4).map(v => v.name).join(', ')}`);
+  if(gaps.length) warns.push(`não encontrei ${gaps.slice(0,6).join(', ')}${gaps.length > 6 ? '…' : ''} no texto`);
+  if(!useGeo){ let big = 0; for(let i = 0; i < utmVerts.length; i++){ const a = utmVerts[i], b = utmVerts[(i+1) % utmVerts.length]; if(Math.hypot(a.e-b.e, a.n-b.n) > 50000) big++; } if(big) warns.push(`${big} lado(s) com mais de 50 km — coordenadas provavelmente lidas errado`); }
+  const warnTxt = warns.length ? ` ⚠ ${warns.join(' · ')}. Vértices lidos: ${names.join(', ')}.` : '';
   let msgFuso = '';
   if(!useGeo && fuso && fuso >= 18 && fuso <= 25){
     $('cfg-zone').value = fuso;
@@ -1463,7 +1476,7 @@ function applyParsedMemorial({ utmVerts, geoVerts, fuso }, label){
     }
     state.fromKML = true;
     loadFromKMLPoints(pts);
-    setStatus('input-status','ok',`${label} importado (geográfico, SIRGAS 2000): ${pts.length} vértices com os códigos do memorial.`);
+    setStatus('input-status', warns.length ? 'warn' : 'ok', `${label} importado (geográfico, SIRGAS 2000): ${pts.length} vértices com os códigos do memorial.${warnTxt}`);
   } else {
     let vv = utmVerts.slice();
     if(vv.length >= 4){
@@ -1472,7 +1485,7 @@ function applyParsedMemorial({ utmVerts, geoVerts, fuso }, label){
     }
     state.fromKML = false;
     loadFromUTM(vv);
-    setStatus('input-status','ok',`${label} importado (UTM): ${vv.length} vértices${msgFuso}. Confirme fuso/hemisfério antes de exportar.`);
+    setStatus('input-status', warns.length ? 'warn' : 'ok', `${label} importado (UTM): ${vv.length} vértices${msgFuso}. Confirme fuso/hemisfério antes de exportar.${warnTxt}`);
   }
 }
 

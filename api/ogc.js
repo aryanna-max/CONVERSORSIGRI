@@ -49,7 +49,9 @@ module.exports = async (req, res) => {
     return res.status(up.status).send(buf);
   } catch (err) {
     const aborted = err && err.name === 'AbortError';
-    return res.status(aborted ? 504 : 502).json({ error: aborted ? 'servidor do órgão demorou demais' : 'servidor do órgão não respondeu', detail: String((err && err.message) || err) });
+    const cause = err && err.cause;
+    const detail = [err && err.message, cause && (cause.code || cause.message)].filter(Boolean).join(' · ');
+    return res.status(aborted ? 504 : 502).json({ error: aborted ? 'servidor do órgão demorou demais' : 'servidor do órgão não respondeu', detail, host: target.hostname });
   } finally {
     clearTimeout(timer);
   }
