@@ -915,13 +915,16 @@ Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E:
                 <th>Longitude</th>
                 <th>UTM E (m)</th>
                 <th>UTM N (m)</th>
+                <th>Lado</th>
+                <th id="th-az">Azimute (plano UTM)</th>
+                <th id="th-dist">Dist. UTM (m)</th>
               </tr>
             </thead>
             <tbody id="coord-table-body"></tbody>
           </table>
         </div>
         <div class="coord-table-foot">
-          <span>Atualiza automaticamente quando você redefine o V1 ou inverte o sentido do polígono no mapa.</span>
+          <span id="ct-foot">Atualiza automaticamente quando você redefine o V1 ou inverte o sentido do polígono no mapa. Azimute e distância são do lado que parte do vértice da linha (V1→V2 na linha do V1).</span>
         </div>
       </div>
     </div>
@@ -2525,21 +2528,31 @@ function renderCoordTable(){
   body.innerHTML = '';
   const v = state.vertices;
   if(v.length === 0){
-    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--soft);padding:14px;font-style:italic">Importe um polígono para ver a tabela.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--soft);padding:14px;font-style:italic">Importe um polígono para ver a tabela.</td></tr>';
     return;
   }
   const fmt = $('coord-fmt').value;
+  const edges = tableEdges(v);
+  $('th-az').textContent = isRural() ? 'Azimute geodésico' : 'Azimute (plano UTM)';
+  $('th-dist').textContent = isRural() ? 'Dist. SGL (m)' : 'Dist. UTM (m)';
   for(let i = 0; i < v.length; i++){
     const p = v[i];
     const lat = fmt === 'dms' ? latDMS(p.lat) : p.lat.toFixed(6).replace('.', ',');
     const lng = fmt === 'dms' ? lngDMS(p.lng) : p.lng.toFixed(6).replace('.', ',');
     const e = p.e.toFixed(3).replace('.', ',');
     const n = p.n.toFixed(3).replace('.', ',');
+    const ed = edges[i];
     const tr = document.createElement('tr');
     if(i === 0) tr.classList.add('v-start');
-    tr.innerHTML = `<td class="v-cell">${p.name}</td><td>${lat}</td><td>${lng}</td><td>${e}</td><td>${n}</td>`;
+    tr.innerHTML = `<td class="v-cell">${p.name}</td><td>${lat}</td><td>${lng}</td><td>${e}</td><td>${n}</td><td>${ed ? `${p.name}→${ed.to.name}` : '—'}</td><td>${ed ? decToDMS(ed.az) : '—'}</td><td>${ed ? fmtNum(ed.dist, 2) : '—'}</td>`;
     body.appendChild(tr);
   }
+}
+// Lados do quadro: urbano = azimute no plano UTM e distância UTM (como o cartório pede);
+// rural = azimute geodésico (Vincenty) e distância no SGL (padrão INCRA/SIGEF). Mesmos valores do memorial.
+function tableEdges(v){
+  if(!v || v.length < 2) return [];
+  try { return isRural() ? buildMemorialEdgesRural(v) : buildMemorialEdges(v); } catch(_){ return []; }
 }
 $('btn-toggle-table').addEventListener('click', () => {
   const wrap = $('coord-table-wrap');
@@ -2552,11 +2565,13 @@ $('btn-copy-table').addEventListener('click', async () => {
   const v = state.vertices;
   if(!v.length) return;
   const fmt = $('coord-fmt').value;
-  const header = ['V','Latitude','Longitude','UTM E (m)','UTM N (m)'].join('\t');
-  const rows = v.map(p => {
+  const edges = tableEdges(v);
+  const header = ['V','Latitude','Longitude','UTM E (m)','UTM N (m)','Lado', isRural() ? 'Azimute geodésico' : 'Azimute (plano UTM)', isRural() ? 'Dist. SGL (m)' : 'Dist. UTM (m)'].join('\t');
+  const rows = v.map((p, i) => {
     const lat = fmt === 'dms' ? latDMS(p.lat) : p.lat.toFixed(6);
     const lng = fmt === 'dms' ? lngDMS(p.lng) : p.lng.toFixed(6);
-    return [p.name, lat, lng, p.e.toFixed(3), p.n.toFixed(3)].join('\t');
+    const ed = edges[i];
+    return [p.name, lat, lng, p.e.toFixed(3), p.n.toFixed(3), ed ? `${p.name}→${ed.to.name}` : '', ed ? decToDMS(ed.az) : '', ed ? ed.dist.toFixed(2) : ''].join('\t');
   });
   try { await navigator.clipboard.writeText([header, ...rows].join('\n')); setStatus('export-status','ok','Tabela copiada para a área de transferência.'); }
   catch { setStatus('export-status','err','Falha ao copiar a tabela.'); }
@@ -2565,11 +2580,13 @@ $('btn-csv-table').addEventListener('click', () => {
   const v = state.vertices;
   if(!v.length) return;
   const fmt = $('coord-fmt').value;
-  const header = 'V;Latitude;Longitude;UTM_E;UTM_N';
-  const rows = v.map(p => {
+  const edges = tableEdges(v);
+  const header = `V;Latitude;Longitude;UTM_E;UTM_N;Lado;${isRural() ? 'Azimute_geodesico' : 'Azimute_UTM'};${isRural() ? 'Dist_SGL_m' : 'Dist_UTM_m'}`;
+  const rows = v.map((p, i) => {
     const lat = fmt === 'dms' ? latDMS(p.lat) : p.lat.toFixed(6);
     const lng = fmt === 'dms' ? lngDMS(p.lng) : p.lng.toFixed(6);
-    return `"${p.name}";"${lat}";"${lng}";${p.e.toFixed(3)};${p.n.toFixed(3)}`;
+    const ed = edges[i];
+    return `"${p.name}";"${lat}";"${lng}";${p.e.toFixed(3)};${p.n.toFixed(3)};"${ed ? `${p.name}→${ed.to.name}` : ''}";"${ed ? decToDMS(ed.az) : ''}";${ed ? ed.dist.toFixed(2) : ''}`;
   });
   const blob = new Blob(['﻿' + [header, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
@@ -2634,8 +2651,9 @@ $('exp-txt').addEventListener('click', async () => {
 $('exp-csv').addEventListener('click', () => {
   const v = state.vertices;
   if(v.length === 0) return;
-  const rows = ['VERTICE,LATITUDE,LONGITUDE,UTM_E,UTM_N'];
-  v.forEach(p => rows.push(`${p.name},${p.lat.toFixed(6)},${p.lng.toFixed(6)},${p.e.toFixed(3)},${p.n.toFixed(3)}`));
+  const edges = tableEdges(v);
+  const rows = [`VERTICE,LATITUDE,LONGITUDE,UTM_E,UTM_N,LADO,${isRural() ? 'AZIMUTE_GEODESICO' : 'AZIMUTE_UTM'},${isRural() ? 'DIST_SGL_M' : 'DIST_UTM_M'}`];
+  v.forEach((p, i) => { const ed = edges[i]; rows.push(`${p.name},${p.lat.toFixed(6)},${p.lng.toFixed(6)},${p.e.toFixed(3)},${p.n.toFixed(3)},${ed ? `${p.name}-${ed.to.name}` : ''},${ed ? '"' + decToDMS(ed.az) + '"' : ''},${ed ? ed.dist.toFixed(2) : ''}`); });
   downloadBlob(new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'}), 'vertices_sigri.csv');
   setStatus('export-status','ok','CSV exportado: vertices_sigri.csv');
 });
