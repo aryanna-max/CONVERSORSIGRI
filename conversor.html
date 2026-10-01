@@ -1947,13 +1947,18 @@ function gmlGeometry(feat){
 function gmlToFeatures(xmlText){
   const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
   if(doc.getElementsByTagName('parsererror').length) throw new Error('XML inválido');
+  // WFS: <gml:featureMember><ms:tema>…</ms:tema></gml:featureMember>
+  // GetFeatureInfo do MapServer (INCRA): <msGMLOutput><tema_layer><tema_feature>…</tema_feature></tema_layer></msGMLOutput>
   const members = [...doc.getElementsByTagNameNS('*', 'featureMember'), ...doc.getElementsByTagNameNS('*', 'member')];
+  let feats = members.map(m => m.children[0]).filter(Boolean);
+  if(!feats.length && doc.documentElement && doc.documentElement.localName === 'msGMLOutput'){
+    feats = [...doc.getElementsByTagName('*')].filter(el => /_feature$/.test(el.localName));
+  }
   const out = [];
-  for(const m of members){
-    const feat = m.children[0]; if(!feat) continue;
+  for(const feat of feats){
     const properties = {};
     for(const c of feat.children){
-      if(GML_GEOM_TAGS.test(c.localName) || c.getElementsByTagNameNS('*', 'coordinates').length || c.getElementsByTagNameNS('*', 'posList').length) continue;
+      if(GML_GEOM_TAGS.test(c.localName) || /_geometry$/.test(c.localName) || c.getElementsByTagNameNS('*', 'coordinates').length || c.getElementsByTagNameNS('*', 'posList').length) continue;
       if(c.children.length === 0) properties[c.localName] = c.textContent.trim();
     }
     out.push({ type: 'Feature', properties, geometry: gmlGeometry(feat) });
@@ -3515,7 +3520,7 @@ async function handleArtRrtFile(file){
         <tbody id="sg-ov-body"></tbody>
       </table>
     </div>
-    <div class="sg-note">Consulta por caixa envolvente no WFS público do Acervo Fundiário do INCRA (i3Geo, tema de imóveis certificados privados da UF escolhida em "Camadas do mapa"; não exige senha; o antigo geoservicos.incra.gov.br foi desativado) e interseção exata (Martinez) no plano SGL do imóvel. Sobreposição &gt; 0,5 m² com parcela certificada é motivo de rejeição no SIGEF; vizinhas com 0 m² apenas confrontam. Se o navegador for bloqueado por CORS, exporte as parcelas do entorno em GeoJSON (QGIS/SIGEF) e carregue aqui. Resultado é de conferência — a validação final é do SIGEF.</div>
+    <div class="sg-note">Consulta por caixa envolvente no WFS público do Acervo Fundiário do INCRA (i3Geo, tema de imóveis certificados privados da UF escolhida em "Camadas do mapa"; não exige senha; o antigo geoservicos.incra.gov.br foi desativado) e interseção exata (Martinez) no plano SGL do imóvel. Sobreposição &gt; 0,5 m² com parcela certificada é motivo de rejeição no SIGEF; vizinhas com 0 m² apenas confrontam. <strong>Limite comum</strong>: o Acervo publica coordenadas com 6 casas decimais (≈ 0,1 m), então parcelas vizinhas geram "lascas" de poucos cm de largura — a ferramenta as separa da sobreposição real (largura média ≤ 0,3 m). <strong>≈ 100 %</strong> costuma ser a própria parcela já certificada. Se o navegador for bloqueado por CORS, exporte as parcelas do entorno em GeoJSON (QGIS/SIGEF) e carregue aqui. Resultado é de conferência — a validação final é do SIGEF.</div>
 
     <div class="mem-section-title">APP e faixas não edificáveis (estimativa local)</div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
@@ -3921,7 +3926,12 @@ function sgOverlapCheck(fc){
     let inter = [];
     try { inter = polygonClipping.intersection([subj], polys); } catch(e){ console.warn('clip', e); continue; }
     const area = inter.length ? sgMultiPolyAreaENU(inter, proj) : 0;
-    out.push({ f, inter, area, pct: subjArea ? area / subjArea * 100 : 0 });
+    // Largura média da interseção (área / semiperímetro): separa sobreposição real de "lasca" ao longo de um limite comum.
+    // O Acervo Fundiário publica coordenadas com 6 casas decimais (≈ 0,1 m): parcelas vizinhas geram lascas de poucos cm.
+    let perim = 0;
+    for(const poly of inter){ for(const ring of poly){ const xy = ring.map(([lng, lat]) => proj(lng, lat)); for(let i = 0; i < xy.length; i++){ const [x1,y1] = xy[i], [x2,y2] = xy[(i+1) % xy.length]; perim += Math.hypot(x2-x1, y2-y1); } } }
+    const width = perim > 0 ? area / (perim / 2) : 0;
+    out.push({ f, inter, area, width, pct: subjArea ? area / subjArea * 100 : 0 });
   }
   out.sort((a, b) => b.area - a.area);
   return { out, subjArea };
@@ -3933,13 +3943,22 @@ function sgRenderOverlaps(res){
   let nOver = 0;
   for(const r of res.out){
     const p = r.f.properties || {};
-    const cod = sgPick(p, ['codigo_imo','codigo_imovel','parcela_co','parcela','codigo','cod_imovel','id']);
-    const nome = sgPick(p, ['nome_area','nome','denominacao','detentor','proprietario']);
-    const status = sgPick(p, ['status','situacao_i','situacao','situacao_imovel']);
-    const over = r.area > 0.5;
+    // Atributos reais do Acervo Fundiário (WFS, 01/10/2026): parcela_codigo (UUID da certificação SIGEF), nome_area,
+    // status (CERTIFICADA), situacao_informada (REGISTRADA), registro_matricula, codigo_imovel (SNCR), rt, art, data_aprovacao
+    const cod = sgPick(p, ['parcela_codigo','parcela_co','codigo_imovel','codigo_imo','parcela','codigo','cod_imovel','id']);
+    const nomeBase = sgPick(p, ['nome_area','nome','denominacao','detentor','proprietario']);
+    const mat = sgPick(p, ['registro_matricula','matricula']), sncr = sgPick(p, ['codigo_imovel','codigo_imo']);
+    const nome = [nomeBase, mat ? `mat. ${mat}` : '', sncr ? `SNCR ${sncr}` : ''].filter(Boolean).join(' · ');
+    const status = [sgPick(p, ['status','situacao_i','situacao','situacao_imovel']), sgPick(p, ['situacao_informada'])].filter(Boolean).join(' · ');
+    // Três leituras: sobreposição real (área > 0,5 m² E largura média > 0,3 m); "limite comum" (lasca mais fina que a
+    // precisão das coordenadas publicadas, 6 casas ≈ 0,1 m); vizinha (0 m²). ≈ 100 % = provavelmente a própria parcela.
+    const sliver = r.area > 0.5 && r.width <= 0.3;
+    const over = r.area > 0.5 && !sliver;
+    const self = over && r.pct >= 99;
     if(over) nOver++;
     const tr = document.createElement('tr');
     tr.className = over ? 'sg-err' : '';
+    r.kind = over ? (self ? 'propria' : 'sobreposicao') : (sliver ? 'limite' : 'vizinha');
     const allProps = Object.entries(p).map(([k, val]) => `${escapeHtml(k)}: ${escapeHtml(String(val))}`).join(' · ');
     tr.innerHTML = `
       <td class="sg-ro" title="${escapeHtml(allProps)}">${escapeHtml(cod || '—')}</td>
@@ -3948,7 +3967,7 @@ function sgRenderOverlaps(res){
       <td class="sg-ro" style="text-align:right">${fmtNum(r.area, 2)}</td>
       <td class="sg-ro" style="text-align:right">${fmtNum(r.area / 10000, 4)}</td>
       <td class="sg-ro" style="text-align:right">${fmtNum(r.pct, 2)} %</td>
-      <td>${over ? '<span class="sg-e"><strong>SOBREPOSIÇÃO</strong> — rejeição provável no SIGEF</span>' : '<span class="sg-ok">vizinha (só confronta)</span>'}</td>`;
+      <td>${self ? '<span class="sg-e"><strong>≈ 100 %</strong> — provavelmente a própria parcela já certificada (conferência); se for outra, é SOBREPOSIÇÃO total</span>' : over ? '<span class="sg-e"><strong>SOBREPOSIÇÃO</strong> — rejeição provável no SIGEF</span>' : sliver ? `<span class="sg-ok">limite comum — lasca de ${fmtNum(r.width * 100, 1)} cm, dentro da precisão das coordenadas publicadas (6 casas ≈ 0,1 m); confere o vértice comum</span>` : '<span class="sg-ok">vizinha (só confronta)</span>'}</td>`;
     body.appendChild(tr);
   }
   const st = $('sg-ov-status');
@@ -3965,7 +3984,9 @@ function sgDrawOverlaps(res){
     const g = r.f.geometry;
     const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
     for(const poly of polys){ L.polygon(poly[0].map(([lng, lat]) => [lat, lng]), { color: '#e8b04a', weight: 1.5, dashArray: '4 4', fill: false }).addTo(overlapLayer); }
-    for(const poly of r.inter){ L.polygon(poly.map(ring => ring.map(([lng, lat]) => [lat, lng])), { color: '#ff3b3b', weight: 2, fillColor: '#ff3b3b', fillOpacity: 0.35 }).bindPopup(`<strong>Sobreposição</strong><br>${fmtNum(r.area,2)} m² · ${fmtNum(r.pct,2)} % do imóvel`).addTo(overlapLayer); }
+    // Lasca de limite comum (r.kind === 'limite') vai em âmbar fino, não em vermelho: não é sobreposição real
+    const isSliver = r.kind === 'limite';
+    for(const poly of r.inter){ L.polygon(poly.map(ring => ring.map(([lng, lat]) => [lat, lng])), isSliver ? { color: '#e8b04a', weight: 1, fillColor: '#e8b04a', fillOpacity: 0.25 } : { color: '#ff3b3b', weight: 2, fillColor: '#ff3b3b', fillOpacity: 0.35 }).bindPopup(isSliver ? `<strong>Limite comum</strong><br>lasca de ${fmtNum(r.area,2)} m² (largura ≈ ${fmtNum(r.width*100,1)} cm) — dentro da precisão das coordenadas publicadas` : `<strong>Sobreposição</strong><br>${fmtNum(r.area,2)} m² · ${fmtNum(r.pct,2)} % do imóvel`).addTo(overlapLayer); }
   }
 }
 function sgClearOverlaps(){ if(overlapLayer) overlapLayer.clearLayers(); $('sg-ov-body').innerHTML = ''; $('sg-ov-wrap').style.display = 'none'; $('sg-ov-status').textContent = ''; }

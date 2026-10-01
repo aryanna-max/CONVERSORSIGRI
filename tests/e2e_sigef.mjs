@@ -294,6 +294,43 @@ console.log(`REAL 75B · área SGL ${real.areaHa.toFixed(4)} ha (INCRA ${EXP.are
 console.log('CHECK área SGL = INCRA ±0,0005 ha:', Math.abs(real.areaHa - EXP.areaHa) <= 0.0005 ? 'OK' : 'FAIL Δ=' + (real.areaHa - EXP.areaHa).toFixed(5));
 console.log('CHECK perímetro = INCRA ±0,05 m:', Math.abs(real.perim - EXP.perim) <= 0.05 ? 'OK' : 'FAIL Δ=' + (real.perim - EXP.perim).toFixed(3));
 
+// ---- Resposta REAL do WFS do Acervo Fundiário (via proxy gru1, 01/10/2026): GML2 com Lote 75B e 75A ----
+const WFS_REAL = `<?xml version='1.0' encoding="UTF-8" ?>
+<wfs:FeatureCollection xmlns:ms="http://www.omsug.ca/osgis2004" xmlns:wfs="http://www.opengis.net/wfs" xmlns:gml="http://www.opengis.net/gml" xmlns:ogc="http://www.opengis.net/ogc">
+  <gml:boundedBy><gml:Box srsName="EPSG:4326"><gml:coordinates>-34.906880,-7.822652 -34.904622,-7.819395</gml:coordinates></gml:Box></gml:boundedBy>
+  <gml:featureMember><ms:certificada_sigef_particular_pe>
+    <gml:boundedBy><gml:Box srsName="EPSG:4326"><gml:coordinates>-34.906851,-7.822652 -34.904622,-7.820326</gml:coordinates></gml:Box></gml:boundedBy>
+    <ms:msGeometry><gml:Polygon srsName="EPSG:4326"><gml:outerBoundaryIs><gml:LinearRing><gml:coordinates>-34.905747,-7.820326 -34.904622,-7.822652 -34.906819,-7.821802 -34.906851,-7.820671 -34.905747,-7.820326 </gml:coordinates></gml:LinearRing></gml:outerBoundaryIs></gml:Polygon></ms:msGeometry>
+    <ms:id>129117309</ms:id><ms:parcela_codigo>0e3b4b7c-e44e-4344-a152-adb31362708b</ms:parcela_codigo><ms:rt>F8F</ms:rt><ms:art>PE20261534001-PE</ms:art><ms:situacao_informada>REGISTRADA</ms:situacao_informada><ms:codigo_imovel>2300900007010</ms:codigo_imovel><ms:data_submissao>2026-05-08</ms:data_submissao><ms:data_aprovacao>2026-05-08</ms:data_aprovacao><ms:status>CERTIFICADA</ms:status><ms:nome_area>Granja Alvorada - Lote 75B</ms:nome_area><ms:registro_matricula>3571</ms:registro_matricula><ms:registro_data></ms:registro_data><ms:codigo_municipio>2606804</ms:codigo_municipio>
+  </ms:certificada_sigef_particular_pe></gml:featureMember>
+  <gml:featureMember><ms:certificada_sigef_particular_pe>
+    <ms:msGeometry><gml:Polygon srsName="EPSG:4326"><gml:outerBoundaryIs><gml:LinearRing><gml:coordinates>-34.906197,-7.819395 -34.905747,-7.820326 -34.906851,-7.820671 -34.906880,-7.819633 -34.906874,-7.819631 -34.906831,-7.819619 -34.906715,-7.819588 -34.906512,-7.819536 -34.906197,-7.819395 </gml:coordinates></gml:LinearRing></gml:outerBoundaryIs></gml:Polygon></ms:msGeometry>
+    <ms:id>129117308</ms:id><ms:parcela_codigo>49cf3807-eed5-4731-a310-4264021ea24b</ms:parcela_codigo><ms:status>CERTIFICADA</ms:status><ms:nome_area>Granja Alvorada - Lote 75A</ms:nome_area><ms:registro_matricula>3571</ms:registro_matricula>
+  </ms:certificada_sigef_particular_pe></gml:featureMember>
+</wfs:FeatureCollection>`;
+const wfsReal = await page.evaluate((gml) => { const fc = parseFeatureCollection(gml); const res = sgOverlapCheck(fc); sgRenderOverlaps(res); return { n: fc.features.length, rows: res.out.map(o => ({ cod: o.f.properties.parcela_codigo, nome: o.f.properties.nome_area, ha: +(o.area/1e4).toFixed(4), pct: +o.pct.toFixed(2) })), table: Array.from(document.querySelectorAll('#sg-ov-body tr')).map(tr => Array.from(tr.children).map(td => td.textContent.trim())) }; }, WFS_REAL);
+console.log('WFS REAL:', JSON.stringify(wfsReal));
+const r75b = wfsReal.rows.find(r => r.cod === '0e3b4b7c-e44e-4344-a152-adb31362708b'), r75a = wfsReal.rows.find(r => /75A/.test(r.nome));
+// 75A compartilha 127 m de limite com 75B: as coordenadas publicadas (6 casas ≈ 0,1 m) geram uma lasca de ~3 m² com
+// largura média de ~2 cm — NÃO é sobreposição, é limite comum. 75B ≈ 100 % = a própria parcela.
+console.log('CHECK WFS real: 75B = a própria parcela (≈100 %, ≈3,302 ha); 75A = lasca < 0,001 ha:', r75b && Math.abs(r75b.pct - 100) < 0.5 && Math.abs(r75b.ha - 3.302) < 0.003 && r75a && r75a.ha < 0.001 ? 'OK' : 'FAIL');
+const t75a = wfsReal.table.find(r => /75A/.test(r[1])), t75b = wfsReal.table.find(r => r[0] === '0e3b4b7c-e44e-4344-a152-adb31362708b');
+console.log('CHECK leitura: 75A = "limite comum" (não SOBREPOSIÇÃO) e 75B = "própria parcela":', t75a && /limite comum/.test(t75a[6]) && !/SOBREPOSIÇÃO/.test(t75a[6]) && t75b && /própria parcela/.test(t75b[6]) ? 'OK' : 'FAIL ' + JSON.stringify([t75a && t75a[6], t75b && t75b[6]]));
+console.log('CHECK tabela mostra código SIGEF, nome · matrícula · SNCR e status reais:', t75b && /Granja Alvorada - Lote 75B · mat\. 3571 · SNCR 2300900007010/.test(t75b[1]) && /CERTIFICADA · REGISTRADA/.test(t75b[2]) ? 'OK' : 'FAIL ' + JSON.stringify(wfsReal.table));
+// GetFeatureInfo do MapServer (msGMLOutput) — formato que o INCRA devolve no clique
+const MSGML = `<?xml version="1.0" encoding="UTF-8"?>
+<msGMLOutput xmlns:gml="http://www.opengis.net/gml" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <certificada_sigef_particular_pe_layer>
+    <gml:name>certificada_sigef_particular_pe</gml:name>
+    <certificada_sigef_particular_pe_feature>
+      <gml:boundedBy><gml:Box srsName="EPSG:4326"><gml:coordinates>-34.906851,-7.822652 -34.904622,-7.820326</gml:coordinates></gml:Box></gml:boundedBy>
+      <id>129117309</id><parcela_codigo>0e3b4b7c-e44e-4344-a152-adb31362708b</parcela_codigo><status>CERTIFICADA</status><nome_area>Granja Alvorada - Lote 75B</nome_area>
+    </certificada_sigef_particular_pe_feature>
+  </certificada_sigef_particular_pe_layer>
+</msGMLOutput>`;
+const msg = await page.evaluate((x) => { const fc = parseFeatureCollection(x); return { n: fc.features.length, props: fc.features[0] && fc.features[0].properties }; }, MSGML);
+console.log('CHECK msGMLOutput (GetFeatureInfo MapServer) → 1 feição com atributos:', msg.n === 1 && msg.props.parcela_codigo === '0e3b4b7c-e44e-4344-a152-adb31362708b' && msg.props.nome_area && !('boundedBy' in msg.props) && !('name' in msg.props) ? 'OK' : 'FAIL ' + JSON.stringify(msg));
+
 // ---- Memorial rural · formato TABELA (réplica do SIGEF) com os vértices reais ----
 await page.click('#close-sigef');
 await page.click('#exp-mem');

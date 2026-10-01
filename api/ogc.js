@@ -29,7 +29,10 @@ module.exports = async (req, res) => {
   }
   let reqType = '';
   target.searchParams.forEach((v, k) => { if (k.toLowerCase() === 'request') reqType = String(v).toLowerCase(); });
-  if (!ALLOW_REQUESTS.has(reqType)) return res.status(403).json({ error: 'REQUEST não permitido', request: reqType });
+  // Exceção única: a lista pública de temas do i3Geo do INCRA (HTML), para descobrir nomes de camada.
+  const isIncraCatalog = target.hostname === 'acervofundiario.incra.gov.br'
+    && (target.pathname === '/i3geo/ogc/index.php' || (target.pathname === '/i3geo/ogc.php' && !target.search));
+  if (!ALLOW_REQUESTS.has(reqType) && !isIncraCatalog) return res.status(403).json({ error: 'REQUEST não permitido', request: reqType });
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
