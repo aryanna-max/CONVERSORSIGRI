@@ -751,6 +751,15 @@ Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E:
             <input type="file" id="dxf-input" accept=".dxf" hidden>
           </label>
           <div class="field-help">Para evitar ambiguidade, mantenha a divisa principal numa camada chamada <strong style="color:var(--white)">DIVISA</strong>, <strong style="color:var(--white)">PERIMETRO</strong>, <strong style="color:var(--white)">LIMITE</strong> ou <strong style="color:var(--white)">AG_DIVISA</strong>.</div>
+          <label class="field" style="margin-top:10px">
+            <span class="lbl">Arcos da polilinha (curvas)</span>
+            <select id="dxf-arc-tol" class="input">
+              <option value="0.01" selected>Densificar — afastamento máximo da curva 1 cm (padrão)</option>
+              <option value="0.05">Densificar — afastamento máximo 5 cm</option>
+              <option value="0.10">Densificar — afastamento máximo 10 cm</option>
+            </select>
+          </label>
+          <div class="field-help">SIG-RI, SIGEF, KML e Shapefile só aceitam lados retos. Cada arco do DXF vira pontos intermediários <strong style="color:var(--white)">sobre a curva</strong>, nomeados a partir do vértice de início (V40-1, V40-2…), para não mudar a numeração do desenho. O aviso da importação informa raio, desenvolvimento e a diferença de área entre a curva exata e o polígono densificado.</div>
         </div>
 
         <!-- TAB KML -->
@@ -1328,53 +1337,112 @@ function parseDXFPolylines(text){
     const [code, val] = pairs[i];
     if(code === 0 && val === 'LWPOLYLINE'){
       i++;
-      let layer = '';
+      let layer = '', closed = false, extZ = 1;
       const pts = [];
-      let curX = null, curY = null;
+      let cur = null;
       while(i < pairs.length && !(pairs[i][0] === 0)){
         const [c, v] = pairs[i];
         if(c === 8) layer = v;
+        else if(c === 70) closed = (parseInt(v, 10) & 1) === 1;
+        else if(c === 230) extZ = parseFloat(v);
         else if(c === 10){
-          if(curX !== null && curY !== null) pts.push({ x: curX, y: curY });
-          curX = parseFloat(v); curY = null;
-        } else if(c === 20){
-          curY = parseFloat(v);
+          if(cur && cur.y !== null) pts.push(cur);
+          cur = { x: parseFloat(v), y: null, bulge: 0 };
+        } else if(c === 20 && cur){
+          cur.y = parseFloat(v);
+        } else if(c === 42 && cur){
+          cur.bulge = parseFloat(v) || 0;   // bulge = tan(ângulo central / 4); + = anti-horário
         }
         i++;
       }
-      if(curX !== null && curY !== null) pts.push({ x: curX, y: curY });
-      if(pts.length >= 3) polys.push({ layer, pts });
+      if(cur && cur.y !== null) pts.push(cur);
+      if(pts.length >= 3) polys.push({ layer, pts, closed, extZ });
     } else if(code === 0 && val === 'POLYLINE'){
       i++;
-      let layer = '';
+      let layer = '', closed = false, extZ = 1;
       // consume polyline header until we hit VERTEX or SEQEND
       while(i < pairs.length && !(pairs[i][0] === 0)){
-        if(pairs[i][0] === 8) layer = pairs[i][1];
+        const [c, v] = pairs[i];
+        if(c === 8) layer = v;
+        else if(c === 70) closed = (parseInt(v, 10) & 1) === 1;
+        else if(c === 230) extZ = parseFloat(v);
         i++;
       }
       const pts = [];
       while(i < pairs.length && pairs[i][0] === 0 && pairs[i][1] === 'VERTEX'){
         i++;
-        let vx = null, vy = null;
+        let vx = null, vy = null, bulge = 0, vflag = 0;
         while(i < pairs.length && !(pairs[i][0] === 0)){
           const [c, v] = pairs[i];
           if(c === 10) vx = parseFloat(v);
           else if(c === 20) vy = parseFloat(v);
+          else if(c === 42) bulge = parseFloat(v) || 0;
+          else if(c === 70) vflag = parseInt(v, 10) || 0;
           i++;
         }
-        if(vx !== null && vy !== null) pts.push({ x: vx, y: vy });
+        if(vflag & 16) continue;   // ponto de controle de spline: não é vértice da divisa
+        if(vx !== null && vy !== null) pts.push({ x: vx, y: vy, bulge });
       }
       // skip SEQEND block
       if(i < pairs.length && pairs[i][0] === 0 && pairs[i][1] === 'SEQEND'){
         i++;
         while(i < pairs.length && !(pairs[i][0] === 0)) i++;
       }
-      if(pts.length >= 3) polys.push({ layer, pts });
+      if(pts.length >= 3) polys.push({ layer, pts, closed, extZ });
     } else {
       i++;
     }
   }
   return polys;
+}
+
+/* Arco de polilinha (bulge) → pontos sobre a curva.
+   b = tan(θ/4), θ = ângulo central com sinal (+ anti-horário). Corda c, raio R = c(1+b²)/(4|b|),
+   centro no ponto médio deslocado h = (c/2)(1−b²)/(2b) para a esquerda da corda.
+   Passo angular escolhido para a flecha (afastamento corda × arco) ficar ≤ tol: φ = 2·acos(1 − tol/R). */
+function dxfArcInfo(p1, p2, b){
+  const dx = p2.x - p1.x, dy = p2.y - p1.y, c = Math.hypot(dx, dy);
+  if(!b || Math.abs(b) < 1e-9 || c === 0) return null;
+  const theta = 4 * Math.atan(b);
+  const R = c * (1 + b*b) / (4 * Math.abs(b));
+  const h = (c / 2) * (1 - b*b) / (2 * b);
+  const cx = (p1.x + p2.x) / 2 - h * dy / c, cy = (p1.y + p2.y) / 2 + h * dx / c;
+  return { theta, R, cx, cy, a1: Math.atan2(p1.y - cy, p1.x - cx), len: R * Math.abs(theta), chord: c,
+           seg: R * R / 2 * (Math.abs(theta) - Math.sin(Math.abs(theta))) * Math.sign(theta) };
+}
+function dxfArcPoints(arc, tol){
+  const step = tol >= arc.R ? Math.PI : 2 * Math.acos(1 - tol / arc.R);
+  const n = Math.max(1, Math.ceil(Math.abs(arc.theta) / step - 1e-9));
+  const out = [];
+  for(let k = 1; k < n; k++){
+    const a = arc.a1 + arc.theta * k / n;
+    out.push({ x: arc.cx + arc.R * Math.cos(a), y: arc.cy + arc.R * Math.sin(a) });
+  }
+  return out;
+}
+// Polilinha do DXF → vértices nomeados. Vértices do desenho = V1..Vn (numeração do CAD);
+// pontos de arco = <vértice de início>-1, -2… Área "exata" = Gauss nos vértices + segmentos circulares.
+function dxfPolyToVertices(poly, tol){
+  const pts = poly.pts, N = pts.length;
+  const mirror = poly.extZ < 0;   // extrusão (0,0,−1): coordenadas em OCS espelhadas em X
+  const out = [], arcs = [];
+  let shoelace = 0, segSum = 0;
+  for(let i = 0; i < N; i++){
+    const p = pts[i], q = pts[(i + 1) % N];
+    const name = 'V' + (i + 1);
+    out.push({ name, e: mirror ? -p.x : p.x, n: p.y });
+    const last = i === N - 1;
+    if(last && !poly.closed) break;   // polilinha aberta: o fechamento é reto (ou já repete o 1º ponto)
+    shoelace += (mirror ? -p.x : p.x) * q.y - (mirror ? -q.x : q.x) * p.y;
+    const arc = dxfArcInfo(p, q, p.bulge);
+    if(!arc) continue;
+    segSum += mirror ? -arc.seg : arc.seg;
+    const mid = dxfArcPoints(arc, tol);
+    mid.forEach((m, k) => out.push({ name: name + '-' + (k + 1), e: mirror ? -m.x : m.x, n: m.y }));
+    arcs.push({ from: name, to: last ? 'V1' : 'V' + (i + 2), R: arc.R, len: arc.len, theta: Math.abs(arc.theta) * 180 / Math.PI, added: mid.length });
+  }
+  if(!poly.closed){ const p = pts[N-1], q = pts[0]; shoelace += (mirror ? -p.x : p.x) * q.y - (mirror ? -q.x : q.x) * p.y; }
+  return { verts: out, arcs, exactArea: Math.abs(shoelace / 2 + segSum) };
 }
 
 function handleDXF(file){
@@ -1402,7 +1470,9 @@ function handleDXF(file){
           return;
         }
       }
-      let verts = chosen.pts.map((p,i) => ({ name: 'V'+(i+1), e: p.x, n: p.y }));
+      const tol = parseFloat($('dxf-arc-tol').value) || 0.01;
+      const dz = dxfPolyToVertices(chosen, tol);
+      let verts = dz.verts;
       // Remove vértice de fechamento duplicado (último == primeiro), como nos demais importadores
       state.inputClosed = false;
       if(verts.length >= 4){
@@ -1414,6 +1484,15 @@ function handleDXF(file){
       }
       state.fromKML = false;
       loadFromUTM(verts);
+      if(dz.arcs.length){
+        const added = dz.arcs.reduce((s, a) => s + a.added, 0);
+        const aPoly = polyArea(state.vertices);
+        const lista = dz.arcs.map(a => `${a.from}→${a.to}: R = ${fmtNum(a.R,2)} m, desenvolvimento ${fmtNum(a.len,2)} m, ${fmtNum(a.theta,1)}°`).join(' · ');
+        setStatus('input-status','warn',
+          `Polígono importado: ${state.vertices.length} pontos — ${chosen.pts.length} vértices do desenho + ${added} pontos sobre ${dz.arcs.length} arco(s), afastamento máximo da curva ${fmtNum(tol*100,0)} cm. ` +
+          `Arcos: ${lista}. Área com a curva exata (CAD) ${fmtNum(dz.exactArea,2)} m²; polígono densificado ${fmtNum(aPoly,2)} m² (Δ ${fmtNum(aPoly - dz.exactArea,2)} m²). ` +
+          `Os pontos intermediários (ex.: ${dz.arcs[0].from}-1) entram no memorial, no SIG-RI e na planilha SIGEF como vértices — confira se o desenho também os mostra.`);
+      }
     } catch(err){
       console.error(err);
       setStatus('input-status','err','Falha ao interpretar o DXF: ' + (err.message || err));

@@ -144,6 +144,22 @@ console.log('CHECK Catuama sem aviso (nenhum vértice descartado/lacuna):', !/�
 // Diagnóstico quando a leitura falha: V7 com N absurdo e V3 ausente → descartado + lacuna + aviso
 const bad = await pasteImport(`V1, definido pelas coordenadas E: 298.436,556 m e N: 9.152.924,331 m V2, definido pelas coordenadas E: 298.512,618 m e N: 9.152.897,794 m V4, definido pelas coordenadas E: 298.514,178 m e N: 9.152.866,166 m V7, definido pelas coordenadas E: 298.460,585 m e N: 9,152 m V8, definido pelas coordenadas E: 298.431,147 m e N: 9.152.906,877 m`);
 console.log('CHECK diagnóstico: descarta V7 (N fora da faixa) e avisa V3, V5, V6 ausentes:', bad.n === 4 && /descartado.*V7/.test(bad.status) && /não encontrei V3, V5, V6/.test(bad.status) ? 'OK' : 'FAIL ' + bad.status);
+// ---- DXF com arco (bulge) — caso real Boaçica V40→V41: a curva da polilinha virava reta (corda) ----
+// Quadrado 100×100 m em Ipojuca (fuso 25) com o canto NE arredondado, R = 15 m (90°, bulge = tan(22,5°)).
+// Área exata = 10 000 − 15² + π·15²/4 = 9 951,7146 m².
+const E0 = 280000, N0 = 9070000, BUL = Math.tan(Math.PI / 8).toFixed(10);
+const dxfLW = (bulge) => ['0','SECTION','2','ENTITIES','0','LWPOLYLINE','8','DIVISA','90','5','70','1',
+  '10',E0,'20',N0, '10',E0+100,'20',N0, '10',E0+100,'20',N0+85,'42',bulge, '10',E0+85,'20',N0+100, '10',E0,'20',N0+100,
+  '0','ENDSEC','0','EOF'].join('\n');
+const dxfImport = async (txt) => { await page.evaluate(() => { state.vertices = []; document.getElementById('cfg-zone').value = '25'; }); await page.setInputFiles('#dxf-input', { name: 'boacica_curva.dxf', mimeType: 'application/dxf', buffer: Buffer.from(txt) }); await page.waitForFunction(() => state.vertices.length >= 5); return page.evaluate(([ce, cn]) => ({ n: state.vertices.length, names: state.vertices.map(v => v.name), area: polyArea(state.vertices), dev: Math.max(0, ...state.vertices.filter(v => v.name.includes('-')).map(v => Math.abs(Math.hypot(v.e - ce, v.n - cn) - 15))), outward: state.vertices.filter(v => v.name.includes('-')).every(v => v.e > ce && v.n > cn), status: document.getElementById('input-status').textContent, cls: document.getElementById('input-status').className }), [E0 + 85, N0 + 85]); };
+const dx1 = await dxfImport(dxfLW(BUL));
+const EXACT = 10000 - 225 + Math.PI * 225 / 4;
+console.log('DXF arco:', JSON.stringify({ n: dx1.n, names: dx1.names.join(','), area: +dx1.area.toFixed(3), dev: dx1.dev, status: dx1.status.slice(0, 260) }));
+console.log('CHECK DXF com arco: V1..V5 mantidos, pontos V3-1… sobre a curva (R = 15 m), área a < 0,3 m² da exata 9.951,71:',
+  ['V1','V2','V3','V4','V5'].every(nm => dx1.names.includes(nm)) && dx1.names.indexOf('V3-1') === dx1.names.indexOf('V3') + 1 && dx1.names.indexOf('V4') > dx1.names.indexOf('V3-1') && dx1.dev < 1e-6 && dx1.outward && dx1.area < EXACT && EXACT - dx1.area < 0.3 ? 'OK' : 'FAIL');
+console.log('CHECK aviso do DXF: arco V3→V4, R = 15,00 m, desenvolvimento 23,56 m, área exata 9.951,71 m²:', /show warn/.test(dx1.cls) && /V3→V4: R = 15,00 m, desenvolvimento 23,56 m/.test(dx1.status) && /curva exata \(CAD\) 9\.951,71 m²/.test(dx1.status) ? 'OK' : 'FAIL ' + dx1.status);
+const dx0 = await dxfImport(dxfLW('0'));
+console.log('CHECK DXF sem arco continua igual (5 vértices, 9.887,50 m²):', dx0.n === 5 && Math.abs(dx0.area - 9887.5) < 1e-6 && !/arco/.test(dx0.status) ? 'OK' : 'FAIL ' + JSON.stringify(dx0));
 // ---- Reconstituição por rumos / azimutes e distâncias (certidão sem coordenadas) ----
 await page.evaluate(() => { state.vertices = []; document.getElementById('rc-box').open = true; });
 await page.click('#btn-rc-example');
