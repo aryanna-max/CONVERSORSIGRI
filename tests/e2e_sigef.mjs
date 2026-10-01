@@ -158,6 +158,19 @@ console.log('DXF arco:', JSON.stringify({ n: dx1.n, names: dx1.names.join(','), 
 console.log('CHECK DXF com arco: V1..V5 mantidos, pontos V3-1… sobre a curva (R = 15 m), área a < 0,3 m² da exata 9.951,71:',
   ['V1','V2','V3','V4','V5'].every(nm => dx1.names.includes(nm)) && dx1.names.indexOf('V3-1') === dx1.names.indexOf('V3') + 1 && dx1.names.indexOf('V4') > dx1.names.indexOf('V3-1') && dx1.dev < 1e-6 && dx1.outward && dx1.area < EXACT && EXACT - dx1.area < 0.3 ? 'OK' : 'FAIL');
 console.log('CHECK aviso do DXF: arco V3→V4, R = 15,00 m, desenvolvimento 23,56 m, área exata 9.951,71 m²:', /show warn/.test(dx1.cls) && /V3→V4: R = 15,00 m, desenvolvimento 23,56 m/.test(dx1.status) && /curva exata \(CAD\) 9\.951,71 m²/.test(dx1.status) ? 'OK' : 'FAIL ' + dx1.status);
+// Memorial urbano com arco (regra validada com a usuária): pontos da curva não viram vértices; o trecho sai como
+// "arco de círculo à esquerda/direita de raio R e desenvolvimento D"; área exata com a curva; lado agrupado soma o desenvolvimento.
+const memArc = await page.evaluate(() => buildMemorialText({ tipo: 'urbano', sides: ['Frente','Lado direito','Lado direito','Fundo','Lado esquerdo'], confs: ['Rua A','Lote 2','','Lote 9','Lote 4'] }, state.vertices));
+console.log('MEMORIAL arco:', memArc.replace(/\s+/g, ' ').slice(0, 900));
+console.log('CHECK memorial urbano com arco: V1..V5, trecho em arco R 15,00 / desenv. 23,56, sem V3-k, área 9.951,71, perímetro 393,56, lado direito 108,56:',
+  /por um arco de círculo à esquerda de raio 15,00 m e desenvolvimento de 23,56 m até o vértice V4/.test(memArc) && !/V3-\d/.test(memArc) && /Área: 9\.951,71 m²/.test(memArc) && /Perímetro: 393,56 m/.test(memArc) && /Lado direito: limita-se com Lote 2, do vértice V2 ao V4 com 108,56 m/.test(memArc) ? 'OK' : 'FAIL');
+await page.evaluate(() => reverseVertices());
+const rev = await page.evaluate(() => ({ names: state.vertices.map(v => v.name).join(','), mem: buildMemorialText({ tipo: 'urbano', sides: [], confs: [] }, state.vertices) }));
+console.log('CHECK inverter mantém V3-1… e o arco passa a ser "à direita":', rev.names.startsWith('V1,V2,V3,V3-1,') && rev.names.endsWith('V3-21,V4,V5') && /arco de círculo à direita de raio 15,00 m e desenvolvimento de 23,56 m até o vértice V4/.test(rev.mem) && /Área: 9\.951,71 m²/.test(rev.mem) ? 'OK' : 'FAIL ' + rev.names);
+await page.evaluate(() => reverseVertices());
+{ const [dl] = await Promise.all([ page.waitForEvent('download', { timeout: 30000 }), page.evaluate(() => generateMemorialPDF()) ]);
+  const f = path.join(OUT, 'memorial_arco.pdf'); await dl.saveAs(f); const t = fs.readFileSync(f).toString('latin1');
+  console.log('CHECK PDF com arco: quadro só com V1..V5, linha "arco R 15,00", área 9.951,71, sem V3-1:', t.includes('arco R 15,00') && t.includes('9.951,71') && /rtices: 5\b/.test(t) && !/V3-1/.test(t) ? 'OK' : 'FAIL'); }
 // Mapa: vértices amontoados (pedido da usuária, captura com V9–V15 ilegíveis) — rótulos cheios não se sobrepõem;
 // os demais viram ponto pequeno; V1 sempre rotulado; aproximando o zoom os nomes voltam.
 await page.waitForTimeout(600);

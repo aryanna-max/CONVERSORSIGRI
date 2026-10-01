@@ -1443,7 +1443,8 @@ function dxfPolyToVertices(poly, tol){
     if(!arc) continue;
     segSum += mirror ? -arc.seg : arc.seg;
     const mid = dxfArcPoints(arc, tol);
-    mid.forEach((m, k) => out.push({ name: name + '-' + (k + 1), e: mirror ? -m.x : m.x, n: m.y }));
+    const arcTag = { ce: mirror ? -arc.cx : arc.cx, cn: arc.cy, R: arc.R };   // memorial urbano junta estes pontos num trecho em arco
+    mid.forEach((m, k) => out.push({ name: name + '-' + (k + 1), e: mirror ? -m.x : m.x, n: m.y, arc: arcTag }));
     arcs.push({ from: name, to: last ? 'V1' : 'V' + (i + 2), R: arc.R, len: arc.len, theta: Math.abs(arc.theta) * 180 / Math.PI, added: mid.length });
   }
   if(!poly.closed){ const p = pts[N-1], q = pts[0]; shoelace += (mirror ? -p.x : p.x) * q.y - (mirror ? -q.x : q.x) * p.y; }
@@ -1496,7 +1497,7 @@ function handleDXF(file){
         setStatus('input-status','warn',
           `Polígono importado: ${state.vertices.length} pontos — ${chosen.pts.length} vértices do desenho + ${added} pontos sobre ${dz.arcs.length} arco(s), afastamento máximo da curva ${fmtNum(tol*100,0)} cm. ` +
           `Arcos: ${lista}. Área com a curva exata (CAD) ${fmtNum(dz.exactArea,2)} m²; polígono densificado ${fmtNum(aPoly,2)} m² (Δ ${fmtNum(aPoly - dz.exactArea,2)} m²). ` +
-          `Os pontos intermediários (ex.: ${dz.arcs[0].from}-1) entram no memorial, no SIG-RI e na planilha SIGEF como vértices — confira se o desenho também os mostra.`);
+          `Os pontos intermediários (ex.: ${dz.arcs[0].from}-1) entram no SIG-RI, KML/Shapefile e planilha SIGEF como vértices; no memorial urbano o trecho sai como arco de círculo (raio e desenvolvimento), com a área exata.`);
       }
     } catch(err){
       console.error(err);
@@ -1779,7 +1780,7 @@ function loadFromUTM(verts){
   const result = verts.map(v => {
     const [lngSrc, latSrc] = proj4(projUTM, sourceGeo, [v.e, v.n]);
     const [lng, lat] = proj4(sourceGeo, 'EPSG:4674', [lngSrc, latSrc]);
-    return { name: v.name, e: v.e, n: v.n, lat, lng };
+    return v.arc ? { name: v.name, e: v.e, n: v.n, lat, lng, arc: v.arc } : { name: v.name, e: v.e, n: v.n, lat, lng };
   });
   state.vertices = result;
   state.fromKML = false;
@@ -2178,15 +2179,23 @@ $('btn-map-center').addEventListener('click', () => {
   map.fitBounds(L.polygon(ll).getBounds(), { padding: [40,40], maxZoom: 19 });
 });
 
+// Renumera V1..Vn; pontos de arco do DXF (p.arc) seguem o vértice anterior: V40-1, V40-2…
+function renumberVertices(arr){
+  let k = 0, sub = 0, base = '';
+  arr.forEach((p, i) => {
+    if(i > 0 && p.arc){ p.name = base + '-' + (++sub); }
+    else { base = 'V' + (++k); sub = 0; p.name = base; }
+  });
+}
 // Rotaciona os vértices para que o de índice idx vire V1 (renumera V1..Vn)
 function setStartVertex(idx){
   const v = state.vertices;
   if(idx <= 0 || idx >= v.length) return;
   const rot = v.slice(idx).concat(v.slice(0, idx));
-  rot.forEach((p,i) => { p.name = 'V' + (i+1); });
+  renumberVertices(rot);
   state.vertices = rot;
   refreshAll();
-  setStatus('input-status','ok', `V1 redefinido. Polígono renumerado V1…V${rot.length} a partir do vértice escolhido.`);
+  setStatus('input-status','ok', `V1 redefinido. Polígono renumerado V1…V${rot.filter((p,i) => i === 0 || !p.arc).length} a partir do vértice escolhido.`);
 }
 window.cf_setStart = setStartVertex;
 
@@ -2195,7 +2204,7 @@ function reverseVertices(){
   const v = state.vertices;
   if(v.length < 3) return;
   const rot = [v[0], ...v.slice(1).reverse()];
-  rot.forEach((p,i) => { p.name = 'V' + (i+1); });
+  renumberVertices(rot);
   state.vertices = rot;
   refreshAll();
   setStatus('input-status','ok', 'Sentido invertido (V1 mantido).');
@@ -3139,6 +3148,46 @@ function buildMemorialEdges(verts){
   return edges;
 }
 
+// Memorial urbano com arcos do DXF: os pontos de curva (p.arc = centro e raio) não são vértices do memorial.
+// Cada sequência deles vira UM trecho "por um arco de círculo à direita/esquerda de raio R e desenvolvimento D"
+// entre dois vértices do desenho. Área = polígono densificado + segmentos circulares de cada subcorda (exata);
+// perímetro soma o desenvolvimento. Sem arcos, devolve exatamente buildMemorialEdges/polyArea/polyPerimeter.
+function memorialGeomUrb(verts){
+  const N = verts.length;
+  const isDraw = i => i === 0 || !verts[i].arc;
+  if(!verts.some((p, i) => !isDraw(i))) return { pts: verts, edges: buildMemorialEdges(verts), area: polyArea(verts), perim: polyPerimeter(verts), hasArc: false };
+  let signed = 0, segSum = 0;
+  for(let i = 0; i < N; i++){
+    const a = verts[i], b = verts[(i + 1) % N];
+    signed += a.e * b.n - b.e * a.n;
+  }
+  const pts = [], edges = [];
+  const drawIdx = []; for(let i = 0; i < N; i++) if(isDraw(i)) drawIdx.push(i);
+  drawIdx.forEach((i, k) => { pts.push(verts[i]); });
+  drawIdx.forEach((i, k) => {
+    const j = drawIdx[(k + 1) % drawIdx.length];
+    const a = verts[i], b = verts[j];
+    const mids = []; for(let t = (i + 1) % N; t !== j; t = (t + 1) % N) mids.push(verts[t]);
+    const ed = { idx: k, from: a, to: b, az: azimuthUTM(a, b), dist: Math.hypot(b.e - a.e, b.n - a.n), arc: null };
+    if(mids.length){
+      const c = mids[0].arc, chain = [a, ...mids, b];
+      let len = 0;
+      for(let t = 0; t < chain.length - 1; t++){
+        const p = chain[t], q = chain[t + 1], ch = Math.hypot(q.e - p.e, q.n - p.n);
+        const phi = 2 * Math.asin(Math.min(1, ch / (2 * c.R)));
+        len += c.R * phi;
+        const left = (q.e - p.e) * (c.cn - p.n) - (q.n - p.n) * (c.ce - p.e) > 0;   // centro à esquerda de quem percorre
+        segSum += (left ? 1 : -1) * c.R * c.R / 2 * (phi - Math.sin(phi));
+      }
+      const right = (mids[0].e - a.e) * (c.cn - a.n) - (mids[0].n - a.n) * (c.ce - a.e) < 0;
+      ed.dist = len; ed.arc = { R: c.R, len, lado: right ? 'direita' : 'esquerda', n: mids.length };
+    }
+    edges.push(ed);
+  });
+  const perim = edges.reduce((s, e) => s + e.dist, 0);
+  return { pts, edges, area: Math.abs(signed / 2 + segSum), perim, hasArc: true };
+}
+
 // Auto-atribuição de lados a partir do V1 voltado para a rua principal.
 // Convenção: observador parado em V1 olhando para a rua. V1→V2 = Frente.
 // Lado direito/esquerdo = direção relativa ao observador. Fundo = aresta oposta à Frente.
@@ -3193,8 +3242,10 @@ function autoAssignSides(verts){
 function buildMemorialText(meta, verts){
   if(!verts || verts.length < 3) return 'Importe um polígono com pelo menos 3 vértices.';
   if(meta.tipo === 'rural') return buildMemorialTextRural(meta, verts);
+  const mg = memorialGeomUrb(verts);
+  verts = mg.pts;
   const n = verts.length;
-  const edges = buildMemorialEdges(verts);
+  const edges = mg.edges;
   const sides = meta.sides || [], confs = meta.confs || [];
 
   let txt = 'MEMORIAL DESCRITIVO\n\n';
@@ -3205,18 +3256,21 @@ function buildMemorialText(meta, verts){
   }
   if(meta.municipio || meta.uf) txt += `Município: ${meta.municipio||'________'}    UF: ${meta.uf||'__'}\n`;
   if(meta.matricula) txt += `${meta.matricula}\n`;
-  const area = polyArea(verts);
-  const perim = polyPerimeter(verts);
+  const area = mg.area;
+  const perim = mg.perim;
   txt += `Área: ${fmtNum(area,2)} m²    Perímetro: ${fmtNum(perim,2)} m\n\n`;
 
   // Descrição perimetral (parágrafo único, estilo NBR/AG)
   let para = `Inicia-se a descrição deste perímetro no vértice ${verts[0].name}, definido pelas coordenadas E: ${fmtNum(verts[0].e,3)} m e N: ${fmtNum(verts[0].n,3)} m`;
   for(let i = 0; i < n; i++){
     const e = edges[i], next = e.to, last = (i === n-1);
+    const lado = e.arc
+      ? `, deste segue por um arco de círculo à ${e.arc.lado} de raio ${fmtNum(e.arc.R,2)} m e desenvolvimento de ${fmtNum(e.arc.len,2)} m`
+      : ` com azimute ${decToDMS(e.az)} e distância de ${fmtNum(e.dist,2)} m`;
     if(last){
-      para += ` com azimute ${decToDMS(e.az)} e distância de ${fmtNum(e.dist,2)} m até o vértice ${next.name}, encerrando este perímetro.`;
+      para += `${lado} até o vértice ${next.name}, encerrando este perímetro.`;
     } else {
-      para += ` com azimute ${decToDMS(e.az)} e distância de ${fmtNum(e.dist,2)} m até o vértice ${next.name}, definido pelas coordenadas E: ${fmtNum(next.e,3)} m e N: ${fmtNum(next.n,3)} m`;
+      para += `${lado} até o vértice ${next.name}, definido pelas coordenadas E: ${fmtNum(next.e,3)} m e N: ${fmtNum(next.n,3)} m`;
     }
   }
   txt += para + '\n\n';
@@ -3226,7 +3280,7 @@ function buildMemorialText(meta, verts){
   const mc = -183 + 6 * cfg_.zone;
   const mcAbs = Math.abs(mc);
   const hemiMC = mc < 0 ? 'WGr' : 'EGr';
-  txt += `Todas as coordenadas aqui descritas estão georreferenciadas no Sistema Geodésico Brasileiro, e encontram-se representadas no Sistema UTM, referenciadas ao Meridiano Central ${mcAbs}°00'00" ${hemiMC}, tendo como Datum o SIRGAS 2000 (EPSG:4674). Todos os azimutes e distâncias, áreas e perímetros foram calculados no plano de projeção UTM, em conformidade com a NBR 13133 e a NBR 17047.\n\n`;
+  txt += `Todas as coordenadas aqui descritas estão georreferenciadas no Sistema Geodésico Brasileiro, e encontram-se representadas no Sistema UTM, referenciadas ao Meridiano Central ${mcAbs}°00'00" ${hemiMC}, tendo como Datum o SIRGAS 2000 (EPSG:4674). Todos os azimutes e distâncias, áreas e perímetros foram calculados no plano de projeção UTM, em conformidade com a NBR 13133 e a NBR 17047.${mg.hasArc ? ' Nos trechos em arco de círculo, a distância é o desenvolvimento do arco e a área considera a curva.' : ''}\n\n`;
 
   // Confrontantes — agrupa arestas consecutivas com o mesmo lado
   const groups = [];
@@ -3458,8 +3512,9 @@ function renderMemorialEdges(){
     }
     return;
   }
-  const edges = buildMemorialEdges(v);
-  const autoSides = autoAssignSides(v);
+  const mg = memorialGeomUrb(v);
+  const edges = mg.edges;
+  const autoSides = autoAssignSides(mg.pts);
   const optFor = (name, sel) => `<option${sel===name?' selected':''}>${name}</option>`;
   for(const e of edges){
     const sel = autoSides[e.idx];
@@ -3467,7 +3522,7 @@ function renderMemorialEdges(){
     row.className = 'mem-edge-row';
     row.innerHTML = `
       <span class="e-id">${e.from.name}→${e.to.name}</span>
-      <span class="e-meta">Az ${decToDMS(e.az)}<br>${fmtNum(e.dist,2)} m</span>
+      <span class="e-meta">${e.arc ? `Arco à ${e.arc.lado} R ${fmtNum(e.arc.R,2)} m` : `Az ${decToDMS(e.az)}`}<br>${fmtNum(e.dist,2)} m</span>
       <select data-edge-side="${e.idx}">
         <option value="">— sem lado —</option>
         ${optFor('Frente', sel)}
@@ -3669,13 +3724,15 @@ async function generateMemorialPDF(){
     : `Coordenadas UTM SIRGAS 2000, fuso ${zone} ${hemi} (EPSG:${hemi === 'S' ? 31960 + zone : 31954 + zone}) e geodésicas (EPSG:4674). Azimutes e distâncias no plano de projeção UTM — NBR 13133 / NBR 17047.`;
   for(const line of doc.splitTextToSize(sub, ctx.contentW)){ doc.text(line, margin, ctx.y); ctx.y += 3.6; }
   doc.setTextColor(0,0,0); ctx.y += 2;
-  const edges = tableEdges(verts);
-  const qrows = verts.map((p, i) => { const ed = edges[i]; return [p.name, fmtNum(p.e, 3), fmtNum(p.n, 3), latDMS(p.lat), lngDMS(p.lng), ed ? `${p.name}→${ed.to.name}` : '', ed ? (rural ? decToDMSsec(ed.az) : decToDMS(ed.az)) : '', ed ? fmtNum(ed.dist, 2) : '']; });
+  const mgU = rural ? null : memorialGeomUrb(verts);   // urbano: só vértices do desenho; arco = raio + desenvolvimento
+  const qverts = rural ? verts : mgU.pts;
+  const edges = rural ? tableEdges(verts) : mgU.edges;
+  const qrows = qverts.map((p, i) => { const ed = edges[i]; return [p.name, fmtNum(p.e, 3), fmtNum(p.n, 3), latDMS(p.lat), lngDMS(p.lng), ed ? `${p.name}→${ed.to.name}` : '', ed ? (ed.arc ? `arco R ${fmtNum(ed.arc.R, 2)}` : rural ? decToDMSsec(ed.az) : decToDMS(ed.az)) : '', ed ? fmtNum(ed.dist, 2) : '']; });
   pdfTable(doc, ctx, [{ t: 'V', w: 21 }, { t: 'UTM E (m)', w: 21, a: 'right' }, { t: 'UTM N (m)', w: 23, a: 'right' }, { t: 'Latitude', w: 24 }, { t: 'Longitude', w: 25 }, { t: 'Lado', w: 25 }, { t: rural ? 'Az. geod.' : 'Azimute UTM', w: 18, a: 'right' }, { t: rural ? 'Dist. SGL' : 'Dist. UTM', w: ctx.contentW - 157, a: 'right' }], qrows, { fontSize: 7 });
   ctx.y += 5;
   const area = rural ? sglAreaPerim(verts) : null;
   doc.setFont('helvetica','bold'); doc.setFontSize(9);
-  const resumo = rural ? `Área (SGL): ${fmtNum(area.ha, 4)} ha    Perímetro (SGL): ${fmtNum(area.perim, 2)} m    Vértices: ${verts.length}` : `Área (UTM): ${fmtNum(polyArea(verts), 2)} m²    Perímetro (UTM): ${fmtNum(polyPerimeter(verts), 2)} m    Vértices: ${verts.length}`;
+  const resumo = rural ? `Área (SGL): ${fmtNum(area.ha, 4)} ha    Perímetro (SGL): ${fmtNum(area.perim, 2)} m    Vértices: ${verts.length}` : `Área (UTM): ${fmtNum(mgU.area, 2)} m²    Perímetro (UTM): ${fmtNum(mgU.perim, 2)} m    Vértices: ${qverts.length}`;
   if(ctx.y > pageH - 30){ doc.addPage(); ctx.y = 20; }
   doc.text(resumo, margin, ctx.y); ctx.y += 5;
   doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
