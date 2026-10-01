@@ -28,9 +28,17 @@ const GML_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
     <ms:parcela_co>PE-TESTE-GML</ms:parcela_co><ms:nome_area>Parcela GML (metade leste)</ms:nome_area><ms:situacao_i>Certificada</ms:situacao_i>
   </ms:certificada_sigef_particular_pe></gml:featureMember>
 </wfs:FeatureCollection>`;
+// GetCapabilities do workspace SPU na INDE (trecho real de 01/10/2026 + uma versão antiga para provar a escolha da mais recente)
+const SPU_CAPS = `<?xml version="1.0" encoding="UTF-8"?><WMT_MS_Capabilities version="1.1.1"><Service><Name>OGC:WMS</Name></Service><Capability><Layer><Title>GeoServer INDE</Title>
+<Layer queryable="1"><Name>vw_app_trecho_terreno_marinha_a_15012025</Name><Title>Terreno de Marinha - 15/01/2025</Title><Style><Name>SPU:Trecho_Terreno_Marinha_EDGV4</Name></Style></Layer>
+<Layer queryable="1"><Name>vw_app_trecho_terreno_marinha_a_03092026</Name><Title>Terreno de Marinha - 03/09/2026</Title><Style><Name>SPU:Trecho_Terreno_Marinha_EDGV4</Name></Style></Layer>
+<Layer queryable="1"><Name>vw_app_trecho_terreno_acrescido_marinha_a_03092026</Name><Title>Terreno Acrescido de Marinha - 03/09/2026</Title></Layer>
+<Layer queryable="1"><Name>vw_lpp_trecho_lpm_l_03092026</Name><Title>LPM - 03/09/2026</Title></Layer>
+<Layer queryable="1"><Name>vw_lpp_trecho_ltm_l_03092026</Name><Title>LTM - 03/09/2026</Title></Layer>
+</Layer></Capability></WMT_MS_Capabilities>`;
 let proxyHits = [];
 const server = http.createServer((req, res) => {
-  if(req.url.startsWith('/api/ogc')){ proxyHits.push(decodeURIComponent(req.url.split('url=')[1] || '')); res.writeHead(200, { 'Content-Type': 'text/xml' }); return res.end(GML_FIXTURE); }
+  if(req.url.startsWith('/api/ogc')){ const target = decodeURIComponent(req.url.split('url=')[1] || ''); proxyHits.push(target); res.writeHead(200, { 'Content-Type': 'text/xml' }); return res.end(/SPU\/wms.*GetCapabilities/i.test(target) ? SPU_CAPS : GML_FIXTURE); }
   let p = decodeURIComponent(req.url.split('?')[0]); if(p === '/') p = '/conversor.html';
   const f = path.join(ROOT, p);
   if(!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()){ res.writeHead(404); return res.end('nf'); }
@@ -264,6 +272,15 @@ await page.click('#btn-map-info'); await page.evaluate(() => document.querySelec
 const panelScroll = await page.evaluate(() => { const p = document.getElementById('layer-panel'); p.classList.add('open'); const cs = getComputedStyle(p); const r = { overflowY: cs.overflowY, maxH: cs.maxHeight, scrollable: p.scrollHeight > p.clientHeight, h: p.clientHeight, sh: p.scrollHeight }; p.classList.remove('open'); return r; });
 console.log('PAINEL camadas:', JSON.stringify(panelScroll));
 console.log('CHECK painel de camadas rola:', panelScroll.overflowY === 'auto' && panelScroll.maxH !== 'none' ? 'OK' : 'FAIL');
+// SPU: sigespa morreu; camadas versionadas por data na INDE → nome resolvido pelo GetCapabilities (mais recente por prefixo)
+await page.evaluate(() => document.querySelector('input[data-overlay="spu"]').click());
+await page.waitForFunction(() => overlayDefs.spu.resolved === true, null, { timeout: 15000 });
+const spu = await page.evaluate(() => ({ layer: overlayDefs.spu.wmsLayer, status: document.querySelector('[data-status="spu"]').textContent, nImg: document.querySelectorAll('#lg-items .lg-item img').length, ep: overlayEndpoint(overlayDefs.spu) }));
+console.log('SPU:', JSON.stringify(spu), '| caps hits:', proxyHits.filter(u => /SPU\/wms/.test(u)).length);
+console.log('CHECK SPU resolve o nome mais recente (03092026, não 15012025) para terreno de marinha + acrescido:', spu.layer === 'vw_app_trecho_terreno_marinha_a_03092026,vw_app_trecho_terreno_acrescido_marinha_a_03092026' && spu.ep.wmsUrl === 'https://geoservicos.inde.gov.br/geoserver/SPU/wms' && !/indisponível/.test(spu.status) ? 'OK' : 'FAIL');
+await page.evaluate(() => document.querySelector('input[data-overlay="spu"]').click());
+const dead = await page.evaluate(() => JSON.stringify(overlayDefs).includes('sigespa'));
+console.log('CHECK nenhuma referência ao host morto da SPU (sigespa):', !dead ? 'OK' : 'FAIL');
 // Legenda recolhível e compacta (pedido: "ocupando boa parte do mapa")
 await page.evaluate(() => document.querySelector('input[data-overlay="sigef"]').click());
 await page.waitForFunction(() => document.getElementById('legend-panel').classList.contains('show'));
