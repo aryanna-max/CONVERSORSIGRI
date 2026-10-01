@@ -260,6 +260,14 @@ await p2.goto(base + '/conversor.html?tipo=urbano', { waitUntil: 'domcontentload
 await p2.waitForFunction(() => typeof window.proj4 === 'function' && document.getElementById('cfg-tipo'));
 const tu = await p2.evaluate(() => ({ tipo: document.getElementById('cfg-tipo').value, badge: document.getElementById('tipo-badge').textContent }));
 console.log('CHECK ?tipo=urbano abre em urbano com selo:', tu.tipo === 'urbano' && /URBANO/.test(tu.badge) ? 'OK' : 'FAIL');
+// sem parâmetro, em aba nova (sessionStorage próprio) → SEMPRE urbano, mesmo após ter aberto ?tipo=rural antes
+const p3 = await ctx.newPage();
+await p3.route(u => !u.href.startsWith(base), route => { const u = route.request().url(); const hit = CDN[u]; if(hit){ const f = path.join(LIBS, hit[0]); return route.fulfill({ status: 200, contentType: hit[1], body: fs.readFileSync(f) }); } return route.abort('blockedbyclient'); });
+await p3.goto(base + '/conversor.html', { waitUntil: 'domcontentloaded' });
+await p3.waitForFunction(() => typeof window.proj4 === 'function' && document.getElementById('cfg-tipo'));
+const t3 = await p3.evaluate(() => ({ tipo: document.getElementById('cfg-tipo').value, badge: document.getElementById('tipo-badge').textContent }));
+console.log('CHECK sem ?tipo= em aba nova abre em urbano:', t3.tipo === 'urbano' && /URBANO/.test(t3.badge) ? 'OK' : 'FAIL ' + JSON.stringify(t3));
+await p3.close();
 await p2.close();
 console.log('PAGE ERRORS:', errors.length ? '\n' + errors.join('\n') : 'none');
 await browser.close(); server.close();
