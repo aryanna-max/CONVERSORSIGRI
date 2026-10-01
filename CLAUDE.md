@@ -41,6 +41,11 @@ CNJ 195/2025. Produto da **AG Topografia**.
   2. **Certificação SIGEF** (INCRA) — ajudar o profissional credenciado a preparar/validar a submissão.
 - Caso de referência: **Gleba A do Engenho Boaçica, mat. 24.878, Ipojuca/PE** — 157 vértices com códigos SIGEF (GLH-V-10491…), 599,6347 ha, 225 km do MC (k ≈ 1,000224). Ver `RELATORIO_CONFERENCIA_MAT-24878` (relatório técnico da Aryanna, 30/09/2026).
 
+## Tipo de imóvel — escolha GLOBAL (decisão da usuária, 2026-10-01)
+- **"Urbano / Rural" é a PRIMEIRA escolha**, no painel 01 (`#cfg-tipo`, antes do fuso), **padrão Urbano**, visível e persistida em `confrontei_tipo_imovel`. Nunca esconder modo em memória do modal (bug real: o modal lembrava "Rural · Tabela SIGEF" e abriu um lote urbano no formato do INCRA).
+- Urbano: quadro de áreas ORIGINAL (Área m² UTM · Perímetro UTM · Hectares; k/γ só como sublinha se |k−1|>1e-4), memorial NBR com lados, planilha SIGEF desabilitada (tooltip explica). Rural: SGL/UTM/elipsoide + k/γ, memorial Tabela SIGEF/Prosa, planilha SIGEF e sobreposição liberadas. `isRural()` é a fonte única; o rádio do modal espelha o global a cada abertura.
+- Regressão urbana no E2E com o memorial real do Lote 174 Gleba A (AG): 12 vértices, fuso 25, 963,90 m² / 141,22 m (AG 963,89 / 141,21), azimute V1→V2 129°29′56″.
+
 ## Princípio de produto (inegociável)
 - **Quem usa o Confrontei não pode ser induzido a erro.** Todo número exibido tem rótulo sem ambiguidade, metodologia visível (bloco "ⓘ Metodologia") e, quando é valor de conferência, diz isso no próprio card ("não substitui SIGEF / matrícula").
 - Geometria própria sobre o GRS80 (proj4js só funciona para UTM; ortho/cea/laea devolvem NaN): **SGL = ENU** (geodésica→ECEF→ENU no centroide); **área elipsoidal = esfera autálica + excesso esférico exato** (contraprova independente da SGL — devem coincidir em 4 casas de ha); **azimute geodésico = Vincenty**. `turf.area` foi ABANDONADO: é esférico (R=6 371 008,8) e deu +0,65 % num teste controlado (48,0987 vs 47,7892 ha exatos).

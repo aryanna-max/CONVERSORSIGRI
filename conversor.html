@@ -599,6 +599,14 @@ input, textarea, select, [contenteditable]{cursor:text}
         </div>
         <div class="field-row">
           <label class="field">
+            <span class="lbl">Tipo de imóvel</span>
+            <select id="cfg-tipo" class="input">
+              <option value="urbano" selected>Urbano — SIG-RI / cartório · áreas em m² no plano UTM · memorial NBR 13133/17047 (Frente/Fundo/Direito/Esquerdo)</option>
+              <option value="rural">Rural — INCRA / SIGEF · área e perímetro no SGL (oficial) · memorial e planilha no padrão SIGEF · azimutes geodésicos</option>
+            </select>
+          </label>
+          <div class="field-help" id="cfg-tipo-help">Define o que a ferramenta mostra: no <strong>urbano</strong>, área em m² e azimutes no plano UTM, como o cartório pede; no <strong>rural</strong>, o quadro passa a exibir SGL / UTM / elipsoide, escala UTM (k) e convergência (γ), e libera a planilha SIGEF e a sobreposição com parcelas certificadas.</div>
+          <label class="field">
             <span class="lbl">Zona UTM</span>
             <select id="cfg-zone" class="input">
               <option value="18">18 S</option>
@@ -742,15 +750,15 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
             <span class="v" id="m-vert">—</span>
           </div>
           <div class="stat">
-            <span class="k">Perímetro · SGL (oficial) e UTM</span>
+            <span class="k" id="m-perim-k">Perímetro (UTM)</span>
             <span class="v" id="m-perim">— <span class="u">m</span></span>
           </div>
           <div class="stat">
-            <span class="k">Área · SGL (oficial), UTM, elipsoide</span>
+            <span class="k" id="m-area-k">Área (UTM)</span>
             <span class="v" id="m-area">— <span class="u">ha</span></span>
           </div>
           <div class="stat">
-            <span class="k">Escala UTM (k) · Convergência (γ)</span>
+            <span class="k" id="m-ha-k">Hectares</span>
             <span class="v" id="m-ha">— <span class="u">k</span></span>
           </div>
           <div class="stat closure" style="grid-column:span 2">
@@ -969,7 +977,18 @@ const state = {
 };
 
 const $ = id => document.getElementById(id);
-const cfg = () => ({ zone: parseInt($('cfg-zone').value,10), hemi: $('cfg-hemi').value, datum: $('cfg-datum').value });
+const cfg = () => ({ zone: parseInt($('cfg-zone').value,10), hemi: $('cfg-hemi').value, datum: $('cfg-datum').value, tipo: ($('cfg-tipo')?.value) || 'urbano' });
+const isRural = () => cfg().tipo === 'rural';
+// Tipo de imóvel: escolha GLOBAL e visível (padrão urbano); persiste no navegador
+(function initTipo(){
+  const el = $('cfg-tipo'); if(!el) return;
+  try { const t = localStorage.getItem('confrontei_tipo_imovel'); if(t === 'urbano' || t === 'rural') el.value = t; } catch {}
+  el.addEventListener('change', () => {
+    try { localStorage.setItem('confrontei_tipo_imovel', el.value); } catch {}
+    const r = document.querySelector(`input[name="mem-tipo"][value="${el.value}"]`); if(r) r.checked = true;
+    refreshAll();
+  });
+})();
 
 /* ===========================================================
    STATUS HELPERS
@@ -1878,22 +1897,35 @@ function refreshMetrics(){
   const gammaMin = Math.abs(dLon * Math.sin(phi)) * (180/Math.PI) * 60;
 
   $('m-vert').textContent = v.length;
-  // Perímetro: mostra SGL (oficial para rural) e UTM
-  const perimLineUTM = `UTM ${fmtNum(perim,2)} m`;
-  const perimLineSGL = haSGL != null ? `SGL ${fmtNum(perimSGL,2)} m` : '';
-  $('m-perim').innerHTML = (perimSGL != null
-    ? `${fmtNum(perimSGL,2)} <span class="u">m SGL</span><div class="m-sub">${perimLineUTM}</div>`
-    : `${fmtNum(perim,2)} <span class="u">m</span>`);
-  // Área: SGL em destaque + UTM + Elipsoide abaixo
-  if(haSGL != null && haElips != null){
-    $('m-area').innerHTML = `${fmtNum(haSGL,4)} <span class="u">ha SGL</span><div class="m-sub">UTM ${fmtNum(haUTM,4)} · Elips. ${fmtNum(haElips,4)} ha</div><div class="m-sub m-note">valores de conferência · não substituem SIGEF / matrícula</div>`;
+  const rural = isRural();
+  if(!rural){
+    // URBANO: exatamente o quadro original — m² e metros no plano UTM, hectares como apoio
+    $('m-perim-k').textContent = 'Perímetro (UTM)';
+    $('m-area-k').textContent = 'Área (UTM)';
+    $('m-ha-k').textContent = 'Hectares';
+    $('m-perim').innerHTML = `${fmtNum(perim,2)} <span class="u">m</span>`;
+    $('m-area').innerHTML = `${fmtNum(areaUTM,2)} <span class="u">m²</span>`;
+    $('m-ha').innerHTML = `${fmtNum(haUTM,4)} <span class="u">ha</span>${Math.abs(k - 1) > 0.0001 ? `<div class="m-sub">k UTM ${k.toFixed(6)} · γ ≈ ${gammaMin.toFixed(1)}′ — ver Metodologia</div>` : ''}`;
   } else {
-    $('m-area').innerHTML = `${fmtNum(haUTM,4)} <span class="u">ha UTM</span>`;
+    $('m-perim-k').textContent = 'Perímetro · SGL (oficial) e UTM';
+    $('m-area-k').textContent = 'Área · SGL (oficial), UTM, elipsoide';
+    $('m-ha-k').textContent = 'Escala UTM (k) · Convergência (γ)';
+    // Perímetro: mostra SGL (oficial para rural) e UTM
+    const perimLineUTM = `UTM ${fmtNum(perim,2)} m`;
+    $('m-perim').innerHTML = (perimSGL != null
+      ? `${fmtNum(perimSGL,2)} <span class="u">m SGL</span><div class="m-sub">${perimLineUTM}</div>`
+      : `${fmtNum(perim,2)} <span class="u">m</span>`);
+    // Área: SGL em destaque + UTM + Elipsoide abaixo
+    if(haSGL != null && haElips != null){
+      $('m-area').innerHTML = `${fmtNum(haSGL,4)} <span class="u">ha SGL</span><div class="m-sub">UTM ${fmtNum(haUTM,4)} · Elips. ${fmtNum(haElips,4)} ha</div><div class="m-sub m-note">valores de conferência · não substituem SIGEF / matrícula</div>`;
+    } else {
+      $('m-area').innerHTML = `${fmtNum(haUTM,4)} <span class="u">ha UTM</span>`;
+    }
+    // Fator de escala UTM — avisa se longe da secante
+    const kBadge = Math.abs(k - 1) > 0.0001
+      ? `<span class="m-warn" title="Polígono longe do meridiano central ${Math.abs(mcLon)}° — áreas no plano UTM divergem do SGL">⚠</span>` : '';
+    $('m-ha').innerHTML = `${k.toFixed(6)} <span class="u">k UTM</span>${kBadge}<div class="m-sub">γ ≈ ${gammaMin.toFixed(1)}′ · MC ${Math.abs(mcLon)}° ${mcLon<0?'W':'E'}</div>`;
   }
-  // Fator de escala UTM — avisa se longe da secante
-  const kBadge = Math.abs(k - 1) > 0.0001
-    ? `<span class="m-warn" title="Polígono longe do meridiano central ${Math.abs(mcLon)}° — áreas no plano UTM divergem do SGL">⚠</span>` : '';
-  $('m-ha').innerHTML = `${k.toFixed(6)} <span class="u">k UTM</span>${kBadge}<div class="m-sub">γ ≈ ${gammaMin.toFixed(1)}′ · MC ${Math.abs(mcLon)}° ${mcLon<0?'W':'E'}</div>`;
   // Fechamento (comportamento inalterado)
   const a = v[0], b = v[v.length-1];
   const closingEdge = Math.hypot(b.e - a.e, b.n - a.n);
@@ -2152,7 +2184,9 @@ $('btn-copy-out').addEventListener('click', async () => {
 =========================================================== */
 function refreshExportButtons(){
   const ok = state.vertices.length >= 3;
-  ['exp-txt','exp-shp','exp-kml','exp-csv','exp-mem','exp-ods'].forEach(id => $(id).disabled = !ok);
+  ['exp-txt','exp-shp','exp-kml','exp-csv','exp-mem'].forEach(id => $(id).disabled = !ok);
+  // Planilha SIGEF só faz sentido para imóvel rural (INCRA); no urbano fica desabilitada com explicação
+  const ods = $('exp-ods'); if(ods){ const rural = isRural(); ods.disabled = !ok || !rural; ods.title = rural ? '' : 'Disponível apenas para Tipo de imóvel = Rural (certificação INCRA/SIGEF). Troque no painel 01.'; }
 }
 
 $('exp-txt').addEventListener('click', async () => {
@@ -2869,8 +2903,9 @@ function renderMemorialEdges(){
 }
 
 function memorialTipo(){
+  // Segue a escolha GLOBAL (Tipo de imóvel, painel 01); o rádio do modal apenas espelha/permite ajuste pontual
   const r = document.querySelector('input[name="mem-tipo"]:checked');
-  return r ? r.value : 'urbano';
+  return r ? r.value : (typeof isRural === 'function' && isRural() ? 'rural' : 'urbano');
 }
 function applyMemorialTipoUI(){
   const rural = memorialTipo() === 'rural';
@@ -3142,6 +3177,7 @@ async function handleArtRrtFile(file){
 
   function openMemorial(){
     if(state.vertices.length < 3){ setStatus('export-status','warn','Importe um polígono antes de gerar o memorial.'); return; }
+    const g = isRural() ? 'rural' : 'urbano'; const rg = document.querySelector(`input[name="mem-tipo"][value="${g}"]`); if(rg) rg.checked = true;
     applyMemorialTipoUI();
     renderMemorialEdges();
     prefillFromLocation();
@@ -3157,10 +3193,8 @@ async function handleArtRrtFile(file){
     if(MEM_RT_KEYS.includes(e.target.id)) saveMemorialRT();
   });
   $modal.addEventListener('change', refreshMemorialPreview);
-  // Tipo de imóvel (urbano × rural/SIGEF): persiste e re-renderiza arestas no modelo certo
-  try { const t = localStorage.getItem('confrontei_mem_tipo'); if(t){ const r = document.querySelector(`input[name="mem-tipo"][value="${t}"]`); if(r) r.checked = true; } } catch {}
+  // Tipo de imóvel: o modal segue a escolha global (painel 01) a cada abertura — sem memória escondida
   document.querySelectorAll('input[name="mem-tipo"]').forEach(r => r.addEventListener('change', () => {
-    try { localStorage.setItem('confrontei_mem_tipo', memorialTipo()); } catch {}
     applyMemorialTipoUI();
     renderMemorialEdges();
     refreshMemorialPreview();
