@@ -655,7 +655,7 @@ input, textarea, select, [contenteditable]{cursor:text}
 
         <!-- TAB PASTE -->
         <div class="tab-panel active" data-tab-panel="paste">
-          <textarea id="paste-area" class="input paste" placeholder="Cole de Excel/Sheets. Aceita vírgula, ponto-e-vírgula, tab ou espaço.
+          <textarea id="paste-area" class="input paste" placeholder="Cole de Excel/Sheets (tab, ; ou espaço; ponto ou vírgula decimal)
 Formato:  NOME  ESTE  NORTE     (ou apenas ESTE NORTE)
 
 Ex.:
@@ -663,7 +663,9 @@ V1  295234.120  9106518.430
 V2  295298.560  9106540.210
 V3  295312.880  9106475.660
 V4  295248.440  9106453.890
-V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
+V1  295234.120  9106518.430  (fecha no ponto inicial)
+
+Também aceita o TEXTO de um memorial: prosa NBR (&quot;V1, pelas coordenadas E: 287.831,350 m e N: 9.111.104,430 m&quot;), tabela do SIGEF (código, longitude e latitude em GMS) ou &quot;GLH-V-10491, de coordenadas -8,xxxxxx; -34,xxxxxx&quot;."></textarea>
           <div class="btn-row" style="margin-top:10px">
             <button class="btn btn-primary" id="btn-paste-import">Importar lista</button>
             <button class="btn btn-secondary" id="btn-paste-example">Exemplo Recife 25S</button>
@@ -920,19 +922,21 @@ V1  295234.120  9106518.430  (fecha no ponto inicial)"></textarea>
         </div>
         <div class="layer-group">
           <span class="glabel">Sobreposições oficiais</span>
-          <label class="layer-opt"><input type="checkbox" data-overlay="sigef"><span><span class="name">Imóveis Rurais Certificados (SIGEF)</span><span class="src">INCRA · geoservicos.incra.gov.br</span></span><span class="layer-status" data-status="sigef"></span></label>
-          <label class="layer-opt"><input type="checkbox" data-overlay="snci"><span><span class="name">Imóveis Rurais SNCI</span><span class="src">INCRA · cadastros antigos</span></span><span class="layer-status" data-status="snci"></span></label>
-          <label class="layer-opt"><input type="checkbox" data-overlay="car"><span><span class="name">Cadastro Ambiental Rural (CAR)</span><span class="src">SFB · cobertura mais ampla que SIGEF (declaratório)</span></span><span class="layer-status" data-status="car"></span></label>
+          <div class="layer-opt" style="gap:8px;align-items:center"><span class="src">UF das camadas INCRA e CAR (publicadas por estado):</span><select id="layer-uf" class="input" style="width:auto;padding:3px 8px;font-size:11.5px"><option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE" selected>PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option></select></div>
+          <label class="layer-opt"><input type="checkbox" data-overlay="sigef"><span><span class="name">Imóveis Rurais Certificados (SIGEF) · privados</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF) — o antigo geoservicos.incra.gov.br foi desativado</span></span><span class="layer-status" data-status="sigef"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="sigefpub"><span><span class="name">Imóveis Rurais Certificados (SIGEF) · públicos</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF)</span></span><span class="layer-status" data-status="sigefpub"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="snci"><span><span class="name">Imóveis Rurais SNCI (certificação anterior a 2013)</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF)</span></span><span class="layer-status" data-status="snci"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="car"><span><span class="name">Cadastro Ambiental Rural (CAR)</span><span class="src">SFB · geoserver.car.gov.br · camada estadual (declaratório, cobertura ampla)</span></span><span class="layer-status" data-status="car"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="spu"><span><span class="name">Faixa de Marinha (SPU)</span><span class="src">Sec. do Patrimônio da União · relevante para imóveis costeiros</span></span><span class="layer-status" data-status="spu"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="ti"><span><span class="name">Terras Indígenas</span><span class="src">FUNAI</span></span><span class="layer-status" data-status="ti"></span></label>
-          <label class="layer-opt"><input type="checkbox" data-overlay="quilombo"><span><span class="name">Áreas Quilombolas</span><span class="src">INCRA</span></span><span class="layer-status" data-status="quilombo"></span></label>
+          <label class="layer-opt"><input type="checkbox" data-overlay="quilombo"><span><span class="name">Áreas Quilombolas</span><span class="src">INCRA · Acervo Fundiário (i3Geo, tema por UF)</span></span><span class="layer-status" data-status="quilombo"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="mun"><span><span class="name">Limites Municipais</span><span class="src">IBGE</span></span><span class="layer-status" data-status="mun"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="dnit"><span><span class="name">Rodovias Federais (eixo SNV)</span><span class="src">DNIT via INDE · camada versionada (snv_202507a) — a faixa de domínio é definida pelo DNIT; use "APP e faixas" no SIGEF para a faixa não edificável de 15 m</span></span><span class="layer-status" data-status="dnit"></span></label>
           <label class="layer-opt"><input type="checkbox" data-overlay="hidro"><span><span class="name">Hidrografia (trechos de drenagem)</span><span class="src">IBGE BC250 · escala 1:250.000 — referência; a largura real do curso d'água deve ser medida</span></span><span class="layer-status" data-status="hidro"></span></label>
         </div>
         <div class="layer-warn">
           <strong>Consultivas, não definitivas.</strong>
-          As camadas dependem da disponibilidade dos servidores dos órgãos (INCRA, IBGE, FUNAI). Confirme sempre na fonte oficial antes do protocolo.
+          As camadas dependem da disponibilidade dos servidores dos órgãos (INCRA, IBGE, FUNAI) e não exigem senha. Se uma camada ficar "indisponível", o servidor do órgão está fora do ar ou mudou de endereço. Confirme sempre na fonte oficial antes do protocolo.
         </div>
       </div>
     </div>
@@ -1024,24 +1028,26 @@ document.querySelectorAll('.tab').forEach(btn => {
 /* ===========================================================
    PASTE / LIST INPUT
 =========================================================== */
+// Tabela colada: "NOME E N" ou "E N", separada por tab / ; / espaço / vírgula.
+// Números aceitos em en-US (295234.120) e pt-BR (287.831,350 ou 9.111.104,430): a linha é dividida primeiro por
+// tab, ponto-e-vírgula ou espaço, para não quebrar a vírgula decimal; só cai para a vírgula quando é o único separador.
 function parsePasteText(text){
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0 && !l.startsWith('#'));
   const out = [];
+  const isNum = p => /^-?\d[\d\.,]*$/.test(p);
   lines.forEach((line, i) => {
-    const parts = line.split(/[,;\t ]+/).filter(p => p.length);
+    let parts = line.split(/[\t; ]+/).map(p => p.replace(/^[,;]+|[,;]+$/g, '')).filter(p => p.length);
+    if(parts.filter(isNum).length < 2) parts = line.split(/[,;\t ]+/).filter(p => p.length);
     if(parts.length < 2) return;
     let name, e, n;
     // Detect first column as name if non-numeric
-    const firstIsNumeric = !isNaN(parseFloat(parts[0])) && /^-?\d/.test(parts[0]);
-    if(!firstIsNumeric && parts.length >= 3){
-      name = parts[0];
-      e = parseFloat(parts[1].replace(',','.'));
-      n = parseFloat(parts[2].replace(',','.'));
-    } else {
-      name = 'V' + (i+1);
-      e = parseFloat(parts[0].replace(',','.'));
-      n = parseFloat(parts[1].replace(',','.'));
-    }
+    const firstIsNumeric = isNum(parts[0]);
+    let pe, pn;
+    if(!firstIsNumeric && parts.length >= 3){ name = parts[0]; pe = parts[1]; pn = parts[2]; }
+    else { name = 'V' + (i+1); pe = parts[0]; pn = parts[1]; }
+    // Só aceita colunas puramente numéricas: "-34°54'20,689"" (GMS) ou texto NÃO viram coordenadas por acidente
+    if(!isNum(pe) || !isNum(pn)) return;
+    e = parseNumBR(pe); n = parseNumBR(pn);
     if(isFinite(e) && isFinite(n)) out.push({ name, e, n });
   });
   return out;
@@ -1051,6 +1057,12 @@ $('btn-paste-import').addEventListener('click', () => {
   const text = $('paste-area').value;
   if(!text.trim()){ setStatus('input-status','err','Cole pelo menos 3 vértices antes de importar.'); return; }
   let verts = parsePasteText(text);
+  // Se não é uma tabela, pode ser o TEXTO de um memorial (prosa NBR, tabela do SIGEF em GMS, certidão com letras N/S/E/W)
+  if(verts.length < 3){
+    const parsed = parseMemorialText(text);
+    if(parsed.utmVerts.length >= 3 || parsed.geoVerts.length >= 3){ applyParsedMemorial(parsed, 'Memorial colado'); return; }
+    setStatus('input-status','err','Foram reconhecidos menos de 3 vértices. Aceito: tabela "NOME E N" (ponto ou vírgula decimal), memorial em prosa ("V1, pelas coordenadas E: … m e N: … m"), tabela do SIGEF (código, longitude e latitude em GMS) ou "NOME, de coordenadas -8,xxxxxx; -34,xxxxxx".'); return;
+  }
   // If the polygon is already closed (last vertex == first), drop the duplicate
   state.inputClosed = false;
   if(verts.length >= 4){
@@ -1060,7 +1072,6 @@ $('btn-paste-import').addEventListener('click', () => {
       state.inputClosed = true;
     }
   }
-  if(verts.length < 3){ setStatus('input-status','err','Foram reconhecidos menos de 3 vértices válidos. Verifique o separador.'); return; }
   state.fromKML = false;
   loadFromUTM(verts);
 });
@@ -1348,8 +1359,9 @@ function parseMemorialText(text){
   const t = text.replace(/\s+/g, ' ');
   const utmVerts = [], geoVerts = [];
   const seen = new Set();
-  // Nome: aceita V1..Vn (AG/NBR) OU códigos SIGEF do tipo GLH-V-10491, BWF-P-A238, GLH-M-08524
-  const NAME = `([A-Z]{2,4}-[VMPT]-[A-Z0-9\\-]+|V\\d+)`;
+  // Nome: aceita V1..Vn (AG/NBR), códigos SIGEF do tipo GLH-V-10491, BWF-P-A238, GLH-M-08524, ou rótulos curtos P1/M01/PT-12
+  // Prefixo do credenciado pode ter dígito (F8F). Lookbehind evita casar "M-0858" dentro de "F8F-M-0858".
+  const NAME = `(?<![A-Z0-9\\-])([A-Z0-9]{2,4}-[VMPT]-[A-Z0-9\\-]+|V\\d+|[A-Z]{1,2}-?\\d{1,4})`;
   // --- Padrão UTM: "NAME, [definido] pelas coordenadas E: X m e N: Y m" ---
   const reUTM = new RegExp(NAME + `[,.\\s]{1,4}(?:definido\\s+)?pelas\\s+coordenadas\\s+E[:\\s]*([\\d\\.,]+)\\s*m?\\s*[e,]\\s*N[:\\s]*([\\d\\.,]+)`, 'gi');
   let m;
@@ -1373,6 +1385,24 @@ function parseMemorialText(text){
       geoVerts.push({ name, lat, lng }); seen.add(name);
     }
   }
+  // --- Padrão GMS: tabela do memorial gerado pelo SIGEF ("F8F-M-0858 -34°54'20,689" -7°49'13,173" 3,30") — longitude
+  //     ANTES da latitude, sinal sem letra — ou certidão/memorial com letra ("7°49'13,173" S" / "34°54'20,689" W"/"O").
+  const DMS = `(-?)\\s*(\\d{1,3})\\s*[°º]\\s*(\\d{1,2})\\s*['′’]\\s*(\\d{1,2}(?:[\\.,]\\d+)?)(?![\\d\\.,])\\s*(?:"|″|''|’’)?\\s*([NSEWO])?(?![A-Za-z])`;
+  const reDMS = new RegExp(NAME + `[^°º\\d]{0,40}?` + DMS + `[^°º\\d]{0,40}?` + DMS, 'g');
+  const dmsVal = (sg, d, mi, se, letter) => { let v = (+d) + (+mi)/60 + parseFloat(String(se).replace(',','.'))/3600; if(sg === '-' || /^[SWO]$/i.test(letter || '')) v = -v; return v; };
+  while((m = reDMS.exec(t)) !== null){
+    const name = m[1];
+    if(seen.has(name)) continue;
+    const a = { v: dmsVal(m[2], m[3], m[4], m[5], m[6]), L: (m[6] || '').toUpperCase() };
+    const b = { v: dmsVal(m[7], m[8], m[9], m[10], m[11]), L: (m[11] || '').toUpperCase() };
+    let lng, lat;
+    if(/^[EWO]$/.test(a.L) || /^[NS]$/.test(b.L)){ lng = a.v; lat = b.v; }
+    else if(/^[NS]$/.test(a.L) || /^[EWO]$/.test(b.L)){ lat = a.v; lng = b.v; }
+    else if(Math.abs(a.v) > 34.8 && Math.abs(b.v) <= 34.8){ lng = a.v; lat = b.v; }   // SIGEF: longitude primeiro
+    else if(Math.abs(b.v) > 34.8 && Math.abs(a.v) <= 34.8){ lat = a.v; lng = b.v; }
+    else { lng = a.v; lat = b.v; }
+    if(isFinite(lat) && isFinite(lng) && lat < 6 && lat > -35 && lng < -28 && lng > -75){ geoVerts.push({ name, lat, lng }); seen.add(name); }
+  }
   // Fallback compacto UTM: "V1 E: 287.831,350 N: 9.111.104,430" ou "V1 E=... N=..."
   if(utmVerts.length < 3 && geoVerts.length < 3){
     const reUTM2 = new RegExp(NAME + `[^\\dEN]{1,20}?E[:\\s=]*([\\d\\.,]{5,})[^\\dN]{1,20}?N[:\\s=]*([\\d\\.,]{6,})`, 'gi');
@@ -1392,14 +1422,46 @@ function parseMemorialText(text){
     mc = isW ? -deg : deg;
   }
   const fuso = mc != null ? Math.round((mc + 183) / 6) : null;
-  // Ordena preservando ordem numérica quando possível
-  const sortByNum = arr => arr.sort((a,b) => {
+  // Ordena numericamente SÓ quando todos os nomes são V1..Vn (prosa NBR). Códigos SIGEF (F8F-M-0858…) não são
+  // sequenciais no perímetro: a ordem do documento é a ordem do polígono e deve ser preservada.
+  const sortByNum = arr => { if(!arr.every(v => /^V\d+$/.test(v.name))) return arr; return arr.sort((a,b) => {
     const na = (a.name.match(/\d+/g) || []).join('').slice(-6);
     const nb = (b.name.match(/\d+/g) || []).join('').slice(-6);
     return parseInt(na,10) - parseInt(nb,10);
-  });
+  }); };
   sortByNum(utmVerts); sortByNum(geoVerts);
   return { utmVerts, geoVerts, fuso };
+}
+
+// Carrega no estado o resultado de parseMemorialText (PDF ou texto colado). Geográfico vence quando tem ≥ 3 vértices.
+function applyParsedMemorial({ utmVerts, geoVerts, fuso }, label){
+  const useGeo = geoVerts.length >= utmVerts.length && geoVerts.length >= 3;
+  let msgFuso = '';
+  if(!useGeo && fuso && fuso >= 18 && fuso <= 25){
+    $('cfg-zone').value = fuso;
+    msgFuso = ` · fuso ${fuso} S detectado no memorial`;
+  }
+  state.inputClosed = false;
+  if(useGeo){
+    // Memorial SIGEF geográfico: vai direto como lat/lng (não passa por UTM proj)
+    let pts = geoVerts.map(g => ({ lat: g.lat, lng: g.lng, name: g.name }));
+    if(pts.length >= 4){
+      const a = pts[0], b = pts[pts.length-1];
+      if(Math.abs(a.lat-b.lat) < 1e-7 && Math.abs(a.lng-b.lng) < 1e-7){ pts = pts.slice(0,-1); state.inputClosed = true; }
+    }
+    state.fromKML = true;
+    loadFromKMLPoints(pts);
+    setStatus('input-status','ok',`${label} importado (geográfico, SIRGAS 2000): ${pts.length} vértices com os códigos do memorial.`);
+  } else {
+    let vv = utmVerts.slice();
+    if(vv.length >= 4){
+      const a = vv[0], b = vv[vv.length-1];
+      if(Math.hypot(a.e-b.e, a.n-b.n) < 0.01){ vv = vv.slice(0,-1); state.inputClosed = true; }
+    }
+    state.fromKML = false;
+    loadFromUTM(vv);
+    setStatus('input-status','ok',`${label} importado (UTM): ${vv.length} vértices${msgFuso}. Confirme fuso/hemisfério antes de exportar.`);
+  }
 }
 
 async function handleMemorialPDF(file){
@@ -1417,39 +1479,12 @@ async function handleMemorialPDF(file){
       text += content.items.map(it => it.str).join(' ') + '\n';
     }
     if(!text || text.length < 40) throw new Error('PDF sem texto extraível (memorial digitalizado?)');
-    const { utmVerts, geoVerts, fuso } = parseMemorialText(text);
-    const useGeo = geoVerts.length >= utmVerts.length && geoVerts.length >= 3;
-    const useUtm = !useGeo && utmVerts.length >= 3;
-    if(!useGeo && !useUtm){
-      setStatus('input-status','err','Não foi possível reconhecer vértices no memorial. Formatos aceitos: "V1, pelas coordenadas E: … m e N: … m" (AG/NBR UTM) ou "GLH-V-10491, de coordenadas -8,xxxxxx; -34,xxxxxx" (SIGEF geográfico).');
+    const parsed = parseMemorialText(text);
+    if(parsed.utmVerts.length < 3 && parsed.geoVerts.length < 3){
+      setStatus('input-status','err','Não foi possível reconhecer vértices no memorial. Formatos aceitos: "V1, pelas coordenadas E: … m e N: … m" (AG/NBR UTM), tabela do SIGEF (código, longitude e latitude em GMS) ou "GLH-V-10491, de coordenadas -8,xxxxxx; -34,xxxxxx" (SIGEF geográfico).');
       return;
     }
-    let msgFuso = '';
-    if(useUtm && fuso && fuso >= 18 && fuso <= 25){
-      $('cfg-zone').value = fuso;
-      msgFuso = ` · fuso ${fuso} S detectado no memorial`;
-    }
-    state.inputClosed = false;
-    if(useGeo){
-      // Memorial SIGEF geográfico: vai direto como lat/lng (não passa por UTM proj)
-      let pts = geoVerts.map(g => ({ lat: g.lat, lng: g.lng, name: g.name }));
-      if(pts.length >= 4){
-        const a = pts[0], b = pts[pts.length-1];
-        if(Math.abs(a.lat-b.lat) < 1e-7 && Math.abs(a.lng-b.lng) < 1e-7){ pts = pts.slice(0,-1); state.inputClosed = true; }
-      }
-      state.fromKML = true;
-      loadFromKMLPoints(pts);
-      setStatus('input-status','ok',`Memorial SIGEF importado (geográfico): ${pts.length} vértices com códigos oficiais${msgFuso}.`);
-    } else {
-      let vv = utmVerts.slice();
-      if(vv.length >= 4){
-        const a = vv[0], b = vv[vv.length-1];
-        if(Math.hypot(a.e-b.e, a.n-b.n) < 0.01){ vv = vv.slice(0,-1); state.inputClosed = true; }
-      }
-      state.fromKML = false;
-      loadFromUTM(vv);
-      setStatus('input-status','ok',`Memorial importado: ${vv.length} vértices${msgFuso}. Confirme datum/hemisfério antes de exportar.`);
-    }
+    applyParsedMemorial(parsed, 'Memorial');
   } catch(err){
     console.error(err);
     setStatus('input-status','err','Falha ao ler o memorial: ' + (err.message || err));
@@ -1648,47 +1683,95 @@ document.querySelectorAll('input[name="base-layer"]').forEach(radio => {
 });
 
 // ===== OFFICIAL OVERLAYS (WMS) =====
+// INCRA: o GeoServer geoservicos.incra.gov.br foi DESATIVADO (DNS não resolve — ERR_NAME_NOT_RESOLVED, confirmado em 01/10/2026).
+// Fonte atual: Acervo Fundiário (i3Geo/MapServer), público e sem senha. WMS/WFS em ogc.php?tema=<tema>; o nome da camada é o
+// próprio tema e os temas são publicados POR UF ("…_pe"). Há dois nomes documentados para a mesma camada (gerações do i3Geo);
+// `temas` lista os candidatos em ordem — se o 1º falhar (tileerror), a ferramenta tenta o próximo automaticamente.
+const INCRA_OGC = 'https://acervofundiario.incra.gov.br/i3geo/ogc.php';
 const overlayDefs = {
-  sigef:    { name: 'SIGEF · INCRA',              wmsUrl: 'https://geoservicos.incra.gov.br/geoserver/Sigef/wms',       wmsLayer: 'Sigef:Imoveis_Certificados', opacity: 0.65, attribution: '© INCRA · SIGEF' },
-  snci:     { name: 'SNCI · INCRA',               wmsUrl: 'https://geoservicos.incra.gov.br/geoserver/SNCI/wms',        wmsLayer: 'SNCI:Imoveis_SNCI',          opacity: 0.55, attribution: '© INCRA · SNCI' },
-  car:      { name: 'CAR · SFB',                  wmsUrl: 'https://geoserver.car.gov.br/SICAR/wms',                     wmsLayer: 'sicar:area_imovel',          opacity: 0.55, attribution: '© SFB · SiCAR' },
+  sigef:    { name: 'SIGEF · imóveis certificados (privados) · INCRA', incra: true, temas: ['certificada_sigef_particular_{uf}', 'imoveiscertificados_privado_{uf}'], opacity: 0.65, attribution: '© INCRA · Acervo Fundiário' },
+  sigefpub: { name: 'SIGEF · imóveis certificados (públicos) · INCRA', incra: true, temas: ['certificada_sigef_publico_{uf}', 'imoveiscertificados_publico_{uf}'],   opacity: 0.65, attribution: '© INCRA · Acervo Fundiário' },
+  snci:     { name: 'SNCI · imóveis certificados até 2013 · INCRA',   incra: true, temas: ['certificada_snci_particular_{uf}', 'imoveis_snci_privado_{uf}', 'sncimoveis_{uf}'], opacity: 0.55, attribution: '© INCRA · Acervo Fundiário' },
+  quilombo: { name: 'Áreas Quilombolas · INCRA',  incra: true, temas: ['quilombolas_{uf}', 'areas_quilombolas_{uf}'], opacity: 0.55, attribution: '© INCRA · Acervo Fundiário' },
+  // CAR/SICAR: GeoServer ativo em geoserver.car.gov.br/geoserver, camadas por UF (sicar:sicar_imoveis_<uf>)
+  car:      { name: 'CAR · SFB',                  wmsUrl: 'https://geoserver.car.gov.br/geoserver/sicar/wms',           wmsLayer: 'sicar:sicar_imoveis_{uf}',   opacity: 0.55, attribution: '© SFB · SiCAR' },
   spu:      { name: 'Faixa de Marinha · SPU',     wmsUrl: 'https://sigespa.economia.gov.br/sigespa/wms',                wmsLayer: 'sigespa:faixa_marinha',      opacity: 0.55, attribution: '© SPU · Sigespa' },
   ti:       { name: 'Terras Indígenas · FUNAI',   wmsUrl: 'https://geoserver.funai.gov.br/geoserver/Funai/wms',         wmsLayer: 'Funai:tis_poligonais',       opacity: 0.55, attribution: '© FUNAI' },
-  quilombo: { name: 'Áreas Quilombolas · INCRA',  wmsUrl: 'https://geoservicos.incra.gov.br/geoserver/Quilombola/wms',  wmsLayer: 'Quilombola:Areas_Quilombolas', opacity: 0.55, attribution: '© INCRA' },
   mun:      { name: 'Limites Municipais · IBGE',  wmsUrl: 'https://geoservicos.ibge.gov.br/geoserver/wms',              wmsLayer: 'CCAR:BCIM_Municipio_A',      opacity: 0.6,  attribution: '© IBGE' },
   dnit:     { name: 'Rodovias Federais (SNV) · DNIT', wmsUrl: 'https://geoservicos.inde.gov.br/geoserver/DNIT/ows',     wmsLayer: 'DNIT:snv_202507a',           opacity: 0.8,  attribution: '© DNIT · SNV via INDE' },
   hidro:    { name: 'Hidrografia BC250 · IBGE',   wmsUrl: 'https://geoservicos.ibge.gov.br/geoserver/wms',              wmsLayer: 'CCAR:BC250_Trecho_Drenagem_L', opacity: 0.8, attribution: '© IBGE · BC250' },
 };
+function layerUF(){ const s = $('layer-uf'); return ((s && s.value) || 'PE').toLowerCase(); }
+// Resolve {wmsUrl, wmsLayer} de uma camada para a UF atual e o tema candidato atual (def.temaIdx)
+function overlayEndpoint(def){
+  const uf = layerUF();
+  if(def.incra){
+    const tema = def.temas[Math.min(def.temaIdx || 0, def.temas.length - 1)].replace('{uf}', uf);
+    return { wmsUrl: `${INCRA_OGC}?tema=${tema}`, wmsLayer: tema };
+  }
+  return { wmsUrl: def.wmsUrl, wmsLayer: def.wmsLayer.replace('{uf}', uf) };
+}
+function overlayIsPerUF(def){ return !!def.incra || /\{uf\}/.test(def.wmsLayer || ''); }
 function makeWmsLayer(def){
-  return L.tileLayer.wms(def.wmsUrl, {
-    layers: def.wmsLayer,
+  const ep = overlayEndpoint(def);
+  return L.tileLayer.wms(ep.wmsUrl, {
+    layers: ep.wmsLayer,
     format: 'image/png',
     transparent: true,
     opacity: def.opacity || 0.6,
     attribution: def.attribution || ''
   });
 }
+// Troca de UF: recria as camadas por UF que estiverem ativas (e volta ao 1º tema candidato)
+document.addEventListener('change', e => {
+  if(e.target && e.target.id === 'layer-uf' && typeof activeOverlays !== 'undefined'){
+    for(const id of Object.keys(activeOverlays)){
+      const def = overlayDefs[id]; if(!overlayIsPerUF(def)) continue;
+      def.temaIdx = 0;
+      map.removeLayer(activeOverlays[id]);
+      activeOverlays[id] = attachOverlay(id);
+    }
+    refreshLegendPanel();
+  }
+});
 
 const activeOverlays = {};
+// Cria e adiciona a camada; se o servidor rejeitar o tema (tileerror) e houver outro nome candidato, troca e tenta de novo.
+function attachOverlay(id){
+  const def = overlayDefs[id];
+  const status = document.querySelector(`[data-status="${id}"]`);
+  status.textContent = 'carregando…';
+  status.className = 'layer-status loading';
+  const layer = makeWmsLayer(def);
+  let loaded = false, swapped = false;
+  layer.on('tileerror', () => {
+    if(loaded || swapped) { if(!loaded){ status.textContent = 'indisponível'; status.className = 'layer-status error'; } return; }
+    const next = (def.temaIdx || 0) + 1;
+    if(def.incra && next < def.temas.length){
+      swapped = true; def.temaIdx = next;
+      map.removeLayer(layer);
+      if(activeOverlays[id] === layer){ activeOverlays[id] = attachOverlay(id); refreshLegendPanel(); }
+      return;
+    }
+    status.textContent = 'indisponível';
+    status.className = 'layer-status error';
+  });
+  layer.on('load', () => {
+    if(swapped) return;
+    loaded = true;
+    status.textContent = 'ativa';
+    status.className = 'layer-status';
+  });
+  layer.addTo(map);
+  return layer;
+}
 document.querySelectorAll('input[data-overlay]').forEach(chk => {
   chk.addEventListener('change', () => {
     const id = chk.dataset.overlay;
     const status = document.querySelector(`[data-status="${id}"]`);
     if(chk.checked){
       try {
-        status.textContent = 'carregando…';
-        status.className = 'layer-status loading';
-        const layer = makeWmsLayer(overlayDefs[id]);
-        layer.on('tileerror', () => {
-          status.textContent = 'indisponível';
-          status.className = 'layer-status error';
-        });
-        layer.on('load', () => {
-          status.textContent = 'ativa';
-          status.className = 'layer-status';
-        });
-        layer.addTo(map);
-        activeOverlays[id] = layer;
+        activeOverlays[id] = attachOverlay(id);
       } catch(err){
         status.textContent = 'erro';
         status.className = 'layer-status error';
@@ -1778,10 +1861,11 @@ function refreshLegendPanel(){
   panel.classList.add('show');
   for(const id of ids){
     const def = overlayDefs[id];
-    const sep = def.wmsUrl.includes('?') ? '&' : '?';
+    const ep = overlayEndpoint(def);
+    const sep = ep.wmsUrl.includes('?') ? '&' : '?';
     // 1ª tentativa: GetLegendGraphic estilizado; 2ª: forma mínima (alguns GeoServers recusam legend_options); 3ª: link para abrir
-    const urlA = `${def.wmsUrl}${sep}service=WMS&version=1.1.1&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(def.wmsLayer)}&legend_options=fontColor:0xffffff;bgColor:0x0e2b52;dpi:96;fontAntiAliasing:true`;
-    const urlB = `${def.wmsUrl}${sep}SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${encodeURIComponent(def.wmsLayer)}`;
+    const urlA = `${ep.wmsUrl}${sep}service=WMS&version=1.1.1&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(ep.wmsLayer)}&legend_options=fontColor:0xffffff;bgColor:0x0e2b52;dpi:96;fontAntiAliasing:true`;
+    const urlB = `${ep.wmsUrl}${sep}SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${encodeURIComponent(ep.wmsLayer)}`;
     const item = document.createElement('div');
     item.className = 'lg-item';
     const name = document.createElement('span'); name.className = 'lg-name'; name.textContent = def.name; item.appendChild(name);
@@ -1813,14 +1897,15 @@ map.on('click', async (e) => {
   const results = [];
   for(const id of ids){
     const def = overlayDefs[id];
+    const ep = overlayEndpoint(def);
     const params = new URLSearchParams({
       service: 'WMS', version: '1.1.1', request: 'GetFeatureInfo',
-      layers: def.wmsLayer, query_layers: def.wmsLayer, info_format: 'application/json',
+      layers: ep.wmsLayer, query_layers: ep.wmsLayer, info_format: 'application/json',
       srs: 'EPSG:4326', bbox, width: size.x, height: size.y,
       x: Math.round(point.x), y: Math.round(point.y), feature_count: 5
     });
-    const sep = def.wmsUrl.includes('?') ? '&' : '?';
-    const url = `${def.wmsUrl}${sep}${params.toString()}`;
+    const sep = ep.wmsUrl.includes('?') ? '&' : '?';
+    const url = `${ep.wmsUrl}${sep}${params.toString()}`;
     const htmlUrl = url.replace('info_format=application%2Fjson', 'info_format=text%2Fhtml');
     try {
       const r = await fetch(url, { mode: 'cors' });
@@ -3330,7 +3415,7 @@ async function handleArtRrtFile(file){
         <tbody id="sg-ov-body"></tbody>
       </table>
     </div>
-    <div class="sg-note">Consulta por caixa envolvente no WFS <code>Sigef:Imoveis_Certificados</code> (geoservicos.incra.gov.br) e interseção exata (Martinez) no plano SGL do imóvel. Sobreposição &gt; 0,5 m² com parcela certificada é motivo de rejeição no SIGEF; vizinhas com 0 m² apenas confrontam. Se o navegador for bloqueado por CORS, exporte as parcelas do entorno em GeoJSON (QGIS/SIGEF) e carregue aqui. Resultado é de conferência — a validação final é do SIGEF.</div>
+    <div class="sg-note">Consulta por caixa envolvente no WFS público do Acervo Fundiário do INCRA (i3Geo, tema de imóveis certificados privados da UF escolhida em "Camadas do mapa"; não exige senha; o antigo geoservicos.incra.gov.br foi desativado) e interseção exata (Martinez) no plano SGL do imóvel. Sobreposição &gt; 0,5 m² com parcela certificada é motivo de rejeição no SIGEF; vizinhas com 0 m² apenas confrontam. Se o navegador for bloqueado por CORS, exporte as parcelas do entorno em GeoJSON (QGIS/SIGEF) e carregue aqui. Resultado é de conferência — a validação final é do SIGEF.</div>
 
     <div class="mem-section-title">APP e faixas não edificáveis (estimativa local)</div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
@@ -3705,7 +3790,7 @@ async function sgGenerateODS(){
 }
 
 // ----- Sobreposição com parcelas certificadas (SIGEF WFS / GeoJSON) -----
-const SG_WFS = 'https://geoservicos.incra.gov.br/geoserver/Sigef/wfs';
+// WFS das parcelas certificadas: mesmo ogc.php do Acervo Fundiário (i3Geo/MapServer), tema por UF; candidatos = os da camada "sigef"
 let overlapLayer = null;
 function sgRingAreaENU(ring, proj){
   let a = 0; const xy = ring.map(([lng, lat]) => proj(lng, lat));
@@ -3789,10 +3874,22 @@ async function sgFetchSigefWFS(){
   let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
   for(const p of v){ minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat); minLng = Math.min(minLng, p.lng); maxLng = Math.max(maxLng, p.lng); }
   const pad = 0.0015; // ~165 m
-  const params = new URLSearchParams({ service: 'WFS', version: '1.0.0', request: 'GetFeature', typeName: 'Sigef:Imoveis_Certificados', outputFormat: 'application/json', srsName: 'EPSG:4674', maxFeatures: '300', bbox: `${minLng - pad},${minLat - pad},${maxLng + pad},${maxLat + pad}` });
-  const r = await fetch(`${SG_WFS}?${params}`, { mode: 'cors' });
-  if(!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
+  // i3Geo/MapServer: WFS 1.0.0 no mesmo ogc.php; TYPENAME = tema (por UF); GeoJSON se o servidor suportar (senão o fallback por arquivo).
+  // Tenta cada nome candidato do tema (ver overlayDefs.sigef.temas) até obter uma FeatureCollection.
+  const uf = layerUF();
+  let lastErr = null;
+  for(const tpl of overlayDefs.sigef.temas){
+    const tema = tpl.replace('{uf}', uf);
+    const params = new URLSearchParams({ tema, SERVICE: 'WFS', VERSION: '1.0.0', REQUEST: 'GetFeature', TYPENAME: tema, OUTPUTFORMAT: 'geojson', SRSNAME: 'EPSG:4674', MAXFEATURES: '300', BBOX: `${minLng - pad},${minLat - pad},${maxLng + pad},${maxLat + pad}` });
+    try {
+      const r = await fetch(`${INCRA_OGC}?${params}`, { mode: 'cors' });
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      if(!j || !Array.isArray(j.features)) throw new Error('resposta sem features');
+      return j;
+    } catch(err){ lastErr = err; }
+  }
+  throw lastErr || new Error('WFS indisponível');
 }
 
 // ----- APP / faixas não edificáveis: buffer de arestas no plano SGL, união e interseção exatas -----

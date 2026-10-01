@@ -55,7 +55,7 @@ const WFS_FIXTURE = { type: 'FeatureCollection', features: [
 await page.route(u => !u.href.startsWith(base), route => {
   const u = route.request().url();
   if(u.startsWith('https://api.opentopodata.org/v1/srtm30m')){ const locs = decodeURIComponent(u.split('locations=')[1]).split('|'); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'OK', results: locs.map((l, i) => { const [lat, lng] = l.split(',').map(Number); return { elevation: 10 + i * 1.5, location: { lat, lng } }; }) }) }); }
-  if(u.startsWith('https://geoservicos.incra.gov.br/geoserver/Sigef/wfs')){ console.log('WFS MOCK hit:', u.slice(0,140)); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(WFS_FIXTURE) }); }
+  if(u.startsWith('https://acervofundiario.incra.gov.br/i3geo/ogc.php') && /SERVICE=WFS/i.test(u)){ console.log('WFS MOCK hit:', u.slice(0,140)); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(WFS_FIXTURE) }); }
   const hit = CDN[u];
   if(hit){ const f = path.join(LIBS, hit[0]); return route.fulfill({ status: 200, contentType: hit[1], body: fs.readFileSync(f) }); }
   return route.abort('blockedbyclient');
@@ -92,6 +92,31 @@ const m174 = await page.evaluate(() => ({ area: polyArea(state.vertices), perim:
 console.log('LOTE 174:', JSON.stringify({ area: +m174.area.toFixed(2), perim: +m174.perim.toFixed(2), card: m174.card, az12: +m174.az12.toFixed(4) }));
 console.log('CHECK área 963,89 m² e perímetro 141,21 m (AG):', Math.abs(m174.area - 963.89) < 0.02 && Math.abs(m174.perim - 141.21) < 0.02 ? 'OK' : 'FAIL');
 console.log('CHECK azimute V1→V2 ≈ 129°29′ (AG 129°29′56″):', Math.abs(m174.az12 - (129 + 29/60 + 56.06/3600)) < 0.01 ? 'OK' : 'FAIL ' + m174.az12);
+
+// ---- "Colar lista" aceita o TEXTO do memorial (bug relatado: memorial colado na entrada de vértices era rejeitado) ----
+const pasteImport = async (txt) => { await page.evaluate(() => { state.vertices = []; }); await page.fill('#paste-area', txt); await page.click('#btn-paste-import'); await page.waitForTimeout(300); return page.evaluate(() => ({ n: state.vertices.length, names: state.vertices.map(v => v.name).join(','), area: state.vertices.length >= 3 ? polyArea(state.vertices) : 0, ha: state.vertices.length >= 3 ? sglAreaPerim(state.vertices).ha : 0, status: document.getElementById('input-status').textContent })); };
+const pp1 = await pasteImport(MEM174);
+console.log('PASTE prosa:', JSON.stringify({ n: pp1.n, area: +pp1.area.toFixed(2), status: pp1.status.slice(0, 80) }));
+console.log('CHECK memorial em prosa colado → 12 vértices, 963,89 m²:', pp1.n === 12 && Math.abs(pp1.area - 963.89) < 0.02 ? 'OK' : 'FAIL');
+const pp2 = await pasteImport(`V1\t287.831,350\t9.111.104,430\nV2\t287.846,228\t9.111.092,166\nV3\t287.831,349\t9.111.074,448\nV4\t287.819,311\t9.111.059,992`);
+console.log('CHECK tabela pt-BR (milhar com ponto, decimal vírgula):', pp2.n === 4 && pp2.names === 'V1,V2,V3,V4' ? 'OK' : 'FAIL ' + JSON.stringify(pp2));
+const p2e = await page.evaluate(() => Math.abs(state.vertices[0].e - 287831.350) < 0.001 && Math.abs(state.vertices[0].n - 9111104.430) < 0.001);
+console.log('CHECK pt-BR E/N exatos (287.831,350 / 9.111.104,430):', p2e ? 'OK' : 'FAIL');
+const pp3 = await pasteImport(`V1, 295234.120, 9106518.430\nV2, 295298.560, 9106540.210\nV3, 295312.880, 9106475.660\nV4, 295248.440, 9106453.890`);
+console.log('CHECK tabela "V1, E, N" (vírgula+espaço):', pp3.n === 4 && Math.abs(pp3.area - 5000) < 2000 ? 'OK' : 'FAIL ' + JSON.stringify(pp3));
+const SIGEF_TABLE = `DESCRIÇÃO DA PARCELA VÉRTICE SEGMENTO VANTE Confrontações Código Longitude Latitude Altitude (m) Código Azimute Dist. (m)
+F8F-M-0858 -34°54'20,689" -7°49'13,173" 3,30 F8F-M-0861 154°15' 285,67 Lote 76C, de matrícula n.°26769, pertencente ao Sr. Emiragi Henrique Pereira
+F8F-M-0861 -34°54'16,638" -7°49'21,549" -1,56 F8F-M-0862 291°12' 259,97 Rio Tabatinga
+F8F-M-0862 -34°54'24,549" -7°49'18,487" -0,22 F8F-M-0859 358°24' 125,16 Lote 74, pertencente ao Município de Igarassu, N.° de Ordem: 94-R
+F8F-M-0859 -34°54'24,662" -7°49'14,414" -0,85 F8F-M-0858 72°36' 127,55 Lote 75A, da Granja Alvorada`;
+const pp4 = await pasteImport(SIGEF_TABLE);
+console.log('PASTE tabela SIGEF:', JSON.stringify({ n: pp4.n, names: pp4.names, ha: +pp4.ha.toFixed(4), status: pp4.status.slice(0, 90) }));
+console.log('CHECK tabela SIGEF em GMS colada → 4 vértices, códigos, 3,3022 ha:', pp4.n === 4 && pp4.names === 'F8F-M-0858,F8F-M-0861,F8F-M-0862,F8F-M-0859' && Math.abs(pp4.ha - 3.3022) <= 0.0005 ? 'OK' : 'FAIL');
+const pp5 = await pasteImport(`P1 7°49'13,173" S 34°54'20,689" W\nP2 7°49'21,549" S 34°54'16,638" W\nP3 7°49'18,487" S 34°54'24,549" W\nP4 7°49'14,414" S 34°54'24,662" W`);
+console.log('CHECK GMS com letras S/W (lat antes de long):', pp5.n === 4 && Math.abs(pp5.ha - 3.3022) <= 0.0005 ? 'OK' : 'FAIL ' + JSON.stringify(pp5));
+// volta ao Lote 174 para os checks seguintes
+await page.evaluate((t) => { const r = parseMemorialText(t); document.getElementById('cfg-zone').value = String(r.fuso); state.inputClosed = false; state.fromKML = false; loadFromUTM(r.utmVerts); }, MEM174);
+await page.waitForFunction(() => state.vertices.length === 12);
 // memorial urbano abre em modo urbano (sem memória escondida) e traz Frente/Fundo
 await page.click('#exp-mem'); await page.waitForSelector('#memorial-modal.open');
 const memMode = await page.evaluate(() => ({ tipo: memorialTipo(), hasSides: !!document.querySelector('[data-edge-side]'), preview: document.getElementById('mem-preview').textContent.slice(0, 400) }));
@@ -158,6 +183,20 @@ for rep,c in rows(tabs['perimetro_1']):
 `;
 fs.writeFileSync(path.join(OUT, 'inspect.py'), py);
 console.log(execSync(`python3 ${path.join(OUT,'inspect.py')} "${odsPath}"`, { encoding: 'utf8' }));
+
+// ---- Camadas INCRA/CAR por UF (geoservicos.incra.gov.br desativado → Acervo Fundiário i3Geo) ----
+const lyr = await page.evaluate(() => {
+  const r = { uf: layerUF(), sigef: overlayEndpoint(overlayDefs.sigef), car: overlayEndpoint(overlayDefs.car), quil: overlayEndpoint(overlayDefs.quilombo) };
+  document.getElementById('layer-uf').value = 'BA';
+  r.sigefBA = overlayEndpoint(overlayDefs.sigef); overlayDefs.sigef.temaIdx = 1; r.sigefAlt = overlayEndpoint(overlayDefs.sigef); overlayDefs.sigef.temaIdx = 0;
+  document.getElementById('layer-uf').value = 'PE';
+  r.dead = JSON.stringify(overlayDefs).includes('geoservicos.incra');
+  return r;
+});
+console.log('LAYERS:', JSON.stringify(lyr));
+console.log('CHECK SIGEF por UF (PE) no Acervo Fundiário:', lyr.sigef.wmsUrl === 'https://acervofundiario.incra.gov.br/i3geo/ogc.php?tema=certificada_sigef_particular_pe' && lyr.sigef.wmsLayer === 'certificada_sigef_particular_pe' ? 'OK' : 'FAIL');
+console.log('CHECK UF → BA e tema alternativo:', lyr.sigefBA.wmsLayer === 'certificada_sigef_particular_ba' && lyr.sigefAlt.wmsLayer === 'imoveiscertificados_privado_ba' ? 'OK' : 'FAIL');
+console.log('CHECK CAR por UF e nenhum host morto:', lyr.car.wmsLayer === 'sicar:sicar_imoveis_pe' && !lyr.dead ? 'OK' : 'FAIL');
 
 // ---- Sobreposição SIGEF (WFS simulado) ----
 await page.click('#sg-ov-btn');
