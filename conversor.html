@@ -105,7 +105,15 @@ a{color:var(--verde);text-decoration:none}
 .brand{display:flex;align-items:center;gap:14px}
 .brand-mark{width:38px;height:38px;flex-shrink:0}
 .brand-mark svg{width:100%;height:100%;display:block}
-.brand-divider{width:1px;height:46px;background:var(--line)}
+.brand-divider{width:1px;height:46px;background:var(--line);flex-shrink:0}
+.brand{--logo-h:34px}
+.brand-home{display:flex;align-items:center;gap:14px;text-decoration:none;flex-shrink:0}
+.brand-logo{display:block;height:var(--logo-h);width:auto;flex-shrink:0}
+.brand-home picture{display:block;flex-shrink:0}
+.brand-sep{width:1px;height:34px;background:var(--line);flex-shrink:0}
+.brand-aglab{display:flex;flex-direction:column;gap:3px;flex-shrink:0}
+.brand-aglab-tag{font-size:8.5px;letter-spacing:0.2em;text-transform:uppercase;color:var(--soft);font-weight:500;line-height:1}
+.brand-aglab img{display:block;height:22px;width:auto}
 .brand-text{display:flex;flex-direction:column;gap:2px}
 .brand-text .co{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--muted);font-weight:500}
 .brand-text .tool{font-size:18px;letter-spacing:-0.02em;text-transform:uppercase;font-weight:700;color:var(--white)}
@@ -457,6 +465,9 @@ table.sg-table td.sg-ro{color:var(--soft);font-family:'JetBrains Mono',monospace
 ::-webkit-scrollbar-thumb:hover{background:#2a3b46}
 
 /* ---------- RESPONSIVE ---------- */
+@media (max-width:1280px){
+  .brand-home .brand-sep,.brand-home .brand-aglab{display:none}
+}
 @media (max-width:1100px){
   .workspace{grid-template-columns:1fr}
   .panel-left{border-right:none;border-bottom:1px solid var(--line)}
@@ -470,6 +481,8 @@ table.sg-table td.sg-ro{color:var(--soft);font-family:'JetBrains Mono',monospace
   .back-tool{display:none}
   .ref-links{width:100%;justify-content:flex-start;gap:6px;font-size:9.5px}
   .header-meta{display:none}
+  .brand{flex-wrap:wrap;--logo-h:30px}
+  .brand-divider{display:none}
   h1.hero-title{font-size:26px}
 }
 
@@ -577,17 +590,18 @@ input, textarea, select, [contenteditable]{cursor:text}
   </div>
   <div class="header-inner">
     <div class="brand">
-      <div class="brand-mark">
-        <svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
-          <path d="M16 25 L69 16 L78 58 L52 82 L12 60 Z" fill="none" stroke="#90b728" stroke-width="3.5" stroke-linejoin="round"/>
-          <path d="M16 25 L69 16 L78 58 L52 82 L12 60 Z" fill="#90b728" opacity="0.10"/>
-          <circle cx="16" cy="25" r="4" fill="#90b728"/>
-          <circle cx="69" cy="16" r="4" fill="#90b728"/>
-          <circle cx="78" cy="58" r="4" fill="#90b728"/>
-          <circle cx="52" cy="82" r="4" fill="#90b728"/>
-          <circle cx="12" cy="60" r="4" fill="#90b728"/>
-        </svg>
-      </div>
+      <a class="brand-home" href="index.html" aria-label="Confrontei — uma ferramenta AG Lab · voltar à página inicial">
+      <picture>
+        <source media="(max-width:1280px)" srcset="assets/logo/confrontei-simbolo-escuro.svg" width="90" height="90">
+        <img class="brand-logo" src="assets/logo/confrontei-wordmark-escuro.svg" alt="Confrontei" width="415" height="96">
+      </picture>
+      <span class="brand-sep" aria-hidden="true"></span>
+      <span class="brand-aglab">
+        <span class="brand-aglab-tag">uma ferramenta</span>
+        <img src="assets/logo/aglab-wordmark-escuro.svg" alt="AG Lab" width="306" height="88">
+      </span>
+      </a>
+      <span class="brand-divider" aria-hidden="true"></span>
       <div class="brand-text">
         <div class="tool">Conversor UTM <span class="accent">→</span> Geográficas (SIRGAS 2000) <span class="beta-badge">BETA <span class="beta-ver">v0.1</span></span> <span class="tipo-badge" id="tipo-badge">URBANO · SIG-RI</span></div>
       </div>
@@ -3411,19 +3425,25 @@ function refreshMemorialPreview(){
 const LOGO_KEY = 'confrontei_logo';
 function getMemLogo(){ try { return localStorage.getItem(LOGO_KEY) || ''; } catch(_){ return ''; } }
 // Padrão (usuária, 01/10/2026): sem logo enviada, sai a logo da AG Topografia; a enviada substitui; "Remover" volta à da AG.
-let agLogoData = null;
-async function loadAgLogo(){
-  if(agLogoData !== null) return agLogoData;
+// Imagens do PDF (jsPDF só aceita raster): carrega um PNG do site, reduz para `width` px e guarda em cache como data URL.
+// Falha de rede → '' (o PDF sai sem a imagem, nunca quebra).
+const pdfImgCache = {};
+async function loadPngData(src, width){
+  if(src in pdfImgCache) return pdfImgCache[src];
   try {
-    const r = await fetch('assets/ag-symbol.png'); if(!r.ok) throw new Error('http ' + r.status);
+    const r = await fetch(src); if(!r.ok) throw new Error('http ' + r.status);
     const b = await r.blob(); const url = URL.createObjectURL(b);
     const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
-    const c = document.createElement('canvas'); c.width = 180; c.height = Math.round(180 * img.height / img.width) || 180;
+    const c = document.createElement('canvas'); c.width = width; c.height = Math.round(width * img.height / img.width) || width;
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    agLogoData = c.toDataURL('image/png'); URL.revokeObjectURL(url);
-  } catch(_){ agLogoData = ''; }
-  return agLogoData;
+    pdfImgCache[src] = c.toDataURL('image/png'); URL.revokeObjectURL(url);
+  } catch(_){ pdfImgCache[src] = ''; }
+  return pdfImgCache[src];
 }
+const loadAgLogo = () => loadPngData('assets/ag-symbol.png', 180);
+// Assinatura do rodapé: "confrontei. por AG Topografia" (preferência da usuária, 02/10/2026), clicável. Link para o site da AG (usuária, 02/10/2026):
+// um PDF protocolado vive para sempre, então o destino precisa ser um endereço que a AG controla e não vai mudar.
+const PDF_SIGNATURE_URL = 'https://agtopografia.com.br';
 function paintMemLogo(){
   const d = getMemLogo(); const prev = $('mem-logo-prev'), rm = $('mem-logo-rm'), st = $('mem-logo-status');
   if(!prev) return;
@@ -3491,6 +3511,7 @@ async function generateMemorialPDF(){
   const rural = meta.tipo === 'rural';
   const sigefTable = rural && (meta.ruralFmt || 'tabela') === 'tabela';
   const logo = getMemLogo() || await loadAgLogo();
+  const sigC = await loadPngData('assets/logo/confrontei-wordmark.png', 320);
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = 210, pageH = 297, margin = 18;
@@ -3568,10 +3589,22 @@ async function generateMemorialPDF(){
     doc.setPage(i);
     doc.setDrawColor(200,206,214); doc.setLineWidth(0.2); doc.line(margin, pageH - 15, pageW - margin, pageH - 15);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
-    if(meta.empresaEndereco) doc.text(meta.empresaEndereco, pageW/2, pageH - 11, { align: 'center', maxWidth: ctx.contentW - 30 });
+    // endereço na coluna central (44 mm livres de cada lado para a assinatura e a paginação)
+    if(meta.empresaEndereco) doc.text(meta.empresaEndereco, pageW/2, pageH - 11, { align: 'center', maxWidth: ctx.contentW - 88 });
+    const footBase = pageH - 8.4;   // linha de base comum: assinatura e paginação
     doc.setFontSize(7); doc.setTextColor(150,150,150);
-    doc.text(`Página ${i}/${pageCount}`, pageW - margin, pageH - 7, { align: 'right' });
-    doc.text('Confrontei · por AG Topografia', margin, pageH - 7);
+    doc.text(`Página ${i}/${pageCount}`, pageW - margin, footBase, { align: 'right' });
+    if(sigC){
+      // "confrontei." (logo) + "por AG Topografia" (texto, legível neste tamanho) — tudo clicável
+      const hC = 4.4, wC = hC * 415 / 96, top = footBase - hC * 60 / 96;
+      doc.addImage(sigC, 'PNG', margin, top, wC, hC, 'assinatura', 'FAST');   // FAST = flate: sem isso o PNG entra cru (~150 KB)
+      doc.setFontSize(6.5); doc.setTextColor(110,110,110);
+      const tx = margin + wC + 1.6;
+      doc.text('por AG Topografia', tx, footBase);
+      doc.link(margin, top - 0.5, tx + doc.getTextWidth('por AG Topografia') - margin, hC + 1, { url: PDF_SIGNATURE_URL });
+    } else {
+      doc.textWithLink('Confrontei · por AG Topografia', margin, footBase, { url: PDF_SIGNATURE_URL });
+    }
     doc.setTextColor(0,0,0);
   }
 

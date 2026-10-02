@@ -181,12 +181,14 @@ async function grabMemorialPDF(tag){
   const [dl] = await Promise.all([ page.waitForEvent('download', { timeout: 30000 }), page.click('#mem-pdf') ]);
   const f = path.join(OUT, `memorial_${tag}.pdf`); await dl.saveAs(f);
   const buf = fs.readFileSync(f); const txt = buf.toString('latin1');
-  return { name: dl.suggestedFilename(), size: buf.length, pages: (txt.match(/\/Type \/Page[^s]/g) || []).length, has: w => txt.includes(w), status: await page.textContent('#export-status') };
+  return { name: dl.suggestedFilename(), txt, size: buf.length, pages: (txt.match(/\/Type \/Page[^s]/g) || []).length, has: w => txt.includes(w), status: await page.textContent('#export-status') };
 }
 await page.fill('#mem-empresa', 'AG Topografia e Construções'); await page.fill('#mem-rt-nome', 'Aryanna Barbosa de Araújo Gonzaga'); await page.fill('#mem-rt-reg', 'CAU-PE A88.162-7'); await page.fill('#mem-municipio', 'Recife'); await page.fill('#mem-uf', 'PE');
+await page.fill('#mem-empresa-endereco', 'Rua do Bom Jesus, 123, sala 405 – Recife Antigo – Recife/PE – CEP 50030-170 – (81) 99999-0000 – contato@agtopografia.com.br');
 const pdfU = await grabMemorialPDF('urbano');
 console.log('PDF urbano:', JSON.stringify({ name: pdfU.name, size: pdfU.size, pages: pdfU.pages, status: pdfU.status }));
 console.log('CHECK PDF urbano: ≥ 2 páginas (memorial + quadro), título, quadro de vértices, V12, rodapé e logo padrão da AG:', pdfU.pages >= 2 && pdfU.has('MEMORIAL DESCRITIVO') && pdfU.has('QUADRO DE V') && pdfU.has('V12') && pdfU.has('/Subtype /Image') && pdfU.size < 200000 && pdfU.has('gina 1/') && pdfU.name === 'memorial_descritivo_recife.pdf' ? 'OK' : 'FAIL');
+console.log('CHECK PDF rodapé: assinatura "confrontei. por AG Topografia" clicável → site da AG em todas as páginas:', (pdfU.txt.match(/\/URI \(https:\/\/agtopografia\.com\.br\)/g) || []).length === pdfU.pages && pdfU.has('por AG Topografia') ? 'OK' : 'FAIL');
 // Logo enviada pela usuária (salva no navegador) entra no cabeçalho; "Remover" tira
 await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 300; c.height = 120; const g = c.getContext('2d'); g.fillStyle = '#0a1f3d'; g.fillRect(0, 0, 300, 120); g.fillStyle = '#90b728'; g.fillRect(20, 20, 100, 80); localStorage.setItem('confrontei_logo', c.toDataURL('image/png')); paintMemLogo(); });
 const logoUI = await page.evaluate(() => ({ prev: getComputedStyle(document.getElementById('mem-logo-prev')).display !== 'none', rm: getComputedStyle(document.getElementById('mem-logo-rm')).display !== 'none' }));
