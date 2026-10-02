@@ -25,6 +25,7 @@ CNJ 195/2025. Produto da **AG Topografia**.
 - Domínio escolhido: **`confrontei.com.br`** — registrar no **registro.br** (com CNPJ da AG; Vercel não vende .com.br). `confrontei.*` estava disponível.
 - Manter selo **"por AG Topografia"** na página (herda credibilidade/E-E-A-T).
 - O site continua no Vercel; o domínio só aponta via DNS (A/CNAME).
+- **Kit de logos** em `assets/logo/` (PR #17, 02/10/2026): Confrontei, AG Lab e assinatura combinada, SVG com texto em curvas (Poppins 800/500) + PNG, claro/escuro. **Tipografia do AG Lab fica como está** (usuária, 02/10/2026: variantes com kerning/alinhamento/verde mais escuro/"Lab" em 500 foram mostradas e rejeitadas — "o atual segue melhor"). Não repropor.
 
 ## SEO — aproveitar autoridade da AG
 - Domínio separado NÃO herda autoridade automaticamente. Transferir via **link forte e permanente do site da AG** (menu/home/rodapé de `agtopografia.com.br`) → `confrontei.com.br`, mesma identidade de negócio, Search Console na mesma conta.
