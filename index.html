@@ -77,6 +77,12 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .brand-name{font-family:'Poppins','Asap',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:var(--white);line-height:1}
 .brand-name .dot{color:var(--verde)}
 .brand-tag{font-size:9.5px;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.site-header .brand{--logo-h:40px}
+.brand-logo{display:block;height:var(--logo-h);width:auto;flex-shrink:0}
+.brand-sep{width:1px;height:34px;background:var(--line);flex-shrink:0}
+.brand-aglab{display:flex;flex-direction:column;gap:3px;flex-shrink:0}
+.brand-aglab-tag{font-size:8.5px;letter-spacing:0.2em;text-transform:uppercase;color:var(--soft);font-weight:500;line-height:1}
+.brand-aglab img{display:block;height:22px;width:auto}
 
 .nav{display:flex;align-items:center;gap:6px}
 .nav-link{padding:8px 14px;font-size:13px;color:var(--muted);font-weight:500;border-radius:1px;transition:color .15s}
@@ -217,6 +223,7 @@ h1.hero-title .green{color:var(--verde)}
 @media (max-width:680px){
   .hero,.tools-section,.how-section,.trust-bar,.site-footer{padding-left:20px;padding-right:20px}
   .header-inner{padding:14px 20px}
+  .site-header .brand{--logo-h:34px}
   .nav{display:none}
   .tools-grid{grid-template-columns:1fr}
   .how-grid{grid-template-columns:1fr}
@@ -285,23 +292,13 @@ input, textarea, select{cursor:text}
 <!-- ============ HEADER ============ -->
 <header class="site-header">
   <div class="header-inner">
-    <a class="brand" href="#">
-      <div class="brand-mark">
-        <!-- Logo: polígono fechado -->
-        <svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
-          <path d="M16 25 L69 16 L78 58 L52 82 L12 60 Z" fill="none" stroke="#195d83" stroke-width="2.8" stroke-linejoin="round"/>
-          <path d="M16 25 L69 16 L78 58 L52 82 L12 60 Z" fill="#009083" opacity="0.14"/>
-          <circle cx="16" cy="25" r="3.8" fill="#90b728"/>
-          <circle cx="69" cy="16" r="3.8" fill="#90b728"/>
-          <circle cx="78" cy="58" r="3.8" fill="#90b728"/>
-          <circle cx="52" cy="82" r="3.8" fill="#90b728"/>
-          <circle cx="12" cy="60" r="3.8" fill="#90b728"/>
-        </svg>
-      </div>
-      <div>
-        <div class="brand-name">confrontei<span class="dot">.</span></div>
-        <div class="brand-tag">Toolkit · Conversão · Entrega</div>
-      </div>
+    <a class="brand" href="index.html" aria-label="Confrontei — uma ferramenta AG Lab, por AG Topografia">
+      <img class="brand-logo" src="assets/logo/confrontei-wordmark-escuro.svg" alt="Confrontei" width="415" height="96">
+      <span class="brand-sep" aria-hidden="true"></span>
+      <span class="brand-aglab">
+        <span class="brand-aglab-tag">uma ferramenta</span>
+        <img src="assets/logo/aglab-wordmark-escuro.svg" alt="AG Lab" width="306" height="88">
+      </span>
     </a>
     <nav class="nav">
       <a class="nav-link" href="#tools">Ferramentas</a>

@@ -105,7 +105,15 @@ a{color:var(--verde);text-decoration:none}
 .brand{display:flex;align-items:center;gap:14px}
 .brand-mark{width:38px;height:38px;flex-shrink:0}
 .brand-mark svg{width:100%;height:100%;display:block}
-.brand-divider{width:1px;height:46px;background:var(--line)}
+.brand-divider{width:1px;height:46px;background:var(--line);flex-shrink:0}
+.brand{--logo-h:34px}
+.brand-home{display:flex;align-items:center;gap:14px;text-decoration:none;flex-shrink:0}
+.brand-logo{display:block;height:var(--logo-h);width:auto;flex-shrink:0}
+.brand-home picture{display:block;flex-shrink:0}
+.brand-sep{width:1px;height:34px;background:var(--line);flex-shrink:0}
+.brand-aglab{display:flex;flex-direction:column;gap:3px;flex-shrink:0}
+.brand-aglab-tag{font-size:8.5px;letter-spacing:0.2em;text-transform:uppercase;color:var(--soft);font-weight:500;line-height:1}
+.brand-aglab img{display:block;height:22px;width:auto}
 .brand-text{display:flex;flex-direction:column;gap:2px}
 .brand-text .co{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--muted);font-weight:500}
 .brand-text .tool{font-size:18px;letter-spacing:-0.02em;text-transform:uppercase;font-weight:700;color:var(--white)}
@@ -457,6 +465,9 @@ table.sg-table td.sg-ro{color:var(--soft);font-family:'JetBrains Mono',monospace
 ::-webkit-scrollbar-thumb:hover{background:#2a3b46}
 
 /* ---------- RESPONSIVE ---------- */
+@media (max-width:1280px){
+  .brand-home .brand-sep,.brand-home .brand-aglab{display:none}
+}
 @media (max-width:1100px){
   .workspace{grid-template-columns:1fr}
   .panel-left{border-right:none;border-bottom:1px solid var(--line)}
@@ -470,6 +481,8 @@ table.sg-table td.sg-ro{color:var(--soft);font-family:'JetBrains Mono',monospace
   .back-tool{display:none}
   .ref-links{width:100%;justify-content:flex-start;gap:6px;font-size:9.5px}
   .header-meta{display:none}
+  .brand{flex-wrap:wrap;--logo-h:30px}
+  .brand-divider{display:none}
   h1.hero-title{font-size:26px}
 }
 
@@ -577,17 +590,18 @@ input, textarea, select, [contenteditable]{cursor:text}
   </div>
   <div class="header-inner">
     <div class="brand">
-      <div class="brand-mark">
-        <svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
-          <path d="M16 25 L69 16 L78 58 L52 82 L12 60 Z" fill="none" stroke="#90b728" stroke-width="3.5" stroke-linejoin="round"/>
-          <path d="M16 25 L69 16 L78 58 L52 82 L12 60 Z" fill="#90b728" opacity="0.10"/>
-          <circle cx="16" cy="25" r="4" fill="#90b728"/>
-          <circle cx="69" cy="16" r="4" fill="#90b728"/>
-          <circle cx="78" cy="58" r="4" fill="#90b728"/>
-          <circle cx="52" cy="82" r="4" fill="#90b728"/>
-          <circle cx="12" cy="60" r="4" fill="#90b728"/>
-        </svg>
-      </div>
+      <a class="brand-home" href="index.html" aria-label="Confrontei — uma ferramenta AG Lab · voltar à página inicial">
+      <picture>
+        <source media="(max-width:1280px)" srcset="assets/logo/confrontei-simbolo-escuro.svg" width="90" height="90">
+        <img class="brand-logo" src="assets/logo/confrontei-wordmark-escuro.svg" alt="Confrontei" width="415" height="96">
+      </picture>
+      <span class="brand-sep" aria-hidden="true"></span>
+      <span class="brand-aglab">
+        <span class="brand-aglab-tag">uma ferramenta</span>
+        <img src="assets/logo/aglab-wordmark-escuro.svg" alt="AG Lab" width="306" height="88">
+      </span>
+      </a>
+      <span class="brand-divider" aria-hidden="true"></span>
       <div class="brand-text">
         <div class="tool">Conversor UTM <span class="accent">→</span> Geográficas (SIRGAS 2000) <span class="beta-badge">BETA <span class="beta-ver">v0.1</span></span> <span class="tipo-badge" id="tipo-badge">URBANO · SIG-RI</span></div>
       </div>

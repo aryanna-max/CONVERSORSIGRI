@@ -8,9 +8,11 @@ horizontais, 512 px nos símbolos).
 | Arquivo | Uso |
 |---|---|
 | `confrontei-horizontal[-escuro]` | Logo principal do Confrontei, com "por AG Topografia" |
+| `confrontei-wordmark[-escuro]` | Confrontei sem a frase de baixo — para tamanhos pequenos (cabeçalho do site) |
 | `confrontei-simbolo[-escuro]` | Só o polígono (avatar, favicon grande) |
 | `confrontei-icone` | Ícone de app/favicon (fundo navy, cantos arredondados) |
 | `aglab-horizontal[-escuro]` | Logo do AG Lab, com "por AG Topografia" |
+| `aglab-wordmark[-escuro]` | AG Lab sem a frase de baixo — para tamanhos pequenos (cabeçalho do site) |
 | `aglab-simbolo` | Símbolo da AG vetorizado a partir de `assets/ag-symbol.png` |
 | `confrontei-aglab[-escuro]` | Assinatura combinada: Confrontei · uma ferramenta AG Lab |
 | `previa.png` | Folha de conferência (fundo claro × escuro, tamanho pequeno) |
