@@ -3425,19 +3425,25 @@ function refreshMemorialPreview(){
 const LOGO_KEY = 'confrontei_logo';
 function getMemLogo(){ try { return localStorage.getItem(LOGO_KEY) || ''; } catch(_){ return ''; } }
 // Padrão (usuária, 01/10/2026): sem logo enviada, sai a logo da AG Topografia; a enviada substitui; "Remover" volta à da AG.
-let agLogoData = null;
-async function loadAgLogo(){
-  if(agLogoData !== null) return agLogoData;
+// Imagens do PDF (jsPDF só aceita raster): carrega um PNG do site, reduz para `width` px e guarda em cache como data URL.
+// Falha de rede → '' (o PDF sai sem a imagem, nunca quebra).
+const pdfImgCache = {};
+async function loadPngData(src, width){
+  if(src in pdfImgCache) return pdfImgCache[src];
   try {
-    const r = await fetch('assets/ag-symbol.png'); if(!r.ok) throw new Error('http ' + r.status);
+    const r = await fetch(src); if(!r.ok) throw new Error('http ' + r.status);
     const b = await r.blob(); const url = URL.createObjectURL(b);
     const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
-    const c = document.createElement('canvas'); c.width = 180; c.height = Math.round(180 * img.height / img.width) || 180;
+    const c = document.createElement('canvas'); c.width = width; c.height = Math.round(width * img.height / img.width) || width;
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    agLogoData = c.toDataURL('image/png'); URL.revokeObjectURL(url);
-  } catch(_){ agLogoData = ''; }
-  return agLogoData;
+    pdfImgCache[src] = c.toDataURL('image/png'); URL.revokeObjectURL(url);
+  } catch(_){ pdfImgCache[src] = ''; }
+  return pdfImgCache[src];
 }
+const loadAgLogo = () => loadPngData('assets/ag-symbol.png', 180);
+// Assinatura do rodapé: "confrontei. por AG Topografia" (preferência da usuária, 02/10/2026), clicável. Link para o site da AG (usuária, 02/10/2026):
+// um PDF protocolado vive para sempre, então o destino precisa ser um endereço que a AG controla e não vai mudar.
+const PDF_SIGNATURE_URL = 'https://agtopografia.com.br';
 function paintMemLogo(){
   const d = getMemLogo(); const prev = $('mem-logo-prev'), rm = $('mem-logo-rm'), st = $('mem-logo-status');
   if(!prev) return;
@@ -3505,6 +3511,7 @@ async function generateMemorialPDF(){
   const rural = meta.tipo === 'rural';
   const sigefTable = rural && (meta.ruralFmt || 'tabela') === 'tabela';
   const logo = getMemLogo() || await loadAgLogo();
+  const sigC = await loadPngData('assets/logo/confrontei-wordmark.png', 320);
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = 210, pageH = 297, margin = 18;
@@ -3582,10 +3589,22 @@ async function generateMemorialPDF(){
     doc.setPage(i);
     doc.setDrawColor(200,206,214); doc.setLineWidth(0.2); doc.line(margin, pageH - 15, pageW - margin, pageH - 15);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
-    if(meta.empresaEndereco) doc.text(meta.empresaEndereco, pageW/2, pageH - 11, { align: 'center', maxWidth: ctx.contentW - 30 });
+    // endereço na coluna central (44 mm livres de cada lado para a assinatura e a paginação)
+    if(meta.empresaEndereco) doc.text(meta.empresaEndereco, pageW/2, pageH - 11, { align: 'center', maxWidth: ctx.contentW - 88 });
+    const footBase = pageH - 8.4;   // linha de base comum: assinatura e paginação
     doc.setFontSize(7); doc.setTextColor(150,150,150);
-    doc.text(`Página ${i}/${pageCount}`, pageW - margin, pageH - 7, { align: 'right' });
-    doc.text('Confrontei · por AG Topografia', margin, pageH - 7);
+    doc.text(`Página ${i}/${pageCount}`, pageW - margin, footBase, { align: 'right' });
+    if(sigC){
+      // "confrontei." (logo) + "por AG Topografia" (texto, legível neste tamanho) — tudo clicável
+      const hC = 4.4, wC = hC * 415 / 96, top = footBase - hC * 60 / 96;
+      doc.addImage(sigC, 'PNG', margin, top, wC, hC, 'assinatura', 'FAST');   // FAST = flate: sem isso o PNG entra cru (~150 KB)
+      doc.setFontSize(6.5); doc.setTextColor(110,110,110);
+      const tx = margin + wC + 1.6;
+      doc.text('por AG Topografia', tx, footBase);
+      doc.link(margin, top - 0.5, tx + doc.getTextWidth('por AG Topografia') - margin, hC + 1, { url: PDF_SIGNATURE_URL });
+    } else {
+      doc.textWithLink('Confrontei · por AG Topografia', margin, footBase, { url: PDF_SIGNATURE_URL });
+    }
     doc.setTextColor(0,0,0);
   }
 

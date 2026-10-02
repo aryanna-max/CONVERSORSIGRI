@@ -8,7 +8,7 @@ horizontais, 512 px nos símbolos).
 | Arquivo | Uso |
 |---|---|
 | `confrontei-horizontal[-escuro]` | Logo principal do Confrontei, com "por AG Topografia" |
-| `confrontei-wordmark[-escuro]` | Confrontei sem a frase de baixo — para tamanhos pequenos (cabeçalho do site) |
+| `confrontei-wordmark[-escuro]` | Confrontei sem a frase de baixo — para tamanhos pequenos (cabeçalho do site; o PNG claro vai no rodapé do PDF do memorial) |
 | `confrontei-simbolo[-escuro]` | Só o polígono (avatar, favicon grande) |
 | `confrontei-icone` | Ícone de app/favicon (fundo navy, cantos arredondados) |
 | `aglab-horizontal[-escuro]` | Logo do AG Lab, com "por AG Topografia" |
