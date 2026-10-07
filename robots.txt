@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /conversor-offline.html
 
-Sitemap: https://confrontei.com.br/sitemap.xml
+Sitemap: https://conversorsigri.vercel.app/sitemap.xml
