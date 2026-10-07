@@ -144,6 +144,51 @@ console.log('CHECK Catuama sem aviso (nenhum vértice descartado/lacuna):', !/�
 // Diagnóstico quando a leitura falha: V7 com N absurdo e V3 ausente → descartado + lacuna + aviso
 const bad = await pasteImport(`V1, definido pelas coordenadas E: 298.436,556 m e N: 9.152.924,331 m V2, definido pelas coordenadas E: 298.512,618 m e N: 9.152.897,794 m V4, definido pelas coordenadas E: 298.514,178 m e N: 9.152.866,166 m V7, definido pelas coordenadas E: 298.460,585 m e N: 9,152 m V8, definido pelas coordenadas E: 298.431,147 m e N: 9.152.906,877 m`);
 console.log('CHECK diagnóstico: descarta V7 (N fora da faixa) e avisa V3, V5, V6 ausentes:', bad.n === 4 && /descartado.*V7/.test(bad.status) && /não encontrei V3, V5, V6/.test(bad.status) ? 'OK' : 'FAIL ' + bad.status);
+// ---- DXF com arco (bulge) — caso real Boaçica V40→V41: a curva da polilinha virava reta (corda) ----
+// Quadrado 100×100 m em Ipojuca (fuso 25) com o canto NE arredondado, R = 15 m (90°, bulge = tan(22,5°)).
+// Área exata = 10 000 − 15² + π·15²/4 = 9 951,7146 m².
+const E0 = 280000, N0 = 9070000, BUL = Math.tan(Math.PI / 8).toFixed(10);
+const dxfLW = (bulge) => ['0','SECTION','2','ENTITIES','0','LWPOLYLINE','8','DIVISA','90','5','70','1',
+  '10',E0,'20',N0, '10',E0+100,'20',N0, '10',E0+100,'20',N0+85,'42',bulge, '10',E0+85,'20',N0+100, '10',E0,'20',N0+100,
+  '0','ENDSEC','0','EOF'].join('\n');
+const dxfImport = async (txt) => { await page.evaluate(() => { state.vertices = []; document.getElementById('cfg-zone').value = '25'; }); await page.setInputFiles('#dxf-input', { name: 'boacica_curva.dxf', mimeType: 'application/dxf', buffer: Buffer.from(txt) }); await page.waitForFunction(() => state.vertices.length >= 5); return page.evaluate(([ce, cn]) => ({ n: state.vertices.length, names: state.vertices.map(v => v.name), area: polyArea(state.vertices), dev: Math.max(0, ...state.vertices.filter(v => v.name.includes('-')).map(v => Math.abs(Math.hypot(v.e - ce, v.n - cn) - 15))), outward: state.vertices.filter(v => v.name.includes('-')).every(v => v.e > ce && v.n > cn), status: document.getElementById('input-status').textContent, cls: document.getElementById('input-status').className }), [E0 + 85, N0 + 85]); };
+const dx1 = await dxfImport(dxfLW(BUL));
+const EXACT = 10000 - 225 + Math.PI * 225 / 4;
+console.log('DXF arco:', JSON.stringify({ n: dx1.n, names: dx1.names.join(','), area: +dx1.area.toFixed(3), dev: dx1.dev, status: dx1.status.slice(0, 260) }));
+console.log('CHECK DXF com arco: V1..V5 mantidos, pontos V3-1… sobre a curva (R = 15 m), área a < 0,3 m² da exata 9.951,71:',
+  ['V1','V2','V3','V4','V5'].every(nm => dx1.names.includes(nm)) && dx1.names.indexOf('V3-1') === dx1.names.indexOf('V3') + 1 && dx1.names.indexOf('V4') > dx1.names.indexOf('V3-1') && dx1.dev < 1e-6 && dx1.outward && dx1.area < EXACT && EXACT - dx1.area < 0.3 ? 'OK' : 'FAIL');
+console.log('CHECK aviso do DXF: arco V3→V4, R = 15,00 m, desenvolvimento 23,56 m, área exata 9.951,71 m²:', /show warn/.test(dx1.cls) && /V3→V4: R = 15,00 m, desenvolvimento 23,56 m/.test(dx1.status) && /curva exata \(CAD\) 9\.951,71 m²/.test(dx1.status) ? 'OK' : 'FAIL ' + dx1.status);
+// Memorial urbano com arco (regra validada com a usuária): pontos da curva não viram vértices; o trecho sai como
+// "arco de círculo à esquerda/direita de raio R e desenvolvimento D"; área exata com a curva; lado agrupado soma o desenvolvimento.
+const memArc = await page.evaluate(() => buildMemorialText({ tipo: 'urbano', sides: ['Frente','Lado direito','Lado direito','Fundo','Lado esquerdo'], confs: ['Rua A','Lote 2','','Lote 9','Lote 4'] }, state.vertices));
+console.log('MEMORIAL arco:', memArc.replace(/\s+/g, ' ').slice(0, 900));
+console.log('CHECK memorial urbano com arco: V1..V5, trecho em arco R 15,00 / desenv. 23,56, sem V3-k, área 9.951,71, perímetro 393,56, lado direito 108,56:',
+  /por um arco de círculo à esquerda de raio 15,00 m e desenvolvimento de 23,56 m até o vértice V4/.test(memArc) && !/V3-\d/.test(memArc) && /Área: 9\.951,71 m²/.test(memArc) && /Perímetro: 393,56 m/.test(memArc) && /Lado direito: limita-se com Lote 2, do vértice V2 ao V4 com 108,56 m/.test(memArc) ? 'OK' : 'FAIL');
+await page.evaluate(() => reverseVertices());
+const rev = await page.evaluate(() => ({ names: state.vertices.map(v => v.name).join(','), mem: buildMemorialText({ tipo: 'urbano', sides: [], confs: [] }, state.vertices) }));
+console.log('CHECK inverter mantém V3-1… e o arco passa a ser "à direita":', rev.names.startsWith('V1,V2,V3,V3-1,') && rev.names.endsWith('V3-21,V4,V5') && /arco de círculo à direita de raio 15,00 m e desenvolvimento de 23,56 m até o vértice V4/.test(rev.mem) && /Área: 9\.951,71 m²/.test(rev.mem) ? 'OK' : 'FAIL ' + rev.names);
+await page.evaluate(() => reverseVertices());
+{ const [dl] = await Promise.all([ page.waitForEvent('download', { timeout: 30000 }), page.evaluate(() => generateMemorialPDF()) ]);
+  const f = path.join(OUT, 'memorial_arco.pdf'); await dl.saveAs(f); const t = fs.readFileSync(f).toString('latin1');
+  console.log('CHECK PDF com arco: quadro só com V1..V5, linha "arco R 15,00", área 9.951,71, sem V3-1:', t.includes('arco R 15,00') && t.includes('9.951,71') && /rtices: 5\b/.test(t) && !/V3-1/.test(t) ? 'OK' : 'FAIL'); }
+// Mapa: vértices amontoados (pedido da usuária, captura com V9–V15 ilegíveis) — rótulos cheios não se sobrepõem;
+// os demais viram ponto pequeno; V1 sempre rotulado; aproximando o zoom os nomes voltam.
+await page.waitForTimeout(600);
+const decl = async () => page.evaluate(() => {
+  const pills = Array.from(document.querySelectorAll('#map .vtx-pill')).map(e => { const r = e.getBoundingClientRect(); return { t: e.textContent, x0: r.left, y0: r.top, x1: r.right, y1: r.bottom }; });
+  let overlap = 0; for(let i = 0; i < pills.length; i++) for(let j = i + 1; j < pills.length; j++){ const a = pills[i], b = pills[j]; if(a.x0 < b.x1 - 1 && a.x1 > b.x0 + 1 && a.y0 < b.y1 - 1 && a.y1 > b.y0 + 1) overlap++; }
+  return { pills: pills.length, dots: document.querySelectorAll('#map .vtx-dot').length, overlap, v1: pills.some(p => p.t === 'V1'), count: document.getElementById('map-vcount').textContent };
+});
+const dc1 = await decl();
+await page.locator('#map').screenshot({ path: path.join(OUT, 'mapa_declutter.png') });
+console.log('MAPA declutter:', JSON.stringify(dc1));
+console.log('CHECK mapa: rótulos sem sobreposição, pontos pequenos no arco, V1 rotulado, aviso no contador:', dc1.overlap === 0 && dc1.dots > 0 && dc1.pills + dc1.dots === 26 && dc1.v1 && /sem rótulo/.test(dc1.count) ? 'OK' : 'FAIL');
+const zoomTo = async (z) => { await page.evaluate((z) => map.setView([state.vertices[10].lat, state.vertices[10].lng], z, { animate: false }), z); await page.waitForTimeout(300); return decl(); };
+const dz16 = await zoomTo(16), dz21 = await zoomTo(21);
+console.log('MAPA zoom 16 / ajuste / 21:', dz16.pills, dc1.pills, dz21.pills);
+console.log('CHECK mapa: afastando há menos rótulos, aproximando (até 21) há mais, nunca sobrepostos:', dz16.pills <= dc1.pills && dz21.pills > dc1.pills && dz16.overlap === 0 && dz21.overlap === 0 && dz16.v1 ? 'OK' : 'FAIL ' + JSON.stringify({ dz16, dz21 }));
+const dx0 = await dxfImport(dxfLW('0'));
+console.log('CHECK DXF sem arco continua igual (5 vértices, 9.887,50 m²):', dx0.n === 5 && Math.abs(dx0.area - 9887.5) < 1e-6 && !/arco/.test(dx0.status) ? 'OK' : 'FAIL ' + JSON.stringify(dx0));
 // ---- Reconstituição por rumos / azimutes e distâncias (certidão sem coordenadas) ----
 await page.evaluate(() => { state.vertices = []; document.getElementById('rc-box').open = true; });
 await page.click('#btn-rc-example');
